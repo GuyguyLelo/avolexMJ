@@ -1,0 +1,118 @@
+{% extends "layouts/app.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Audiences" %} — {{ SITE_NAME }}{% endblock %}
+
+
+{% block content %}
+<div class="hearings-page">
+  <header class="page-header hearings-page-header">
+    <div>
+      <p class="hearings-kicker">{% translate "Procédure" %}</p>
+      <h1>{% translate "Audiences" %}</h1>
+      <p class="page-lede">{% translate "Planification et suivi des audiences judiciaires." %}</p>
+    </div>
+    <a class="btn btn-primary" href="{% url 'hearings:create' %}">{% translate "Nouvelle audience" %}</a>
+  </header>
+
+  <form class="hearings-toolbar list-toolbar" method="get">
+    <div class="form-field">
+      <label class="sr-only" for="period">{% translate "Période" %}</label>
+      <select class="form-input" id="period" name="period">
+        <option value="upcoming" {% if filter_period == "upcoming" %}selected{% endif %}>{% translate "À venir" %}</option>
+        <option value="past" {% if filter_period == "past" %}selected{% endif %}>{% translate "Passées" %}</option>
+        <option value="all" {% if filter_period == "all" %}selected{% endif %}>{% translate "Toutes" %}</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label class="sr-only" for="status">{% translate "Statut" %}</label>
+      <select class="form-input" id="status" name="status">
+        <option value="">{% translate "Tous les statuts" %}</option>
+        {% for value, label in hearing_statuses %}
+        <option value="{{ value }}" {% if filter_status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-field">
+      <label class="sr-only" for="matter">{% translate "Dossier" %}</label>
+      <select class="form-input" id="matter" name="matter">
+        <option value="">{% translate "Tous les dossiers" %}</option>
+        {% for m in matters %}
+        <option value="{{ m.pk }}" {% if filter_matter == m.pk|stringformat:"s" %}selected{% endif %}>{{ m.reference }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-field">
+      <label class="sr-only" for="court">{% translate "Tribunal" %}</label>
+      <select class="form-input" id="court" name="court">
+        {% for value, label in court_choices %}
+        <option value="{{ value }}" {% if filter_court == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn btn-secondary" type="submit">{% translate "Filtrer" %}</button>
+  </form>
+
+  {% if hearings %}
+  <div class="table-wrap hearings-table-wrap">
+    <table class="table hearings-table">
+      <thead>
+        <tr>
+          <th>{% translate "Audience" %}</th>
+          <th>{% translate "Statut" %}</th>
+          <th>{% translate "Dossier" %}</th>
+          <th>{% translate "Tribunal" %}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in hearings %}
+        <tr>
+          <td>
+            <a class="list-entity" href="{% url 'calendar:event_detail' h.pk %}">
+              <span class="avatar avatar-hearing" aria-hidden="true">{{ h.starts_at|date:"d" }}</span>
+              <span class="list-entity-text">
+                <span class="list-entity-title">{{ h.title }}</span>
+                <span class="list-entity-meta">{{ h.starts_at|date:"d/m/Y H:i" }}{% if h.chamber %} · {{ h.chamber }}{% endif %}</span>
+              </span>
+            </a>
+          </td>
+          <td>
+            {% if h.hearing_status == 'held' %}
+            <span class="badge badge-success">{{ h.get_hearing_status_display }}</span>
+            {% elif h.hearing_status == 'postponed' %}
+            <span class="badge badge-warning">{{ h.get_hearing_status_display }}</span>
+            {% elif h.hearing_status == 'cancelled' %}
+            <span class="badge">{{ h.get_hearing_status_display }}</span>
+            {% else %}
+            <span class="badge badge-danger">{{ h.get_hearing_status_display|default:"Planifiée" }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if h.matter %}
+            <a href="{% url 'matters:detail' h.matter_id %}">{{ h.matter.reference }}</a>
+            {% else %}—{% endif %}
+          </td>
+          <td class="hearing-cell-muted">{{ h.court|default:h.location|default:"—" }}</td>
+          <td class="actions">
+            <div class="cluster" style="justify-content:flex-end;">
+              <a class="btn btn-sm btn-ghost" href="{% url 'calendar:event_detail' h.pk %}">{% translate "Voir" %}</a>
+              <a class="btn btn-sm btn-secondary" href="{% url 'calendar:event_detail' h.pk %}#rapport">{% translate "Rapport" %}</a>
+              <a class="btn btn-sm btn-ghost" href="{% url 'hearings:update' h.pk %}">{% translate "Modifier" %}</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "partials/pagination.html" %}
+  {% else %}
+  <section class="empty-state hearings-empty">
+    <h2>{% translate "Aucune audience" %}</h2>
+    <p>{% translate "Planifiez une audience et rattachez-la à un dossier." %}</p>
+    <a class="btn btn-primary" href="{% url 'hearings:create' %}">{% translate "Nouvelle audience" %}</a>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

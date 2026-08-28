@@ -1,11 +1,8 @@
 {% extends "layouts/app.html" %}
-{% load i18n static %}
+{% load i18n %}
 
 {% block title %}{% translate "Téléverser un document" %} — {{ SITE_NAME }}{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/documents.css' %}">
-{% endblock %}
 
 {% block content %}
 <header class="page-header">

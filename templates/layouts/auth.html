@@ -1,17 +1,26 @@
 {% extends "base.html" %}
 {% load i18n %}
 
-{% block body_class %}{% endblock %}
+{% block body_class %}auth-body{% endblock %}
 
 {% block body %}
 <div class="auth-shell">
-  <main id="main" class="auth-panel">
-    <a class="auth-brand" href="{% url 'core:landing' %}">
-      <span class="public-brand-mark" aria-hidden="true">A</span>
-      {{ SITE_NAME }}
+  <div class="state-line-h" aria-hidden="true"></div>
+  <aside class="auth-aside">
+    <a class="auth-brand brand-block" href="{% url 'core:landing' %}">
+      {% include "partials/brand.html" %}
     </a>
-    {% include "partials/messages.html" %}
-    {% block content %}{% endblock %}
-  </main>
+    <div class="auth-aside-copy">
+      <p class="auth-aside-kicker">{% translate "Ministère de la Justice" %}</p>
+      <p class="auth-aside-title">{% translate "Plateforme nationale des cabinets d'avocats" %}</p>
+      <p class="auth-aside-text">{% translate "Supervision, dossiers, audiences, documents et facturation — un espace sécurisé pour les professionnels du droit." %}</p>
+    </div>
+  </aside>
+  <div class="auth-main">
+    <main id="main" class="auth-panel">
+      {% include "partials/messages.html" %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
 </div>
 {% endblock %}

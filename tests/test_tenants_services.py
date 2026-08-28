@@ -76,17 +76,17 @@ def test_invite_requires_permission() -> None:
 
 
 @pytest.mark.django_db
-def test_cannot_invite_owner_role() -> None:
-    """On ne peut pas inviter avec le rôle Owner."""
+def test_can_invite_caiman_role() -> None:
+    """Le rôle Caïman fait partie des deux rôles disponibles."""
     owner = UserFactory()
     cabinet, _ = create_cabinet_with_owner(owner=owner, name="Cab")
-    with pytest.raises(ValidationError):
-        invite_member(
-            cabinet=cabinet,
-            email="x@example.com",
-            role=Role.OWNER,
-            invited_by=owner,
-        )
+    invitation = invite_member(
+        cabinet=cabinet,
+        email="x@example.com",
+        role=Role.CAIMAN,
+        invited_by=owner,
+    )
+    assert invitation.role == Role.CAIMAN
 
 
 @pytest.mark.django_db
@@ -101,6 +101,7 @@ def test_accept_invitation_email_mismatch() -> None:
 @pytest.mark.django_db
 def test_role_permissions_matrix() -> None:
     """La matrice de rôles est cohérente."""
+    assert list(Role.choices) == [("caiman", "Caïman"), ("lawyer", "Avocat")]
     assert role_has_perm(Role.OWNER, "manage_cabinet")
     assert not role_has_perm(Role.READ_ONLY, "invite")
     assert role_has_perm(Role.LAWYER, "invite")

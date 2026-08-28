@@ -1,27 +1,26 @@
 {% extends "layouts/public.html" %}
-{% load static i18n %}
+{% load i18n %}
 
-{% block title %}{{ SITE_NAME }} — {% translate "Le cabinet, enfin organisé" %}{% endblock %}
+{% block title %}{{ SITE_NAME }} — {{ SITE_INSTITUTION }}{% endblock %}
 
-{% block meta_description %}{% translate "AvoLex aide les avocats et petits cabinets à gérer clients, dossiers, agenda, documents et facturation — en toute confidentialité." %}{% endblock %}
+{% block meta_description %}{% translate "Plateforme de gestion des cabinets d'avocats du Ministère de la Justice et Garde des Sceaux de la République Démocratique du Congo." %}{% endblock %}
 
 {% block public_body_modifier %}landing-body{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/landing.css' %}">
-{% endblock %}
-
 {% block content %}
 <section class="landing-hero" aria-labelledby="hero-title">
+  <svg class="landing-flag-star" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path fill="#ce1021" stroke="#f7d618" stroke-width="1.2" stroke-linejoin="round" d="M12 1.8 14.7 9h7.6l-6.15 4.47 2.35 7.23L12 16.23 5.5 20.7l2.35-7.23L1.7 9h7.6L12 1.8Z"/>
+  </svg>
   <div class="landing-hero-inner">
     <div class="landing-hero-copy">
-      <p class="landing-brand" id="landing-brand">Avo<span>Lex</span></p>
-      <h1 id="hero-title">{% translate "Le logiciel de cabinet pensé pour le secret professionnel." %}</h1>
+      <p class="landing-brand" id="landing-brand">{{ SITE_COUNTRY }}<span>{{ SITE_NAME }}</span></p>
+      <h1 id="hero-title">{% translate "Plateforme nationale de gestion des cabinets d'avocats." %}</h1>
       <p class="landing-hero-lede">
-        {% translate "Clients, dossiers, échéances, documents et facturation — un seul espace pour les indépendants et cabinets de 2 à 30 personnes." %}
+        {% translate "Outil du Ministère de la Justice et Garde des Sceaux pour le suivi des cabinets, des dossiers, des audiences, des documents et de la facturation." %}
       </p>
       <div class="landing-hero-cta">
-        <a class="btn btn-primary" href="{% url 'accounts:register' %}">{% translate "Démarrer l'essai gratuit" %}</a>
+        <a class="btn btn-primary" href="{% url 'accounts:login' %}">{% translate "Accéder à la plateforme" %}</a>
         <a class="btn btn-secondary" href="#fonctionnalites">{% translate "Découvrir les modules" %}</a>
       </div>
     </div>
@@ -29,16 +28,16 @@
       <div class="landing-preview-window">
         <div class="landing-preview-chrome">
           <span></span><span></span><span></span>
-          <em>Tableau de bord</em>
+          <em>Supervision</em>
         </div>
         <div class="landing-preview-kpis">
-          <div><small>Clients</small><b>12</b></div>
-          <div><small>Dossiers</small><b>8</b></div>
-          <div><small>À venir</small><b>6</b></div>
+          <div><small>Cabinets</small><b>12</b></div>
+          <div><small>Dossiers</small><b>48</b></div>
+          <div><small>Audiences</small><b>9</b></div>
         </div>
-        <div class="landing-preview-row"><i></i><span>DOS-2026-00012 · Licenciement contesté</span></div>
-        <div class="landing-preview-row"><i></i><span>Audience prud’homale · 21/08</span></div>
-        <div class="landing-preview-row"><i></i><span>TechNova SAS · Contentieux commercial</span></div>
+        <div class="landing-preview-row"><i></i><span>TGI Gombe · Audience commerciale</span></div>
+        <div class="landing-preview-row"><i></i><span>Cabinet ILEO · Dossier en cours</span></div>
+        <div class="landing-preview-row"><i></i><span>Cour d'appel de Kinshasa/Gombe</span></div>
       </div>
     </aside>
   </div>
@@ -47,33 +46,37 @@
 <section class="landing-section" id="fonctionnalites" aria-labelledby="features-title">
   <div class="container">
     <header class="landing-section-head">
-      <h2 id="features-title">{% translate "Tout le cabinet, sans usine à gaz" %}</h2>
-      <p>{% translate "Les essentiels du quotidien avocat, cloisonnés par cabinet et prêts pour la conformité." %}</p>
+      <h2 id="features-title">{% translate "Les missions de la plateforme" %}</h2>
+      <p>{% translate "Un espace unique, isolé par cabinet, pour l'administration de la justice et le suivi des professionnels." %}</p>
     </header>
     <div class="feature-grid">
       <article class="feature-item">
-        <h3>{% translate "Clients & conflits" %}</h3>
-        <p>{% translate "Fiches PP/PM, coordonnées et recherche de conflit d'intérêts avant d'ouvrir un dossier." %}</p>
+        <h3>{% translate "Cabinets avocats" %}</h3>
+        <p>{% translate "Répertoire des cabinets inscrits, création et supervision par le ministère." %}</p>
       </article>
       <article class="feature-item">
-        <h3>{% translate "Dossiers & agenda" %}</h3>
-        <p>{% translate "Références automatiques, statuts, audiences, délais de procédure et rappels." %}</p>
+        <h3>{% translate "Clients & dossiers" %}</h3>
+        <p>{% translate "Fiches, références automatiques, dossiers nationaux ou internationaux." %}</p>
+      </article>
+      <article class="feature-item">
+        <h3>{% translate "Procurations" %}</h3>
+        <p>{% translate "Mandat du Ministère de la Justice, obligatoire avant tout acte sur un dossier." %}</p>
+      </article>
+      <article class="feature-item">
+        <h3>{% translate "Audiences" %}</h3>
+        <p>{% translate "Calendrier judiciaire, juridictions de Kinshasa et compte-rendu d'audience." %}</p>
       </article>
       <article class="feature-item">
         <h3>{% translate "GED sécurisée" %}</h3>
-        <p>{% translate "Documents hors webroot, versioning simple, accès contrôlé par appartenance au cabinet." %}</p>
+        <p>{% translate "Documents hors webroot, versions et accès contrôlé par cabinet." %}</p>
       </article>
       <article class="feature-item">
-        <h3>{% translate "Temps & facturation" %}</h3>
-        <p>{% translate "Saisie de temps, débours, factures PDF numérotées et suivi des impayés." %}</p>
+        <h3>{% translate "Facturation" %}</h3>
+        <p>{% translate "Temps, débours, factures PDF et suivi des impayés." %}</p>
       </article>
       <article class="feature-item">
-        <h3>{% translate "Multi-cabinet" %}</h3>
-        <p>{% translate "Un compte, plusieurs cabinets. Isolation stricte des données entre organisations." %}</p>
-      </article>
-      <article class="feature-item">
-        <h3>{% translate "Rôles métier" %}</h3>
-        <p>{% translate "Propriétaire, avocat, collaborateur, secrétaire ou lecture seule — permissions claires." %}</p>
+        <h3>{% translate "Rôles & isolation" %}</h3>
+        <p>{% translate "Propriétaire, avocat, collaborateur, secrétaire — données cloisonnées par cabinet." %}</p>
       </article>
     </div>
   </div>
@@ -81,16 +84,16 @@
 
 <section class="landing-cta" aria-labelledby="cta-title">
   <div class="container">
-    <h2 id="cta-title">{% translate "Prêt à structurer votre cabinet ?" %}</h2>
-    <p>{% translate "Créez votre espace en quelques minutes. Aucune carte bancaire requise pour l'essai." %}</p>
-    <a class="btn btn-primary" href="{% url 'accounts:register' %}">{% translate "Créer mon cabinet" %}</a>
+    <h2 id="cta-title">{% translate "Espace réservé aux professionnels" %}</h2>
+    <p>{% translate "Connectez-vous avec les identifiants fournis par le ministère, ou enregistrez un cabinet." %}</p>
+    <a class="btn btn-primary" href="{% url 'accounts:login' %}">{% translate "Se connecter" %}</a>
   </div>
 </section>
 
 <footer class="landing-footer">
   <div class="container landing-footer-inner">
-    <p>© {% now "Y" %} {{ SITE_NAME }}</p>
-    <p>{% translate "Hébergement UE · RGPD · Secret professionnel" %}</p>
+    <p>© {% now "Y" %} {{ SITE_INSTITUTION }} · {{ SITE_COUNTRY }}</p>
+    <p>{{ SITE_NAME }} · {{ SITE_AUTHORITY }}</p>
   </div>
 </footer>
 {% endblock %}

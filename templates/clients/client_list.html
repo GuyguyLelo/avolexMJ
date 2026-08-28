@@ -1,11 +1,8 @@
 {% extends "layouts/app.html" %}
-{% load i18n static %}
+{% load i18n %}
 
 {% block title %}{% translate "Clients" %} — {{ SITE_NAME }}{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/clients.css' %}">
-{% endblock %}
 
 {% block content %}
 <div class="clients-page">

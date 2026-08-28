@@ -1,0 +1,83 @@
+{% extends "layouts/app.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Cabinets avocats" %} — {{ SITE_NAME }}{% endblock %}
+
+
+{% block content %}
+<div class="cabinets-page">
+  <header class="page-header cabinets-page-header">
+    <div>
+      <p class="cabinets-kicker">{% translate "Plateforme" %}</p>
+      <h1>{% translate "Cabinets avocats" %}</h1>
+      <p class="page-lede">{% translate "Création et gestion des cabinets inscrits sur AvoLex." %}</p>
+    </div>
+    <a class="btn btn-primary" href="{% url 'tenants:cabinet_create' %}">{% translate "Nouveau cabinet" %}</a>
+  </header>
+
+  <form class="cabinets-toolbar" method="get" action="{% url 'tenants:cabinet_list' %}">
+    <div class="form-field cabinets-toolbar-search">
+      <label class="sr-only" for="filter-q">{% translate "Recherche" %}</label>
+      <input class="form-input" id="filter-q" type="search" name="q" value="{{ filter_q }}"
+             placeholder="{% translate 'Nom, barreau, SIRET, n° contrat…' %}"
+             autocomplete="off">
+    </div>
+    <button class="btn btn-secondary" type="submit">{% translate "Rechercher" %}</button>
+    {% if filter_q %}
+    <a class="btn btn-ghost btn-sm" href="{% url 'tenants:cabinet_list' %}">{% translate "Réinitialiser" %}</a>
+    {% endif %}
+  </form>
+
+  {% if cabinets %}
+  <div class="cabinets-list-meta">
+    <span>
+      {% blocktranslate count counter=page_obj.paginator.count %}{{ counter }} cabinet{% plural %}{{ counter }} cabinets{% endblocktranslate %}
+    </span>
+  </div>
+
+  <div class="table-wrap cabinets-table-wrap">
+    <table class="table cabinets-table">
+      <thead>
+        <tr>
+          <th>{% translate "Cabinet" %}</th>
+          <th>{% translate "Barreau" %}</th>
+          <th>{% translate "Membres" %}</th>
+          <th>{% translate "Statut" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in cabinets %}
+        <tr>
+          <td>
+            <a class="list-entity" href="{% url 'tenants:cabinet_detail' c.pk %}">
+              <span class="avatar" aria-hidden="true">{{ c.name.0|upper }}</span>
+              <span class="list-entity-text">
+                <span class="list-entity-title">{{ c.name }}</span>
+                <span class="list-entity-meta">{{ c.legal_name|default:c.slug }}</span>
+              </span>
+            </a>
+          </td>
+          <td class="cabinets-cell-muted">{{ c.bar_association|default:"—" }}</td>
+          <td>{{ c.members_count }}</td>
+          <td>
+            {% if c.is_active %}
+            <span class="badge badge-success">{% translate "Actif" %}</span>
+            {% else %}
+            <span class="badge badge-warning">{% translate "Inactif" %}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "partials/pagination.html" %}
+  {% else %}
+  <section class="empty-state cabinets-empty">
+    <h2>{% translate "Aucun cabinet" %}</h2>
+    <p>{% translate "Créez le premier cabinet avocat pour ouvrir un espace de travail." %}</p>
+    <a class="btn btn-primary" href="{% url 'tenants:cabinet_create' %}">{% translate "Nouveau cabinet" %}</a>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

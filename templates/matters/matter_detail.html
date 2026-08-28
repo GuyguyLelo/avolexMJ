@@ -1,52 +1,79 @@
 {% extends "layouts/app.html" %}
-{% load i18n static %}
+{% load i18n %}
 
 {% block title %}{{ matter.reference }} — {{ SITE_NAME }}{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/matters.css' %}">
-{% endblock %}
 
 {% block content %}
-<header class="page-header">
-  <div>
-    <h1>{{ matter.reference }}</h1>
-    <p class="page-lede">
-      {{ matter.title }}
-      ·
-      <span class="badge {% if matter.status == 'open' %}badge-info{% elif matter.status == 'in_progress' %}badge-gold{% elif matter.status == 'on_hold' %}badge-warning{% elif matter.status == 'closed' %}badge-success{% endif %}">
-        {{ matter.get_status_display }}
-      </span>
-      {% if matter.is_archived %}
-      · <span class="badge badge-warning">{% translate "Archivé" %}</span>
+<article class="detail-sheet">
+  <header class="detail-sheet-header">
+    <div class="detail-sheet-identity">
+      <span class="detail-sheet-avatar" aria-hidden="true">{{ matter.reference|slice:"-2:" }}</span>
+      <div class="detail-sheet-title">
+        <p class="detail-sheet-kicker">{% translate "Dossier" %}</p>
+        <h1>{{ matter.reference }}</h1>
+        <p class="detail-sheet-lede">
+          <span>{{ matter.title }}</span>
+          <span class="badge {% if matter.status == 'open' %}badge-info{% elif matter.status == 'in_progress' %}badge-gold{% elif matter.status == 'on_hold' %}badge-warning{% elif matter.status == 'closed' %}badge-success{% endif %}">
+            {{ matter.get_status_display }}
+          </span>
+          <span class="badge {% if matter.scale == 'international' %}badge-gold{% else %}badge-info{% endif %}">
+            {{ matter.get_scale_display }}
+          </span>
+          {% if matter.is_archived %}
+          <span class="badge badge-warning">{% translate "Archivé" %}</span>
+          {% endif %}
+        </p>
+      </div>
+    </div>
+    <div class="detail-sheet-actions">
+      {% if has_valid_procuration and not is_platform_admin %}
+      <a class="btn btn-secondary btn-sm" href="{% url 'documents:upload' %}?matter={{ matter.pk }}">{% translate "Document" %}</a>
+      <a class="btn btn-secondary btn-sm" href="{% url 'hearings:create' %}?matter={{ matter.pk }}">{% translate "Audience" %}</a>
+      <a class="btn btn-secondary btn-sm" href="{% url 'calendar:event_create' %}?matter={{ matter.pk }}">{% translate "Événement" %}</a>
       {% endif %}
-    </p>
-  </div>
-  <div class="cluster">
-    <a class="btn btn-secondary" href="{% url 'documents:upload' %}?matter={{ matter.pk }}">{% translate "Document" %}</a>
-    <a class="btn btn-secondary" href="{% url 'calendar:event_create' %}?matter={{ matter.pk }}">{% translate "Événement" %}</a>
-    {% if not matter.is_archived %}
-    <a class="btn btn-secondary" href="{% url 'matters:update' matter.pk %}">{% translate "Modifier" %}</a>
+      {% if not is_platform_admin and not matter.is_archived %}
+      <a class="btn btn-primary btn-sm" href="{% url 'matters:update' matter.pk %}">{% translate "Modifier" %}</a>
+      {% endif %}
+      {% if not is_platform_admin and can_archive_matter %}
+      <form method="post" action="{% url 'matters:archive' matter.pk %}">
+        {% csrf_token %}
+        <button class="btn btn-secondary btn-sm" type="submit">{% translate "Archiver" %}</button>
+      </form>
+      {% endif %}
+      {% if not is_platform_admin and can_delete_matter %}
+      <form method="post" action="{% url 'matters:delete' matter.pk %}" onsubmit="return confirm('{% translate "Supprimer ce dossier ?" %}');">
+        {% csrf_token %}
+        <button class="btn btn-ghost btn-sm" type="submit">{% translate "Supprimer" %}</button>
+      </form>
+      {% endif %}
+    </div>
+  </header>
+
+{% if has_valid_procuration and valid_procuration %}
+<aside class="proc-banner is-ok">
+  <p>
+    {% translate "Procuration ministérielle en cours :" %}
+    <a href="{% url 'procurations:detail' valid_procuration.pk %}">{{ valid_procuration.reference }}</a>
+    {% if valid_procuration.expires_at %}
+    — {% translate "valide jusqu'au" %} {{ valid_procuration.expires_at|date:"d/m/Y" }}
     {% endif %}
-    {% if can_archive_matter %}
-    <form method="post" action="{% url 'matters:archive' matter.pk %}">
-      {% csrf_token %}
-      <button class="btn btn-secondary" type="submit">{% translate "Archiver" %}</button>
-    </form>
-    {% endif %}
-    {% if can_delete_matter %}
-    <form method="post" action="{% url 'matters:delete' matter.pk %}" onsubmit="return confirm('{% translate "Supprimer ce dossier ?" %}');">
-      {% csrf_token %}
-      <button class="btn btn-danger" type="submit">{% translate "Supprimer" %}</button>
-    </form>
-    {% endif %}
-  </div>
-</header>
+  </p>
+</aside>
+{% else %}
+<aside class="proc-banner">
+  <p>
+    {% translate "Aucune procuration délivrée par le Ministère de la Justice. Les documents, audiences, agenda et la facturation de ce dossier sont bloqués." %}
+  </p>
+  {% if latest_procuration %}
+  <a class="btn btn-primary" href="{% url 'procurations:detail' latest_procuration.pk %}">{% translate "Voir la procuration" %}</a>
+  {% elif is_platform_admin %}
+  <a class="btn btn-primary" href="{% url 'procurations:create' %}?matter={{ matter.pk }}&cabinet={{ matter.cabinet_id }}">{% translate "Délivrer une procuration" %}</a>
+  {% endif %}
+</aside>
+{% endif %}
 
 <section class="card matter-info">
-  <header class="card-header">
-    <h2 class="card-title">{% translate "Informations" %}</h2>
-  </header>
   <dl class="matter-facts">
     <div class="matter-fact">
       <dt>{% translate "Client" %}</dt>
@@ -65,6 +92,24 @@
       <dd>
         {% if matter.practice_area %}
         <span class="badge badge-gold">{{ matter.practice_area }}</span>
+        {% else %}
+        <span class="matter-fact-empty">—</span>
+        {% endif %}
+      </dd>
+    </div>
+    <div class="matter-fact">
+      <dt>{% translate "Échelle" %}</dt>
+      <dd>
+        <span class="badge {% if matter.scale == 'international' %}badge-gold{% else %}badge-info{% endif %}">
+          {{ matter.get_scale_display }}
+        </span>
+      </dd>
+    </div>
+    <div class="matter-fact">
+      <dt>{% translate "Juridiction" %}</dt>
+      <dd>
+        {% if matter.jurisdiction %}
+        <span class="matter-fact-value">{{ matter.jurisdiction }}</span>
         {% else %}
         <span class="matter-fact-empty">—</span>
         {% endif %}
@@ -113,33 +158,195 @@
   </dl>
 </section>
 
-<section>
-  <header class="card-header"><h2 class="card-title">{% translate "Historique des actions" %}</h2></header>
-  {% if actions %}
+{% if display_procuration %}
+{% with p=display_procuration %}
+<section class="card matter-info">
+  <header class="card-header">
+    <h2 class="card-title">{% translate "Procuration" %}</h2>
+    <div class="cluster">
+      <a class="card-header-link" href="{% url 'procurations:detail' p.pk %}">{% translate "Voir la procuration" %}</a>
+      {% if is_platform_admin and p.status == 'granted' %}
+      <form method="post" action="{% url 'procurations:generate' p.pk %}"{% if p.instrument %} onsubmit="return confirm('{% translate "Un acte est déjà joint. Le remplacer ?" %}');"{% endif %}>
+        {% csrf_token %}
+        <button class="btn btn-primary btn-sm" type="submit">{% if p.instrument %}{% translate "Régénérer l'acte" %}{% else %}{% translate "Générer la procuration" %}{% endif %}</button>
+      </form>
+      {% endif %}
+    </div>
+  </header>
+  <dl class="matter-facts">
+    <div class="matter-fact">
+      <dt>{% translate "Référence" %}</dt>
+      <dd>
+        <a href="{% url 'procurations:detail' p.pk %}">{{ p.reference }}</a>
+      </dd>
+    </div>
+    <div class="matter-fact">
+      <dt>{% translate "Statut" %}</dt>
+      <dd>
+        <span class="badge {% if p.status == 'granted' %}badge-success{% elif p.status == 'requested' %}badge-gold{% elif p.status == 'draft' %}badge-info{% elif p.status == 'refused' or p.status == 'revoked' %}badge-danger{% endif %}">
+          {{ p.get_status_display }}
+        </span>
+        {% if p.is_currently_valid %}
+        <span class="badge badge-success">{% translate "Valide" %}</span>
+        {% endif %}
+      </dd>
+    </div>
+    <div class="matter-fact">
+      <dt>{% translate "Objet" %}</dt>
+      <dd>
+        {% if p.purpose %}
+        <span class="matter-fact-value">{{ p.purpose }}</span>
+        {% else %}
+        <span class="matter-fact-empty">—</span>
+        {% endif %}
+      </dd>
+    </div>
+    <div class="matter-fact">
+      <dt>{% translate "Référence ministérielle" %}</dt>
+      <dd>
+        {% if p.ministry_reference %}
+        <span class="matter-fact-value">{{ p.ministry_reference }}</span>
+        {% else %}
+        <span class="matter-fact-empty">—</span>
+        {% endif %}
+      </dd>
+    </div>
+    <div class="matter-fact">
+      <dt>{% translate "Demandée le" %}</dt>
+      <dd>
+        {% if p.requested_at %}
+        <span class="matter-fact-value">{{ p.requested_at|date:"d/m/Y" }}</span>
+        {% else %}
+        <span class="matter-fact-empty">—</span>
+        {% endif %}
+      </dd>
+    </div>
+    <div class="matter-fact">
+      <dt>{% translate "Accordée le" %}</dt>
+      <dd>
+        {% if p.granted_at %}
+        <span class="matter-fact-value">{{ p.granted_at|date:"d/m/Y" }}</span>
+        {% else %}
+        <span class="matter-fact-empty">—</span>
+        {% endif %}
+      </dd>
+    </div>
+    <div class="matter-fact">
+      <dt>{% translate "Validité" %}</dt>
+      <dd>
+        <span class="matter-fact-value">
+          {% if p.valid_from %}{{ p.valid_from|date:"d/m/Y" }}{% else %}—{% endif %}
+          →
+          {% if p.expires_at %}{{ p.expires_at|date:"d/m/Y" }}{% else %}{% translate "sans terme" %}{% endif %}
+        </span>
+      </dd>
+    </div>
+    {% if p.granted_by %}
+    <div class="matter-fact">
+      <dt>{% translate "Accordée par" %}</dt>
+      <dd>{{ p.granted_by.get_full_name|default:p.granted_by.email }}</dd>
+    </div>
+    {% endif %}
+    {% if p.instrument %}
+    <div class="matter-fact">
+      <dt>{% translate "Acte" %}</dt>
+      <dd>
+        <a href="{% url 'procurations:download' p.pk %}">{% if p.instrument_filename %}{{ p.instrument_filename }}{% else %}{% translate "Télécharger" %}{% endif %}</a>
+        {% if p.instrument_can_preview %}
+        · <a href="{% url 'procurations:preview' p.pk %}" target="_blank" rel="noopener">{% translate "Afficher" %}</a>
+        {% endif %}
+      </dd>
+    </div>
+    {% endif %}
+    {% if p.notes %}
+    <div class="matter-fact matter-fact--wide">
+      <dt>{% translate "Notes" %}</dt>
+      <dd>{{ p.notes }}</dd>
+    </div>
+    {% endif %}
+    {% if p.refusal_reason %}
+    <div class="matter-fact matter-fact--wide">
+      <dt>{% translate "Motif du refus" %}</dt>
+      <dd>{{ p.refusal_reason }}</dd>
+    </div>
+    {% endif %}
+    {% if p.revocation_reason %}
+    <div class="matter-fact matter-fact--wide">
+      <dt>{% translate "Motif de révocation" %}</dt>
+      <dd>{{ p.revocation_reason }}</dd>
+    </div>
+    {% endif %}
+  </dl>
+</section>
+{% endwith %}
+{% endif %}
+
+{% if upcoming_hearings %}
+<section class="card matter-hearings">
+  <header class="card-header">
+    <h2 class="card-title">{% translate "Audiences à venir" %}</h2>
+    {% if not is_platform_admin %}
+    <a class="btn btn-secondary btn-sm" href="{% url 'hearings:create' %}?matter={{ matter.pk }}">{% translate "Planifier" %}</a>
+    {% endif %}
+  </header>
   <div class="table-wrap">
     <table class="table">
       <thead>
         <tr>
           <th>{% translate "Date" %}</th>
-          <th>{% translate "Action" %}</th>
-          <th>{% translate "Auteur" %}</th>
-          <th>{% translate "Détail" %}</th>
+          <th>{% translate "Intitulé" %}</th>
+          <th>{% translate "Tribunal" %}</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
-        {% for a in actions %}
+        {% for h in upcoming_hearings %}
         <tr>
-          <td>{{ a.created_at|date:"d/m/Y H:i" }}</td>
-          <td>{{ a.action }}</td>
-          <td>{% if a.actor %}{{ a.actor.get_full_name|default:a.actor.email }}{% else %}—{% endif %}</td>
-          <td>{{ a.message|default:"—" }}</td>
+          <td>{{ h.starts_at|date:"d/m/Y H:i" }}</td>
+          <td>{{ h.title }}</td>
+          <td>{{ h.court|default:"—" }}</td>
+          <td>
+            <a class="btn btn-sm btn-ghost" href="{% url 'calendar:event_detail' h.pk %}">{% translate "Voir" %}</a>
+            <a class="btn btn-sm btn-secondary" href="{% url 'calendar:event_detail' h.pk %}#rapport">{% translate "Rapport" %}</a>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  {% else %}
-  <p class="text-muted">{% translate "Aucune action enregistrée." %}</p>
-  {% endif %}
 </section>
+{% endif %}
+
+<section class="detail-sheet-block">
+    <header class="detail-sheet-block-head">
+      <h2>{% translate "Historique des actions" %}</h2>
+    </header>
+    {% if actions %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>{% translate "Date" %}</th>
+            <th>{% translate "Action" %}</th>
+            <th>{% translate "Auteur" %}</th>
+            <th>{% translate "Détail" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in actions %}
+          <tr>
+            <td>{{ a.created_at|date:"d/m/Y H:i" }}</td>
+            <td>{{ a.action }}</td>
+            <td>{% if a.actor %}{{ a.actor.get_full_name|default:a.actor.email }}{% else %}—{% endif %}</td>
+            <td>{{ a.message|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted">{% translate "Aucune action enregistrée." %}</p>
+    {% endif %}
+  </section>
+</article>
 {% endblock %}

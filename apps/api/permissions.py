@@ -7,7 +7,7 @@ from rest_framework.request import Request
 from rest_framework.views import APIView
 
 from apps.tenants.roles import PERM_ADD, PERM_CHANGE, PERM_DELETE, PERM_VIEW, role_has_perm
-from apps.tenants.services import get_membership
+from apps.tenants.services import get_membership, is_platform_admin
 
 _METHOD_PERM: dict[str, str] = {
     "GET": PERM_VIEW,
@@ -30,11 +30,13 @@ class IsCabinetMember(BasePermission):
         cabinet = getattr(request, "cabinet", None)
         if cabinet is None:
             return False
+        required = _METHOD_PERM.get(request.method or "GET", PERM_VIEW)
+        if is_platform_admin(user):
+            return required == PERM_VIEW
         membership = getattr(request, "membership", None) or get_membership(
             user=user, cabinet=cabinet
         )
         if membership is None:
             return False
         request.membership = membership  # type: ignore[attr-defined]
-        required = _METHOD_PERM.get(request.method or "GET", PERM_VIEW)
         return role_has_perm(membership.role, required)

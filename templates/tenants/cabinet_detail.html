@@ -1,0 +1,214 @@
+{% extends "layouts/app.html" %}
+{% load i18n %}
+
+{% block title %}{{ cabinet.name }} — {{ SITE_NAME }}{% endblock %}
+
+
+{% block content %}
+<article class="cabinet-sheet cabinet-sheet--compact">
+  <header class="cabinet-sheet-header">
+    <div class="cabinet-sheet-identity">
+      <span class="cabinet-sheet-avatar" aria-hidden="true">{{ cabinet.name.0|upper }}</span>
+      <div class="cabinet-sheet-title">
+        <p class="cabinet-sheet-kicker">
+          {% if cabinet.is_active %}{% translate "Cabinet actif" %}{% else %}{% translate "Cabinet inactif" %}{% endif %}
+          {% if cabinet.contract_number %}<span aria-hidden="true"> · </span>{{ cabinet.contract_number }}{% endif %}
+        </p>
+        <h1>{{ cabinet.name }}</h1>
+        {% if cabinet.legal_name %}
+        <p class="cabinet-sheet-lede">{{ cabinet.legal_name }}</p>
+        {% endif %}
+      </div>
+    </div>
+    <div class="cabinet-sheet-actions">
+      {% if cabinet.is_active %}
+      <form method="post" action="{% url 'tenants:switch' %}">
+        {% csrf_token %}
+        <input type="hidden" name="cabinet_id" value="{{ cabinet.pk }}">
+        <input type="hidden" name="next" value="{% url 'core:home' %}">
+        <button class="btn btn-secondary btn-sm" type="submit">{% translate "Ouvrir l'espace" %}</button>
+      </form>
+      {% endif %}
+      <a class="btn btn-primary btn-sm" href="{% url 'tenants:cabinet_update' cabinet.pk %}">{% translate "Modifier" %}</a>
+      {% if can_manage_members %}
+      <a class="btn btn-secondary btn-sm" href="{% url 'tenants:cabinet_member_create' cabinet.pk %}">{% translate "Ajouter un membre" %}</a>
+      {% endif %}
+      <form method="post" action="{% url 'tenants:cabinet_delete' cabinet.pk %}" onsubmit="return confirm('{% translate "Supprimer ce cabinet ? Les données resteront archivées." %}');">
+        {% csrf_token %}
+        <button class="btn btn-ghost btn-sm" type="submit">{% translate "Supprimer" %}</button>
+      </form>
+    </div>
+  </header>
+
+  {% if overview %}
+  <section class="kpi-grid cabinet-sheet-kpis" aria-label="{% translate 'Indicateurs' %}">
+    <div class="kpi-card">
+      <p class="kpi-label">{% translate "Membres" %}</p>
+      <p class="kpi-value">{{ overview.members_count }}</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label">{% translate "Clients" %}</p>
+      <p class="kpi-value">{{ overview.clients_count }}</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label">{% translate "Dossiers actifs" %}</p>
+      <p class="kpi-value">{{ overview.matters_active }}</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label">{% translate "Audiences" %}</p>
+      <p class="kpi-value">{{ overview.hearings_upcoming }}</p>
+    </div>
+    <div class="kpi-card{% if overview.unpaid_invoices %} kpi-card--warn{% endif %}">
+      <p class="kpi-label">{% translate "Impayées" %}</p>
+      <p class="kpi-value">{{ overview.unpaid_invoices }}</p>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="cabinet-sheet-facts" aria-label="{% translate 'Identité' %}">
+    <div class="cabinet-fact">
+      <span class="cabinet-sheet-label">{% translate "Barreau" %}</span>
+      <span>{% if cabinet.bar_association %}{{ cabinet.bar_association }}{% else %}<span class="cabinet-fact-empty">—</span>{% endif %}</span>
+    </div>
+    <div class="cabinet-fact">
+      <span class="cabinet-sheet-label">{% translate "SIRET" %}</span>
+      <span class="cabinet-fact-mono">{% if cabinet.siret %}{{ cabinet.siret }}{% else %}<span class="cabinet-fact-empty">—</span>{% endif %}</span>
+    </div>
+    <div class="cabinet-fact">
+      <span class="cabinet-sheet-label">{% translate "Numéro impôt" %}</span>
+      <span>{% if cabinet.vat_number %}{{ cabinet.vat_number }}{% else %}<span class="cabinet-fact-empty">—</span>{% endif %}</span>
+    </div>
+    <div class="cabinet-fact">
+      <span class="cabinet-sheet-label">{% translate "Adresse" %}</span>
+      <span>{% if cabinet.address_line1 %}{{ cabinet.address_line1 }}{% else %}<span class="cabinet-fact-empty">—</span>{% endif %}</span>
+    </div>
+    {% if owner_membership %}
+    <div class="cabinet-fact">
+      <span class="cabinet-sheet-label">{% translate "Caïman" %}</span>
+      <span>{{ owner_membership.user.full_name }} · {{ owner_membership.user.email }}</span>
+    </div>
+    {% endif %}
+    <div class="cabinet-fact">
+      <span class="cabinet-sheet-label">{% translate "Identifiant" %}</span>
+      <span class="cabinet-fact-mono">{{ cabinet.slug }}</span>
+    </div>
+  </section>
+
+  {% if cabinet.contract_file %}
+  <section class="card cabinet-contract-card">
+    <header class="card-header">
+      <h2 class="card-title">{% translate "Contrat" %}</h2>
+      <div class="cluster">
+        <a class="btn btn-secondary btn-sm" href="{% url 'tenants:cabinet_contract_download' cabinet.pk %}">{% translate "Télécharger" %}</a>
+        {% if cabinet.contract_can_preview %}
+        <a class="btn btn-ghost btn-sm" href="{% url 'tenants:cabinet_contract_preview' cabinet.pk %}" target="_blank" rel="noopener">{% translate "Ouvrir" %}</a>
+        {% endif %}
+      </div>
+    </header>
+    <p class="cabinet-contract-name">{{ cabinet.contract_file_name|default:cabinet.contract_number|default:"Contrat" }}</p>
+    {% if cabinet.contract_can_preview %}
+    <div class="doc-preview-frame cabinet-contract-preview">
+      <iframe
+        title="{% translate 'Aperçu du contrat' %}"
+        src="{% url 'tenants:cabinet_contract_preview' cabinet.pk %}"
+      ></iframe>
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <div class="cabinet-sheet-panels">
+    <section class="card cabinet-sheet-panel">
+      <header class="card-header">
+        <h2 class="card-title">{% translate "Équipe" %}</h2>
+        <span class="cabinet-panel-meta">{{ memberships|length }}</span>
+      </header>
+      {% if memberships %}
+      <div class="table-wrap">
+        <table class="table table-compact">
+          <thead>
+            <tr>
+              <th>{% translate "Membre" %}</th>
+              <th>{% translate "E-mail" %}</th>
+              <th>{% translate "Tél." %}</th>
+              <th>{% translate "Rôle" %}</th>
+              {% if can_manage_members %}<th></th>{% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in memberships %}
+            <tr>
+              <td>{{ m.user.full_name }}</td>
+              <td>{{ m.user.email }}</td>
+              <td>{{ m.user.phone|default:"—" }}</td>
+              <td>{{ m.get_role_display }}</td>
+              {% if can_manage_members %}
+              <td class="table-actions">
+                <a class="btn btn-ghost btn-sm" href="{% url 'tenants:cabinet_member_update' cabinet.pk m.pk %}">{% translate "Modifier" %}</a>
+                <form method="post" action="{% url 'tenants:cabinet_member_delete' cabinet.pk m.pk %}" onsubmit="return confirm('{% translate "Retirer ce membre du cabinet ?" %}');">
+                  {% csrf_token %}
+                  <button class="btn btn-ghost btn-sm" type="submit">{% translate "Retirer" %}</button>
+                </form>
+              </td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="empty-state empty-state-compact">{% translate "Aucun membre actif." %}</p>
+      {% endif %}
+    </section>
+
+    <section class="card cabinet-sheet-panel">
+      <header class="card-header">
+        <h2 class="card-title">{% translate "Spécialités" %}</h2>
+        <span class="cabinet-panel-meta">{{ specialty_links|length }}</span>
+      </header>
+      {% if specialty_links %}
+      <div class="table-wrap">
+        <table class="table table-compact">
+          <thead>
+            <tr>
+              <th>{% translate "Matière" %}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for link in specialty_links %}
+            <tr>
+              <td>{{ link.practice_area.name }}</td>
+              <td class="table-actions">
+                <form method="post" action="{% url 'tenants:cabinet_specialty_remove' cabinet.pk link.pk %}" onsubmit="return confirm('{% translate "Retirer cette spécialité ?" %}');">
+                  {% csrf_token %}
+                  <button class="btn btn-ghost btn-sm" type="submit">{% translate "Retirer" %}</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="empty-state empty-state-compact">{% translate "Aucune spécialité." %}</p>
+      {% endif %}
+      {% if available_practice_areas %}
+      <form method="post" action="{% url 'tenants:cabinet_specialty_add' cabinet.pk %}" class="cabinet-specialty-add cluster">
+        {% csrf_token %}
+        <div class="form-field">
+          <label for="id_practice_area">{% translate "Ajouter" %}</label>
+          <select class="form-input" name="practice_area" id="id_practice_area" required>
+            <option value="">{% translate "— Choisir —" %}</option>
+            {% for area in available_practice_areas %}
+            <option value="{{ area.pk }}">{{ area.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button class="btn btn-secondary btn-sm" type="submit">{% translate "Ajouter" %}</button>
+      </form>
+      {% endif %}
+    </section>
+  </div>
+</article>
+{% endblock %}

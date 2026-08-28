@@ -1,0 +1,61 @@
+{% extends "layouts/app.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Matières juridiques" %} — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<header class="page-header">
+  <div>
+    <h1>{% translate "Matières juridiques" %}</h1>
+    <p class="page-lede">{% translate "Référentiel utilisé pour les spécialités des cabinets et l'ouverture des dossiers." %}</p>
+  </div>
+  <a class="btn btn-primary" href="{% url 'tenants:practice_area_create' %}">{% translate "Nouvelle matière" %}</a>
+</header>
+
+<form method="get" class="toolbar" style="margin-bottom:1rem;">
+  <input class="form-input" type="search" name="q" value="{{ filter_q }}" placeholder="{% translate 'Rechercher' %}" aria-label="{% translate 'Rechercher' %}">
+  <button class="btn btn-secondary" type="submit">{% translate "Filtrer" %}</button>
+</form>
+
+{% if practice_areas %}
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>{% translate "Matière" %}</th>
+        <th>{% translate "Statut" %}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for area in practice_areas %}
+      <tr>
+        <td>
+          <span class="list-entity-title">{{ area.name }}</span>
+          {% if area.description %}<p class="list-entity-meta">{{ area.description }}</p>{% endif %}
+        </td>
+        <td>
+          {% if area.is_active %}<span class="badge badge-success">{% translate "Active" %}</span>
+          {% else %}<span class="badge badge-warning">{% translate "Inactive" %}</span>{% endif %}
+        </td>
+        <td class="table-actions">
+          <a class="btn btn-ghost btn-sm" href="{% url 'tenants:practice_area_update' area.pk %}">{% translate "Modifier" %}</a>
+          <form method="post" action="{% url 'tenants:practice_area_delete' area.pk %}" onsubmit="return confirm('{% translate "Supprimer cette matière ?" %}');">
+            {% csrf_token %}
+            <button class="btn btn-ghost btn-sm" type="submit">{% translate "Supprimer" %}</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "partials/pagination.html" %}
+{% else %}
+<section class="empty-state">
+  <h2>{% translate "Aucune matière" %}</h2>
+  <p>{% translate "Ajoutez les domaines de droit proposés aux cabinets." %}</p>
+  <a class="btn btn-primary" href="{% url 'tenants:practice_area_create' %}">{% translate "Nouvelle matière" %}</a>
+</section>
+{% endif %}
+{% endblock %}

@@ -24,7 +24,7 @@ $env:PGPASSWORD='123456'
 & "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -h 127.0.0.1 -f scripts\setup_db.sql
 ```
 
-Cela crée la base `AvoLex_db` (propriétaire `postgres`), alignée avec `.env.example`.
+Cela crée la base `AvoLexMJ_db` (propriétaire `postgres`), alignée avec `.env.example`.
 Adapter `DATABASE_URL` dans `.env` si besoin.
 
 ## Installation rapide
@@ -56,13 +56,32 @@ Après `seed_demo` :
 | App | http://127.0.0.1:8000/app/ |
 | API | http://127.0.0.1:8000/api/v1/clients/ (session auth) |
 
+### Supervision plateforme (tous les cabinets)
+
+Compte en **lecture seule** pour suivre l’activité de tous les cabinets :
+
+```bash
+python manage.py create_platform_admin
+```
+
+| Champ | Valeur |
+|-------|--------|
+| E-mail | `supervision@avolex.local` |
+| Mot de passe | `@Supervise123` |
+| Accueil | http://127.0.0.1:8000/app/supervision/ |
+
+Ce compte voit tous les cabinets, peut les créer / modifier / supprimer, et consulte
+leur activité interne en lecture seule.
+
 ### Modules disponibles
 
 | Module | URL |
 |--------|-----|
+| Cabinets avocats (superviseur) | `/cabinets/` |
 | Clients | `/clients/` |
 | Dossiers | `/dossiers/` |
 | Agenda | `/agenda/` |
+| Audiences | `/audiences/` |
 | Documents | `/documents/` |
 | Facturation | `/billing/` |
 | API REST | `/api/v1/` |
@@ -132,6 +151,7 @@ GitHub Actions (`.github/workflows/ci.yml`) : ruff, mypy, pytest contre PostgreS
 | `/accounts/login/` | Connexion e-mail |
 | `/accounts/password-reset/` | Mot de passe oublié |
 | `/accounts/invitations/<token>/` | Accepter une invitation |
+| `/cabinets/` | CRUD cabinets avocats (superviseur) |
 | `/cabinets/switch/` | Basculer de cabinet (POST) |
 | `/cabinets/invitations/` | Liste / envoi d’invitations |
 

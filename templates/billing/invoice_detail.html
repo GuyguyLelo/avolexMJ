@@ -3,43 +3,47 @@
 
 {% block title %}{{ invoice.number|default:_("Brouillon") }} — {{ SITE_NAME }}{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/billing.css' %}">
-{% endblock %}
 
 {% block content %}
-<header class="page-header">
-  <div>
-    <h1>{{ invoice.number|default:_("Facture brouillon") }}</h1>
-    <p class="page-lede">
-      {{ invoice.client.display_name }}
-      · <span class="badge badge-info">{{ invoice.get_status_display }}</span>
-    </p>
-  </div>
-  <div class="cluster">
-    {% if invoice.status == "draft" %}
-    <form method="post" action="{% url 'billing:invoice_issue' invoice.pk %}">
-      {% csrf_token %}
-      <button class="btn btn-primary" type="submit">{% translate "Émettre" %}</button>
-    </form>
-    <a class="btn btn-secondary" href="{% url 'billing:invoice_pdf' invoice.pk %}">{% translate "Aperçu PDF" %}</a>
-    {% else %}
-    <a class="btn btn-primary" href="{% url 'billing:invoice_pdf' invoice.pk %}">{% translate "Télécharger le PDF" %}</a>
-    {% endif %}
-    {% if invoice.status == "sent" or invoice.status == "overdue" %}
-    <form method="post" action="{% url 'billing:invoice_paid' invoice.pk %}">
-      {% csrf_token %}
-      <button class="btn btn-secondary" type="submit">{% translate "Marquer payée" %}</button>
-    </form>
-    {% endif %}
-    {% if invoice.status == "sent" %}
-    <form method="post" action="{% url 'billing:invoice_overdue' invoice.pk %}">
-      {% csrf_token %}
-      <button class="btn btn-ghost" type="submit">{% translate "Marquer impayée" %}</button>
-    </form>
-    {% endif %}
-  </div>
-</header>
+<article class="detail-sheet">
+  <header class="detail-sheet-header">
+    <div class="detail-sheet-identity">
+      <span class="detail-sheet-avatar is-gold" aria-hidden="true">{% if invoice.number %}{{ invoice.number|slice:"-2:" }}{% else %}BR{% endif %}</span>
+      <div class="detail-sheet-title">
+        <p class="detail-sheet-kicker">{% translate "Facture" %}</p>
+        <h1>{{ invoice.number|default:_("Facture brouillon") }}</h1>
+        <p class="detail-sheet-lede">
+          <a href="{% url 'clients:detail' invoice.client_id %}">{{ invoice.client.display_name }}</a>
+          <span class="badge {% if invoice.status == 'paid' %}badge-success{% elif invoice.status == 'overdue' %}badge-danger{% elif invoice.status == 'sent' %}badge-info{% elif invoice.status == 'cancelled' %}badge-gold{% else %}badge-warning{% endif %}">
+            {{ invoice.get_status_display }}
+          </span>
+        </p>
+      </div>
+    </div>
+    <div class="detail-sheet-actions">
+      {% if invoice.status == "draft" %}
+      <form method="post" action="{% url 'billing:invoice_issue' invoice.pk %}">
+        {% csrf_token %}
+        <button class="btn btn-primary btn-sm" type="submit">{% translate "Émettre" %}</button>
+      </form>
+      <a class="btn btn-secondary btn-sm" href="{% url 'billing:invoice_pdf' invoice.pk %}">{% translate "Aperçu PDF" %}</a>
+      {% else %}
+      <a class="btn btn-primary btn-sm" href="{% url 'billing:invoice_pdf' invoice.pk %}">{% translate "Télécharger le PDF" %}</a>
+      {% endif %}
+      {% if invoice.status == "sent" or invoice.status == "overdue" %}
+      <form method="post" action="{% url 'billing:invoice_paid' invoice.pk %}">
+        {% csrf_token %}
+        <button class="btn btn-secondary btn-sm" type="submit">{% translate "Marquer payée" %}</button>
+      </form>
+      {% endif %}
+      {% if invoice.status == "sent" %}
+      <form method="post" action="{% url 'billing:invoice_overdue' invoice.pk %}">
+        {% csrf_token %}
+        <button class="btn btn-ghost btn-sm" type="submit">{% translate "Marquer impayée" %}</button>
+      </form>
+      {% endif %}
+    </div>
+  </header>
 
 <section class="invoice-sheet">
   <div class="invoice-summary">
@@ -131,10 +135,11 @@
   </div>
 </section>
 
-<form method="post" action="{% url 'billing:invoice_cancel' invoice.pk %}" style="margin-top: var(--space-8);" onsubmit="return confirm('OK ?');">
-  {% csrf_token %}
-  <button class="btn btn-danger" type="submit">
-    {% if invoice.status == "draft" %}{% translate "Supprimer le brouillon" %}{% else %}{% translate "Annuler la facture" %}{% endif %}
-  </button>
-</form>
+  <form class="detail-sheet-footer" method="post" action="{% url 'billing:invoice_cancel' invoice.pk %}" onsubmit="return confirm('OK ?');">
+    {% csrf_token %}
+    <button class="btn btn-ghost btn-sm" type="submit">
+      {% if invoice.status == "draft" %}{% translate "Supprimer le brouillon" %}{% else %}{% translate "Annuler la facture" %}{% endif %}
+    </button>
+  </form>
+</article>
 {% endblock %}

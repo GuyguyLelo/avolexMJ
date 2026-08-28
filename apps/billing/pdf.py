@@ -248,7 +248,7 @@ def _build_with_fpdf(invoice: Invoice) -> bytes:
     if cabinet.siret:
         extras.append(f"SIRET {cabinet.siret}")
     if cabinet.vat_number:
-        extras.append(f"TVA {cabinet.vat_number}")
+        extras.append(f"Impôt {cabinet.vat_number}")
     if cabinet.bar_association:
         extras.append(cabinet.bar_association)
     if extras:
@@ -359,7 +359,7 @@ def _build_with_fpdf(invoice: Invoice) -> bytes:
     pdf.cell(
         120,
         6,
-        "Document généré par AvoLex — ne constitue pas un conseil juridique.",
+        "Document généré par AvoLex — Ministère de la Justice (RDC).",
         align="L",
     )
     pdf.cell(58, 6, f"Page {pdf.page_no()}/{{nb}}", align="R")

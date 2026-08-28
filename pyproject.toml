@@ -80,6 +80,7 @@ module = [
     "apps.tenants.middleware",
     "apps.tenants.views",
     "apps.tenants.services",
+    "apps.tenants.forms",
     "apps.tenants.context_processors",
     "apps.accounts.views",
     "apps.accounts.forms",

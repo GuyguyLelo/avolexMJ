@@ -20,6 +20,13 @@ class MatterStatus(models.TextChoices):
     CLOSED = "closed", _("Clos")
 
 
+class MatterScale(models.TextChoices):
+    """Échelle de traitement par le Ministère de la Justice."""
+
+    NATIONAL = "national", _("Nationale")
+    INTERNATIONAL = "international", _("Internationale")
+
+
 class Matter(TenantOwnedModel):
     """Dossier / affaire du cabinet."""
 
@@ -29,6 +36,14 @@ class Matter(TenantOwnedModel):
     practice_area = models.CharField(_("matière / domaine"), max_length=120, blank=True)
     jurisdiction = models.CharField(_("juridiction"), max_length=255, blank=True)
     opposing_party = models.CharField(_("partie adverse"), max_length=255, blank=True)
+    scale = models.CharField(
+        _("échelle"),
+        max_length=20,
+        choices=MatterScale.choices,
+        default=MatterScale.NATIONAL,
+        db_index=True,
+        help_text=_("Le Ministère de la Justice traite le dossier à l'échelle nationale ou internationale."),
+    )
     status = models.CharField(
         _("statut"),
         max_length=20,
@@ -61,6 +76,7 @@ class Matter(TenantOwnedModel):
         indexes = [
             GinIndex(fields=["search_vector"], name="matters_matter_search_gin"),
             models.Index(fields=["cabinet", "status"], name="matters_mat_cabinet_47255b_idx"),
+            models.Index(fields=["cabinet", "scale"], name="matters_mat_cab_scale_idx"),
             models.Index(
                 fields=["cabinet", "practice_area"],
                 name="matters_mat_cabinet_70da90_idx",

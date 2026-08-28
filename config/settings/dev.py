@@ -16,6 +16,8 @@ STORAGES = {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
+WHITENOISE_MAX_AGE = 0
+WHITENOISE_AUTOREFRESH = True
 
 # Cache Redis optionnel : fallback mémoire si Redis indisponible au boot des tests CLI
 # En dev on garde Redis ; si absent, lancer `make redis` ou adapter REDIS_URL.

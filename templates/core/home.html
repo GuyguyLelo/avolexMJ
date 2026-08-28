@@ -1,31 +1,35 @@
 {% extends "layouts/app.html" %}
-{% load i18n money %}
+{% load i18n static money %}
 
-{% block title %}{% translate "Tableau de bord" %} — {{ SITE_NAME }}{% endblock %}
+{% block title %}{% if current_cabinet %}{{ current_cabinet.name }}{% else %}{% translate "Tableau de bord" %}{% endif %} — {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
-<header class="page-header page-header-dash">
+<header class="page-header page-header-dash page-header-dash--cabinet">
   <div>
+    <p class="dash-kicker">{% translate "Cabinet d'avocats" %}</p>
     <p class="dash-date">{% now "l j F Y" as dash_date %}{{ dash_date|capfirst }}</p>
-    <h1>{% translate "Tableau de bord" %}</h1>
+    <h1>{% if current_cabinet %}{{ current_cabinet.name }}{% else %}{% translate "Tableau de bord" %}{% endif %}</h1>
     {% if current_cabinet %}
     <p class="page-lede page-lede-dash">
-      <span class="dash-cabinet-chip">{{ current_cabinet.name }}</span>
-      {% translate "Vue d'ensemble de l'activité du cabinet." %}
+      {% translate "Activité, audiences, procurations et facturation de votre structure." %}
     </p>
     {% else %}
     <p class="page-lede">{% translate "Sélectionnez un cabinet pour commencer." %}</p>
     {% endif %}
   </div>
   <div class="cluster">
+    {% if not is_platform_admin %}
     <a class="btn btn-secondary" href="{% url 'clients:create' %}">{% translate "Nouveau client" %}</a>
-    <a class="btn btn-secondary" href="{% url 'matters:create' %}">{% translate "Nouveau dossier" %}</a>
+    <a class="btn btn-secondary" href="{% url 'hearings:create' %}">{% translate "Nouvelle audience" %}</a>
     <a class="btn btn-primary" href="{% url 'calendar:event_create' %}">{% translate "Nouvel événement" %}</a>
+    {% else %}
+    <a class="btn btn-secondary" href="{% url 'core:supervision' %}">{% translate "Supervision nationale" %}</a>
+    {% endif %}
   </div>
 </header>
 
 {% if stats %}
-<section class="kpi-grid" aria-label="{% translate 'Indicateurs' %}">
+<section class="kpi-grid" aria-label="{% translate 'Indicateurs du cabinet' %}">
   <a class="kpi-card" href="{% url 'clients:list' %}">
     <span class="kpi-ico" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -42,13 +46,21 @@
     <p class="kpi-value">{{ stats.matters_active }} <span class="kpi-sub">/ {{ stats.matters_total }}</span></p>
     <p class="kpi-hint">{% translate "Ouverts et en cours" %}</p>
   </a>
-  <a class="kpi-card" href="{% url 'calendar:list' %}">
+  <a class="kpi-card" href="{% url 'procurations:list' %}">
     <span class="kpi-ico" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <svg viewBox="0 0 24 24" fill="none"><path d="M7 3h8l5 5v13H7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 3v5h5M9 13h6M9 17h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m10.2 12.2 1.4 1.4 2.6-2.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </span>
-    <p class="kpi-label">{% translate "Échéances à venir" %}</p>
-    <p class="kpi-value">{{ stats.events_upcoming }}</p>
-    <p class="kpi-hint">{% translate "Agenda" %}</p>
+    <p class="kpi-label">{% translate "Procurations" %}</p>
+    <p class="kpi-value">{{ stats.procurations_valid }}</p>
+    <p class="kpi-hint">{% translate "Mandats valides" %}</p>
+  </a>
+  <a class="kpi-card" href="{% url 'hearings:list' %}">
+    <span class="kpi-ico" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v3M8 6h8M6 9h12v11H6V9Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 13h6M9 16h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </span>
+    <p class="kpi-label">{% translate "Audiences à venir" %}</p>
+    <p class="kpi-value">{{ stats.hearings_upcoming }}</p>
+    <p class="kpi-hint">{% translate "Procédure" %}</p>
   </a>
   <a class="kpi-card" href="{% url 'billing:time_list' %}">
     <span class="kpi-ico" aria-hidden="true">
@@ -77,7 +89,42 @@
 </section>
 {% endif %}
 
-<div class="dash-columns">
+<section class="chart-grid" aria-label="{% translate 'Graphiques du cabinet' %}">
+  <article class="card chart-card">
+    <header class="card-header">
+      <h2 class="card-title">{% translate "Dossiers par statut" %}</h2>
+    </header>
+    <div class="chart-frame chart-frame--donut">
+      <canvas data-chart="donut" data-series="matters_by_status" width="320" height="280"></canvas>
+      <p class="chart-empty" hidden>{% translate "Aucun dossier." %}</p>
+    </div>
+  </article>
+  <article class="card chart-card">
+    <header class="card-header">
+      <h2 class="card-title">{% translate "Ouvertures et audiences (6 mois)" %}</h2>
+    </header>
+    <div class="chart-frame">
+      <canvas data-chart="grouped" data-series="activity_by_month" data-left="matters" data-right="hearings" width="640" height="280"></canvas>
+      <p class="chart-empty" hidden>{% translate "Aucune donnée sur la période." %}</p>
+    </div>
+    <ul class="chart-legend">
+      <li><span class="chart-swatch is-ink"></span>{% translate "Dossiers ouverts" %}</li>
+      <li><span class="chart-swatch is-gold"></span>{% translate "Audiences" %}</li>
+    </ul>
+  </article>
+  <article class="card chart-card">
+    <header class="card-header">
+      <h2 class="card-title">{% translate "CA encaissé (6 mois)" %}</h2>
+    </header>
+    <div class="chart-frame">
+      <canvas data-chart="bars-h" data-series="revenue_by_month" width="640" height="280"></canvas>
+      <p class="chart-empty" hidden>{% translate "Aucun encaissement sur la période." %}</p>
+    </div>
+  </article>
+</section>
+{{ cabinet_charts|json_script:"cabinet-charts-data" }}
+
+<div class="dash-columns dash-columns--triple">
   <section class="card">
     <header class="card-header">
       <h2 class="card-title">{% translate "Dossiers récents" %}</h2>
@@ -91,7 +138,7 @@
           <span class="avatar" aria-hidden="true">{{ m.reference|slice:"-2:" }}</span>
           <span class="list-entity-text">
             <span class="list-entity-title">{{ m.title }}</span>
-            <span class="list-entity-meta">{{ m.reference }} · {{ m.client.display_name }}</span>
+            <span class="list-entity-meta">{{ m.reference }} · {{ m.get_scale_display }} · {{ m.client.display_name }}</span>
           </span>
         </a>
       </li>
@@ -99,6 +146,30 @@
     </ul>
     {% else %}
     <p class="text-muted">{% translate "Aucun dossier pour l'instant." %}</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <header class="card-header">
+      <h2 class="card-title">{% translate "Prochaines audiences" %}</h2>
+      <a class="card-header-link" href="{% url 'hearings:list' %}">{% translate "Tout voir" %}</a>
+    </header>
+    {% if upcoming_hearings %}
+    <ul class="task-list">
+      {% for h in upcoming_hearings %}
+      <li>
+        <a class="list-entity" href="{% url 'calendar:event_detail' h.pk %}">
+          <span class="avatar avatar-hearing" aria-hidden="true">{{ h.starts_at|date:"d" }}</span>
+          <span class="list-entity-text">
+            <span class="list-entity-title">{{ h.title }}</span>
+            <span class="list-entity-meta">{{ h.starts_at|date:'d/m H:i' }}{% if h.matter %} · {{ h.matter.reference }}{% endif %}{% if h.court %} · {{ h.court }}{% endif %}</span>
+          </span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-muted">{% translate "Aucune audience planifiée." %}</p>
     {% endif %}
   </section>
 
@@ -126,4 +197,8 @@
     {% endif %}
   </section>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'js/dash-charts.js' %}?v={{ STATIC_VERSION }}"></script>
 {% endblock %}

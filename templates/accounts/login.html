@@ -5,7 +5,7 @@
 
 {% block content %}
 <h1>{% translate "Connexion" %}</h1>
-<p class="auth-lede">{% translate "Accédez à votre espace cabinet (clients, dossiers, documents, facturation)." %}</p>
+<p class="auth-lede">{% translate "Espace du Ministère de la Justice et Garde des Sceaux — cabinets, dossiers, audiences et facturation." %}</p>
 <form method="post" action="{% url 'accounts:login' %}" novalidate>
   {% csrf_token %}
   {% if form.non_field_errors %}

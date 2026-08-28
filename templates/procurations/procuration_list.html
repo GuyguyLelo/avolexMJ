@@ -1,0 +1,171 @@
+{% extends "layouts/app.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Procurations" %} — {{ SITE_NAME }}{% endblock %}
+
+
+{% block content %}
+<div class="proc-page">
+  <header class="page-header proc-page-header">
+    <div>
+      <p class="proc-kicker">{% translate "Ministère de la Justice" %}</p>
+      <h1>{% translate "Procurations" %}</h1>
+      <p class="page-lede">
+        {% if is_platform_admin %}
+          {% translate "Délivrez une procuration à un cabinet pour un dossier, ou révoquez un mandat en cours." %}
+        {% else %}
+          {% translate "Le Ministère de la Justice délivre la procuration au cabinet pour chaque dossier. Sans ce mandat, les actes sont bloqués." %}
+        {% endif %}
+      </p>
+    </div>
+    {% if is_platform_admin %}
+    <div class="cluster">
+      <a class="btn btn-primary" href="{% url 'procurations:create' %}">{% translate "Délivrer une procuration" %}</a>
+    </div>
+    {% endif %}
+  </header>
+
+  <form class="proc-toolbar" method="get" action="{% url 'procurations:list' %}">
+    <div class="form-field proc-toolbar-search">
+      <label class="sr-only" for="filter-q">{% translate "Recherche" %}</label>
+      <input class="form-input" id="filter-q" type="search" name="q" value="{{ filter_q }}"
+             placeholder="{% translate 'Référence, dossier, client…' %}" autocomplete="off">
+    </div>
+    <div class="form-field">
+      <label class="sr-only" for="filter-status">{% translate "Statut" %}</label>
+      <select class="form-input" id="filter-status" name="status">
+        <option value="">{% translate "Tous les statuts" %}</option>
+        {% for value, label in status_choices %}
+        <option value="{{ value }}" {% if filter_status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-field">
+      <label class="sr-only" for="filter-scale">{% translate "Échelle" %}</label>
+      <select class="form-input" id="filter-scale" name="scale">
+        <option value="">{% translate "Toutes les échelles" %}</option>
+        {% for value, label in scale_choices %}
+        <option value="{{ value }}" {% if filter_scale == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% if is_platform_admin %}
+    <div class="form-field">
+      <label class="sr-only" for="filter-cabinet">{% translate "Cabinet" %}</label>
+      <select class="form-input" id="filter-cabinet" name="cabinet">
+        <option value="">{% translate "Tous les cabinets" %}</option>
+        {% for c in cabinets %}
+        <option value="{{ c.pk }}" {% if filter_cabinet == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% else %}
+    <div class="form-field">
+      <label class="sr-only" for="filter-matter">{% translate "Dossier" %}</label>
+      <select class="form-input" id="filter-matter" name="matter">
+        <option value="">{% translate "Tous les dossiers" %}</option>
+        {% for m in matters %}
+        <option value="{{ m.pk }}" {% if filter_matter == m.pk|stringformat:"s" %}selected{% endif %}>{{ m.reference }} — {{ m.title }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <button class="btn btn-secondary" type="submit">{% translate "Filtrer" %}</button>
+    {% if filter_q or filter_status or filter_scale or filter_matter or filter_cabinet %}
+    <a class="btn btn-ghost btn-sm" href="{% url 'procurations:list' %}">{% translate "Réinitialiser" %}</a>
+    {% endif %}
+  </form>
+
+  {% if procurations %}
+  <div class="proc-list-meta">
+    <span>
+      {% blocktranslate count counter=page_obj.paginator.count %}{{ counter }} procuration{% plural %}{{ counter }} procurations{% endblocktranslate %}
+    </span>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Procuration" %}</th>
+          {% if is_platform_admin %}<th>{% translate "Cabinet" %}</th>{% endif %}
+          <th>{% translate "Dossier" %}</th>
+          <th>{% translate "Échelle" %}</th>
+          <th>{% translate "Statut" %}</th>
+          <th>{% translate "Validité" %}</th>
+          <th>{% translate "Actions" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in procurations %}
+        <tr>
+          <td>
+            <a class="list-entity" href="{% url 'procurations:detail' p.pk %}">
+              <span class="avatar" aria-hidden="true">P</span>
+              <span class="list-entity-text">
+                <span class="list-entity-title">{{ p.purpose }}</span>
+                <span class="list-entity-meta list-ref">{{ p.reference }}{% if p.ministry_reference %} · {{ p.ministry_reference }}{% endif %}</span>
+              </span>
+            </a>
+          </td>
+          {% if is_platform_admin %}
+          <td class="proc-cell-muted">{{ p.cabinet.name }}</td>
+          {% endif %}
+          <td>
+            {% if p.matter_id %}
+            <a href="{% url 'matters:detail' p.matter_id %}">{{ p.matter.reference }}</a>
+            <div class="proc-cell-muted">{{ p.matter.title }}</div>
+            {% else %}
+            <span>{{ p.subject }}</span>
+            <div class="proc-cell-muted">{% translate "Sans dossier" %}</div>
+            {% endif %}
+          </td>
+          <td>
+            <span class="badge {% if p.scale == 'international' %}badge-gold{% else %}badge-info{% endif %}">
+              {{ p.get_scale_display }}
+            </span>
+          </td>
+          <td>
+            <span class="badge {% if p.status == 'granted' %}badge-success{% elif p.status == 'requested' %}badge-gold{% elif p.status == 'draft' %}badge-info{% elif p.status == 'refused' or p.status == 'revoked' %}badge-danger{% endif %}">
+              {{ p.get_status_display }}
+            </span>
+          </td>
+          <td class="proc-cell-muted">
+            {% if p.is_currently_valid %}
+              {% if p.expires_at %}{% translate "Jusqu'au" %} {{ p.expires_at|date:"d/m/Y" }}{% else %}{% translate "Sans terme" %}{% endif %}
+            {% elif p.expires_at %}
+              {{ p.expires_at|date:"d/m/Y" }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td>
+            <div class="cluster">
+              <a class="btn btn-ghost btn-sm" href="{% url 'procurations:detail' p.pk %}">{% translate "Voir" %}</a>
+              {% if p.is_pending and is_platform_admin %}
+              <a class="btn btn-ghost btn-sm" href="{% url 'procurations:update' p.pk %}">{% translate "Modifier" %}</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "partials/pagination.html" %}
+  {% else %}
+  <section class="empty-state">
+    <h2>{% translate "Aucune procuration" %}</h2>
+    <p>
+      {% if is_platform_admin %}
+        {% translate "Délivrez une procuration à un cabinet pour autoriser les actes sur un dossier." %}
+      {% else %}
+        {% translate "Le ministère n'a pas encore délivré de procuration à ce cabinet." %}
+      {% endif %}
+    </p>
+    {% if is_platform_admin %}
+    <a class="btn btn-primary" href="{% url 'procurations:create' %}">{% translate "Délivrer une procuration" %}</a>
+    {% endif %}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

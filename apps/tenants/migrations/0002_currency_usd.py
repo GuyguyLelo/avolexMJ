@@ -10,7 +10,6 @@ def switch_cabinets_to_usd(apps, schema_editor) -> None:
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("tenants", "0001_initial"),
     ]

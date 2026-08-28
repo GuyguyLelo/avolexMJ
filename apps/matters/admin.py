@@ -11,8 +11,8 @@ from apps.matters.models import Matter, MatterAction, MatterSequence
 class MatterAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
     """Administration des dossiers."""
 
-    list_display = ("reference", "title", "status", "client", "cabinet", "updated_at")
-    list_filter = ("status",)
+    list_display = ("reference", "title", "scale", "status", "client", "cabinet", "updated_at")
+    list_filter = ("scale", "status")
     search_fields = ("reference", "title", "opposing_party")
     raw_id_fields = ("cabinet", "client", "responsible_lawyer", "created_by")
 

@@ -4,15 +4,22 @@ from __future__ import annotations
 
 from django.contrib import admin
 
-from apps.tenants.models import Cabinet, CabinetPreference, Invitation, Membership
+from apps.tenants.models import (
+    Cabinet,
+    CabinetPracticeArea,
+    CabinetPreference,
+    Invitation,
+    LegalPracticeArea,
+    Membership,
+)
 
 
 @admin.register(Cabinet)
 class CabinetAdmin(admin.ModelAdmin):
     """Administration des cabinets."""
 
-    list_display = ("name", "slug", "city", "is_active", "created_at")
-    search_fields = ("name", "slug", "siret", "legal_name")
+    list_display = ("name", "contract_number", "slug", "city", "is_active", "created_at")
+    search_fields = ("name", "slug", "siret", "legal_name", "contract_number")
     list_filter = ("is_active", "country")
     prepopulated_fields = {"slug": ("name",)}
 
@@ -36,6 +43,25 @@ class InvitationAdmin(admin.ModelAdmin):
     search_fields = ("email", "cabinet__name", "token")
     readonly_fields = ("token", "accepted_at")
     raw_id_fields = ("cabinet", "invited_by", "created_by")
+
+
+@admin.register(LegalPracticeArea)
+class LegalPracticeAreaAdmin(admin.ModelAdmin):
+    """Administration du référentiel de matières."""
+
+    list_display = ("name", "slug", "is_active", "created_at")
+    search_fields = ("name", "description")
+    list_filter = ("is_active",)
+    prepopulated_fields = {"slug": ("name",)}
+
+
+@admin.register(CabinetPracticeArea)
+class CabinetPracticeAreaAdmin(admin.ModelAdmin):
+    """Administration des spécialités de cabinet."""
+
+    list_display = ("cabinet", "practice_area", "created_at")
+    search_fields = ("cabinet__name", "practice_area__name")
+    raw_id_fields = ("cabinet", "practice_area", "created_by")
 
 
 @admin.register(CabinetPreference)

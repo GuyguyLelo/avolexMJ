@@ -26,6 +26,7 @@ from apps.core.mixins import BreadcrumbMixin
 from apps.matters.models import Matter
 from apps.tenants.mixins import CabinetPermissionMixin
 from apps.tenants.roles import PERM_ADD, PERM_CHANGE, PERM_DELETE, PERM_VIEW
+from apps.tenants.services import is_platform_admin
 
 
 class ClientListView(CabinetPermissionMixin, BreadcrumbMixin, ListView):
@@ -74,6 +75,13 @@ class ClientDetailView(CabinetPermissionMixin, BreadcrumbMixin, DetailView):
             .select_related("responsible_lawyer")
             .order_by("-opened_at", "-created_at")
         )
+        if not is_platform_admin(self.request.user):  # type: ignore[arg-type]
+            from apps.procurations.services import authorized_matter_ids_for_cabinet
+
+            cabinet = self.request.cabinet  # type: ignore[attr-defined]
+            ctx["matters"] = ctx["matters"].filter(
+                pk__in=authorized_matter_ids_for_cabinet(cabinet=cabinet)
+            )
         return ctx
 
 
@@ -83,6 +91,7 @@ class ClientCreateView(CabinetPermissionMixin, BreadcrumbMixin, CreateView):
     template_name = "clients/client_form.html"
     form_class = ClientForm
     required_perm = PERM_ADD
+    platform_write = True
 
     def get_breadcrumb(self) -> list[dict[str, str]]:
         return [

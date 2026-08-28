@@ -1,0 +1,124 @@
+{% extends "layouts/app.html" %}
+{% load i18n %}
+
+{% block title %}{% if hearing %}{% translate "Modifier l'audience" %}{% else %}{% translate "Nouvelle audience" %}{% endif %} — {{ SITE_NAME }}{% endblock %}
+
+
+{% block content %}
+<div class="hearings-form-page">
+  <header class="page-header page-header-compact hearings-page-header">
+    <div>
+      <p class="hearings-kicker">{% translate "Procédure" %}</p>
+      <h1>{% if hearing %}{% translate "Modifier l'audience" %}{% else %}{% translate "Nouvelle audience" %}{% endif %}</h1>
+      <p class="page-lede">{% translate "Date, tribunal, dossier et rapport joint." %}</p>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="{% url 'hearings:list' %}">{% translate "Retour" %}</a>
+  </header>
+
+  <form method="post" class="hearing-form" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+    <div class="hearing-form-panels">
+      <section class="form-panel">
+        <header class="form-panel-head">
+          <h2>{% translate "Audience" %}</h2>
+          <p>{% translate "Intitulé, date et dossier concerné." %}</p>
+        </header>
+        <div class="form-grid">
+          <div class="form-field form-field-span">
+            <label for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+            {{ form.title }}
+            {% if form.title.errors %}<div class="form-error">{{ form.title.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field">
+            <label for="{{ form.starts_at.id_for_label }}">{{ form.starts_at.label }}</label>
+            {{ form.starts_at }}
+            {% if form.starts_at.errors %}<div class="form-error">{{ form.starts_at.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field">
+            <label for="{{ form.ends_at.id_for_label }}">{{ form.ends_at.label }}</label>
+            {{ form.ends_at }}
+            {% if form.ends_at.errors %}<div class="form-error">{{ form.ends_at.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field">
+            <label for="{{ form.matter.id_for_label }}">{{ form.matter.label }}</label>
+            {{ form.matter }}
+            {% if form.matter.errors %}<div class="form-error">{{ form.matter.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field">
+            <label for="{{ form.hearing_status.id_for_label }}">{{ form.hearing_status.label }}</label>
+            {{ form.hearing_status }}
+            {% if form.hearing_status.errors %}<div class="form-error">{{ form.hearing_status.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field form-field-span">
+            <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+            {{ form.description }}
+            {% if form.description.errors %}<div class="form-error">{{ form.description.errors }}</div>{% endif %}
+          </div>
+        </div>
+      </section>
+
+      <section class="form-panel">
+        <header class="form-panel-head">
+          <h2>{% translate "Juridiction" %}</h2>
+          <p>{% translate "Tribunal, chambre et salle." %}</p>
+        </header>
+        <div class="form-grid">
+          <div class="form-field form-field-span">
+            <label for="{{ form.court.id_for_label }}">{{ form.court.label }}</label>
+            {{ form.court }}
+            {% if form.court.errors %}<div class="form-error">{{ form.court.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field">
+            <label for="{{ form.chamber.id_for_label }}">{{ form.chamber.label }}</label>
+            {{ form.chamber }}
+            {% if form.chamber.errors %}<div class="form-error">{{ form.chamber.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field">
+            <label for="{{ form.location.id_for_label }}">{{ form.location.label }}</label>
+            {{ form.location }}
+            {% if form.location.errors %}<div class="form-error">{{ form.location.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field">
+            <label for="{{ form.remind_at.id_for_label }}">{{ form.remind_at.label }}</label>
+            {{ form.remind_at }}
+            {% if form.remind_at.errors %}<div class="form-error">{{ form.remind_at.errors }}</div>{% endif %}
+          </div>
+        </div>
+      </section>
+
+      {% if hearing %}
+      <section class="form-panel form-panel-full">
+        <header class="form-panel-head">
+          <h2>{% translate "Rapport d'audience" %}</h2>
+          <p>{% translate "Joignez un fichier Word ou PDF (décisions, renvoi, observations)." %}</p>
+        </header>
+        {% if hearing.hearing_report_file %}
+        <p class="hearing-report-current">
+          {{ hearing.hearing_report_filename|default:"Rapport joint" }}
+          ·
+          {% if hearing.hearing_report_can_preview %}
+          <a href="{% url 'hearings:report_preview' hearing.pk %}" target="_blank" rel="noopener">{% translate "Afficher" %}</a>
+          ·
+          {% endif %}
+          <a href="{% url 'hearings:report_download' hearing.pk %}">{% translate "Télécharger" %}</a>
+        </p>
+        {% endif %}
+        <div class="form-field" style="margin-bottom:0;">
+          <label for="{{ form.report_file.id_for_label }}">{{ form.report_file.label }}</label>
+          {{ form.report_file }}
+          {% if form.report_file.help_text %}<p class="form-help">{{ form.report_file.help_text }}</p>{% endif %}
+          {% if form.report_file.errors %}<div class="form-error">{{ form.report_file.errors }}</div>{% endif %}
+        </div>
+      </section>
+      {% endif %}
+    </div>
+
+    <footer class="form-actions hearing-form-actions">
+      <button class="btn btn-primary" type="submit">{% translate "Enregistrer" %}</button>
+      <a class="btn btn-secondary" href="{% url 'hearings:list' %}">{% translate "Annuler" %}</a>
+    </footer>
+  </form>
+</div>
+{% endblock %}

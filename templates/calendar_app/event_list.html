@@ -10,6 +10,7 @@
     <p class="page-lede">{% translate "Rendez-vous, audiences, délais et tâches." %}</p>
   </div>
   <div class="cluster">
+    <a class="btn btn-secondary" href="{% url 'hearings:list' %}">{% translate "Audiences" %}</a>
     <a class="btn btn-secondary" href="{% url 'calendar:event_create' %}?type=task">{% translate "Nouvelle tâche" %}</a>
     <a class="btn btn-primary" href="{% url 'calendar:event_create' %}">{% translate "Nouvel événement" %}</a>
   </div>

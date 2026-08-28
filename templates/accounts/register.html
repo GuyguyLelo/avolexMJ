@@ -4,8 +4,8 @@
 {% block title %}{% translate "Inscription" %} — {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
-<h1>{% translate "Créer votre cabinet" %}</h1>
-<p class="auth-lede">{% translate "14 jours d'essai. Vous serez propriétaire du cabinet." %}</p>
+<h1>{% translate "Enregistrer un cabinet" %}</h1>
+<p class="auth-lede">{% translate "Création d'un espace cabinet rattaché à la plateforme du ministère." %}</p>
 <form method="post" action="{% url 'accounts:register' %}" novalidate>
   {% csrf_token %}
   {% if form.non_field_errors %}

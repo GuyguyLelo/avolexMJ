@@ -29,10 +29,10 @@ from apps.clients.models import Client, ClientType
 from apps.clients.services import create_client
 from apps.documents.models import Document
 from apps.documents.services import create_document_with_file
-from apps.matters.models import Matter, MatterStatus
+from apps.matters.models import Matter, MatterScale, MatterStatus
 from apps.matters.services import create_matter, update_matter
 from apps.tenants.context import cabinet_context
-from apps.tenants.models import Invitation, Membership
+from apps.tenants.models import Cabinet, Invitation, Membership
 from apps.tenants.roles import Role
 from apps.tenants.services import create_cabinet_with_owner, invite_member
 
@@ -40,6 +40,7 @@ User = get_user_model()
 
 DEMO_PASSWORD = "@12345678"  # noqa: S105 — compte de démo local uniquement
 DEMO_EMAIL = "ngamika@gmail.com"
+MINISTRY_EMAIL = "ministere@avolex.local"
 DEMO_CABINET_NAME = "ILEO Law Firm"
 DEMO_CABINET_LEGAL_NAME = "ILEO Law Firm"
 
@@ -48,7 +49,7 @@ TEAM: list[dict[str, str]] = [
         "email": DEMO_EMAIL,
         "first_name": "Camille",
         "last_name": "Dupont",
-        "role": Role.OWNER,
+        "role": Role.CAIMAN,
     },
     {
         "email": "avocat@avolex.local",
@@ -56,23 +57,85 @@ TEAM: list[dict[str, str]] = [
         "last_name": "Lefèvre",
         "role": Role.LAWYER,
     },
+]
+
+# Cabinets kinois publics (adresses de leurs sites / barreau) — démo supervision.
+KINSHASA_CABINETS: list[dict[str, Any]] = [
     {
-        "email": "collab@avolex.local",
-        "first_name": "Léa",
-        "last_name": "Bernard",
-        "role": Role.ASSOCIATE,
+        "name": "Peter Kazadi Kankonde & Associés",
+        "legal_name": "Cabinet Peter Kazadi Kankonde & Associés",
+        "bar_association": "Barreau de Kinshasa/Gombe",
+        "address_line1": "52, avenue de la Gombe, 1er niveau",
+        "address_line2": "Commune de la Gombe",
+        "owner_email": "owner.kazadi@avolex.local",
+        "owner_first_name": "Peter",
+        "owner_last_name": "Kazadi",
+        "client_first_name": "Grace",
+        "client_last_name": "Ilunga",
+        "matter_title": "Contentieux commercial — Gombe",
+        "jurisdiction": "Tribunal de commerce de la Gombe",
+        "specialties": ("Droit commercial", "Droit des sociétés", "Droit des contrats"),
     },
     {
-        "email": "secretariat@avolex.local",
-        "first_name": "Nadia",
-        "last_name": "Morel",
-        "role": Role.SECRETARY,
+        "name": "Cabinet Bâtonnier Jean Claude Mbaki & Associés",
+        "legal_name": "Cabinet Bâtonnier Jean Claude MBAKI & Associés",
+        "bar_association": "Barreau de Kinshasa/Gombe",
+        "address_line1": "1060/B, avenue Colonel Ebeya, quartier Golf",
+        "address_line2": "Commune de la Gombe",
+        "owner_email": "owner.mbaki@avolex.local",
+        "owner_first_name": "Jean-Claude",
+        "owner_last_name": "Mbaki",
+        "client_first_name": "Patrick",
+        "client_last_name": "Kalala",
+        "matter_title": "Contentieux administratif OHADA",
+        "jurisdiction": "Tribunal de grande instance de Kinshasa/Gombe",
+        "specialties": ("Droit administratif", "Droit OHADA", "Droit civil"),
     },
     {
-        "email": "lecture@avolex.local",
-        "first_name": "Marc",
-        "last_name": "Petit",
-        "role": Role.READ_ONLY,
+        "name": "Tshibangu Ilunga & Partners",
+        "legal_name": "TI&A SCA Tshibangu Ilunga & Associés",
+        "bar_association": "Barreau de Kinshasa/Gombe",
+        "address_line1": "130/A, boulevard du 30 Juin, immeuble Sanash, suite 7D",
+        "address_line2": "Commune de la Gombe",
+        "owner_email": "owner.tshibangu@avolex.local",
+        "owner_first_name": "Moïse",
+        "owner_last_name": "Tshibangu",
+        "client_first_name": "Amina",
+        "client_last_name": "Mwamba",
+        "matter_title": "Litige minier et fiscal",
+        "jurisdiction": "Tribunal de commerce de la Gombe",
+        "specialties": ("Droit minier", "Droit fiscal", "Droit commercial"),
+    },
+    {
+        "name": "Cabinet Mavinga Declerc & Partners",
+        "legal_name": "Cabinet Mavinga Declerc & Partners AARPI",
+        "bar_association": "Barreau de Kinshasa/Gombe",
+        "address_line1": "1er étage, immeuble Parkland, 1 avenue Ngongo-Lutete",
+        "address_line2": "Concession RAFI (ex-PLC), commune de la Gombe",
+        "owner_email": "owner.mavinga@avolex.local",
+        "owner_first_name": "Declerc",
+        "owner_last_name": "Mavinga",
+        "client_first_name": "Joseph",
+        "client_last_name": "Lutete",
+        "matter_title": "Droit des hydrocarbures et marchés publics",
+        "jurisdiction": "Tribunal de grande instance de Kinshasa/Gombe",
+        "specialties": ("Droit administratif", "Droit commercial", "Droit minier"),
+    },
+    {
+        "name": "Emery Mukendi Wafwana & Associates",
+        "legal_name": "Emery Mukendi Wafwana & Associés",
+        "bar_association": "Barreau de Kinshasa/Gombe",
+        "address_line1": "Crown Tower, 7e niveau, suites 701-702",
+        "address_line2": "Croisement boulevard du 30 Juin / avenue Batetela, Gombe",
+        "owner_email": "owner.emery@avolex.local",
+        "owner_first_name": "Emery",
+        "owner_last_name": "Mukendi",
+        "client_first_name": "Sarah",
+        "client_last_name": "Kabasele",
+        "matter_title": "Arbitrage OHADA — investissement",
+        "jurisdiction": "Cour commune de justice et d'arbitrage (OHADA)",
+        "scale": MatterScale.INTERNATIONAL,
+        "specialties": ("Droit OHADA", "Droit commercial", "Droit pénal international"),
     },
 ]
 
@@ -211,9 +274,14 @@ COMPANIES: list[dict[str, Any]] = [
 class Command(BaseCommand):
     """Crée un cabinet démo avec clients, dossiers, agenda, GED et facturation."""
 
-    help = "Génère des données de test réalistes (cabinet ILEO Law Firm)."
+    help = "Génère des données de test (ILEO + 5 cabinets de Kinshasa/Gombe)."
 
     def handle(self, *args: object, **options: object) -> None:
+        with transaction.atomic():
+            self._seed()
+
+    def _seed(self) -> None:
+        ministry = self._ensure_ministry()
         owner = self._ensure_user(
             email=DEMO_EMAIL,
             first_name="Camille",
@@ -225,22 +293,41 @@ class Command(BaseCommand):
         with cabinet_context(cabinet):
             clients = self._ensure_clients(cabinet, owner)
             lawyer = team[Role.LAWYER]
-            associate = team[Role.ASSOCIATE]
-            matters = self._ensure_matters(cabinet, owner, lawyer, associate, clients)
+            associate = team[Role.LAWYER]
+            matters = self._ensure_matters(cabinet, owner, lawyer, associate, clients, ministry)
             self._ensure_events(cabinet, owner, lawyer, associate, matters)
             self._ensure_time_and_expenses(cabinet, owner, lawyer, associate, matters)
             self._ensure_invoices(cabinet, owner, matters)
             self._ensure_documents(cabinet, owner, matters)
             self._ensure_invitation(cabinet, owner)
 
+        kinshasa = self._ensure_kinshasa_cabinets(ministry)
+        self._ensure_practice_areas(cabinet, kinshasa, owner)
+
         self.stdout.write(self.style.SUCCESS("Données de test prêtes."))
         self.stdout.write(f"  Cabinet   : {cabinet.name}")
         self.stdout.write("  Comptes (mot de passe identique) :")
+        self.stdout.write(f"    {MINISTRY_EMAIL:28}  ministère    {DEMO_PASSWORD}")
         for member in TEAM:
             self.stdout.write(f"    {member['email']:28}  {member['role']:12}  {DEMO_PASSWORD}")
+        self.stdout.write("  Cabinets Kinshasa/Gombe :")
+        for spec, _cab in zip(KINSHASA_CABINETS, kinshasa, strict=True):
+            self.stdout.write(f"    {spec['name']}")
+            self.stdout.write(f"      {spec['owner_email']:28}  {DEMO_PASSWORD}")
+
+    def _ensure_ministry(self) -> Any:
+        user = self._ensure_user(
+            email=MINISTRY_EMAIL,
+            first_name="Ministère",
+            last_name="Justice",
+        )
+        if not user.is_platform_admin:
+            user.is_platform_admin = True
+            user.save(update_fields=["is_platform_admin"])
+        return user
 
     def _ensure_user(self, *, email: str, first_name: str, last_name: str) -> Any:
-        user, created = User.objects.get_or_create(
+        user, _created = User.objects.get_or_create(
             email=email,
             defaults={
                 "first_name": first_name,
@@ -257,7 +344,7 @@ class Command(BaseCommand):
 
     def _ensure_cabinet(self, owner: Any) -> Any:
         membership = (
-            Membership.objects.filter(user=owner, role=Role.OWNER)
+            Membership.objects.filter(user=owner, role=Role.CAIMAN)
             .select_related("cabinet")
             .first()
         )
@@ -289,8 +376,128 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"Cabinet créé : {cabinet.name}"))
         return cabinet
 
+    def _ensure_practice_areas(self, cabinet: Any, kinshasa: list[Any], owner: Any) -> None:
+        from django.core.exceptions import ValidationError
+
+        from apps.tenants.legal_areas import ensure_default_legal_practice_areas
+        from apps.tenants.models import LegalPracticeArea
+        from apps.tenants.services import add_cabinet_practice_area
+
+        ensure_default_legal_practice_areas()
+        ileo_names = (
+            "Droit du travail",
+            "Droit de la famille",
+            "Droit commercial",
+        )
+        assignments: list[tuple[Any, Any, tuple[str, ...]]] = [(cabinet, owner, ileo_names)]
+        for spec, item in zip(KINSHASA_CABINETS, kinshasa, strict=True):
+            member = (
+                Membership.objects.filter(cabinet=item, role=Role.CAIMAN, is_active=True)
+                .select_related("user")
+                .first()
+            )
+            actor = member.user if member else owner
+            assignments.append((item, actor, tuple(spec.get("specialties") or ())))
+        for target, actor, names in assignments:
+            for name in names:
+                area = LegalPracticeArea.objects.filter(name=name).first()
+                if area is None:
+                    continue
+                try:
+                    add_cabinet_practice_area(
+                        actor=actor,
+                        cabinet=target,
+                        practice_area=area,
+                    )
+                except ValidationError:
+                    continue
+        self.stdout.write(self.style.SUCCESS("Spécialités des cabinets enregistrées."))
+
+    def _ensure_kinshasa_cabinets(self, ministry: Any) -> list[Any]:
+        """Cinq cabinets du Barreau de Kinshasa/Gombe pour la supervision."""
+        from apps.procurations.services import stamp_granted_procuration
+
+        created: list[Any] = []
+        for spec in KINSHASA_CABINETS:
+            owner = self._ensure_user(
+                email=spec["owner_email"],
+                first_name=spec["owner_first_name"],
+                last_name=spec["owner_last_name"],
+            )
+            cabinet = Cabinet.objects.filter(name=spec["name"]).first()
+            fields = {
+                "legal_name": spec["legal_name"],
+                "bar_association": spec["bar_association"],
+                "address_line1": spec["address_line1"],
+                "address_line2": spec.get("address_line2") or "",
+                "city": "Kinshasa",
+                "country": "CD",
+            }
+            if cabinet is None:
+                cabinet, _membership = create_cabinet_with_owner(
+                    owner=owner,
+                    name=spec["name"],
+                    **fields,
+                )
+                self.stdout.write(self.style.SUCCESS(f"Cabinet Kinshasa créé : {cabinet.name}"))
+            else:
+                Membership.objects.get_or_create(
+                    cabinet=cabinet,
+                    user=owner,
+                    defaults={
+                        "role": Role.CAIMAN,
+                        "is_active": True,
+                        "created_by": owner,
+                    },
+                )
+                changed = [key for key, value in fields.items() if getattr(cabinet, key) != value]
+                if changed:
+                    for key in changed:
+                        setattr(cabinet, key, fields[key])
+                    cabinet.save(update_fields=[*changed, "updated_at"])
+            created.append(cabinet)
+
+            with cabinet_context(cabinet):
+                client = Client.objects.filter(
+                    cabinet=cabinet,
+                    last_name=spec["client_last_name"],
+                    first_name=spec["client_first_name"],
+                ).first()
+                if client is None:
+                    client = create_client(
+                        cabinet=cabinet,
+                        user=owner,
+                        client_type=ClientType.PERSON,
+                        first_name=spec["client_first_name"],
+                        last_name=spec["client_last_name"],
+                        city="Kinshasa",
+                        country="CD",
+                    )
+                matter = Matter.objects.filter(
+                    cabinet=cabinet,
+                    title=spec["matter_title"],
+                ).first()
+                if matter is None:
+                    matter = create_matter(
+                        cabinet=cabinet,
+                        user=ministry,
+                        client=client,
+                        title=spec["matter_title"],
+                        responsible_lawyer=owner,
+                        jurisdiction=spec["jurisdiction"],
+                        scale=spec.get("scale") or MatterScale.NATIONAL,
+                        practice_area=(spec.get("specialties") or ("",))[0],
+                    )
+                stamp_granted_procuration(
+                    matter=matter,
+                    actor=owner,
+                    purpose="Représentation et actes de procédure",
+                    ministry_reference=f"MJ/GS/2026/{cabinet.slug[:8].upper()}",
+                )
+        return created
+
     def _ensure_team(self, cabinet: Any, owner: Any) -> dict[str, Any]:
-        users: dict[str, Any] = {Role.OWNER: owner}
+        users: dict[str, Any] = {Role.CAIMAN: owner}
         for member in TEAM:
             user = self._ensure_user(
                 email=member["email"],
@@ -343,14 +550,18 @@ class Command(BaseCommand):
         lawyer: Any,
         associate: Any,
         clients: dict[str, Client],
+        ministry: Any,
     ) -> dict[str, Matter]:
+        from apps.procurations.services import stamp_granted_procuration
+
         specs: list[dict[str, Any]] = [
             {
                 "title": "Licenciement contesté",
                 "client": clients["julie.martin@example.com"],
                 "lawyer": lawyer,
                 "practice_area": "Droit du travail",
-                "jurisdiction": "Conseil de prud'hommes de Paris",
+                "jurisdiction": "Tribunal du travail de la Gombe",
+                "scale": MatterScale.NATIONAL,
                 "opposing_party": "SAS Horizon RH",
                 "status": MatterStatus.IN_PROGRESS,
                 "description": "Contestation d'un licenciement pour faute.",
@@ -361,7 +572,8 @@ class Command(BaseCommand):
                 "client": clients["contact@technova.example"],
                 "lawyer": owner,
                 "practice_area": "Droit commercial",
-                "jurisdiction": "Tribunal de commerce de Paris",
+                "jurisdiction": "Tribunal de commerce de la Gombe",
+                "scale": MatterScale.NATIONAL,
                 "opposing_party": "LogiParts SARL",
                 "status": MatterStatus.OPEN,
                 "description": "Litige fournisseur / client B2B. Factures impayées.",
@@ -371,7 +583,8 @@ class Command(BaseCommand):
                 "client": clients["sophie.leroux@example.com"],
                 "lawyer": lawyer,
                 "practice_area": "Droit de la famille",
-                "jurisdiction": "TJ de Lyon",
+                "jurisdiction": "Tribunal de paix de Kinshasa/Gombe",
+                "scale": MatterScale.NATIONAL,
                 "opposing_party": "Thomas Leroux",
                 "status": MatterStatus.IN_PROGRESS,
                 "description": "Convention de divorce, résidence des enfants.",
@@ -381,7 +594,8 @@ class Command(BaseCommand):
                 "client": clients["etienne.moreau@example.com"],
                 "lawyer": associate,
                 "practice_area": "Droit immobilier",
-                "jurisdiction": "TJ de Bordeaux",
+                "jurisdiction": "Tribunal de grande instance de Kinshasa/Gombe",
+                "scale": MatterScale.NATIONAL,
                 "opposing_party": "Famille Charpentier",
                 "status": MatterStatus.ON_HOLD,
                 "description": "Expertise géomètre en attente.",
@@ -391,7 +605,8 @@ class Command(BaseCommand):
                 "client": clients["ines.diallo@example.com"],
                 "lawyer": associate,
                 "practice_area": "Droit des étrangers",
-                "jurisdiction": "Préfecture des Bouches-du-Rhône",
+                "jurisdiction": "Conseil d'État",
+                "scale": MatterScale.NATIONAL,
                 "status": MatterStatus.OPEN,
                 "description": "Recours gracieux puis contentieux si besoin.",
             },
@@ -400,7 +615,8 @@ class Command(BaseCommand):
                 "client": clients["paul.girard@example.com"],
                 "lawyer": lawyer,
                 "practice_area": "Droit du préjudice corporel",
-                "jurisdiction": "TJ de Nantes",
+                "jurisdiction": "Tribunal de grande instance de Kinshasa/Kalamu",
+                "scale": MatterScale.NATIONAL,
                 "opposing_party": "Assureur AXA",
                 "status": MatterStatus.IN_PROGRESS,
                 "description": "Expertise médicale contradictoire.",
@@ -410,7 +626,8 @@ class Command(BaseCommand):
                 "client": clients["claire.rousseau@example.com"],
                 "lawyer": owner,
                 "practice_area": "Droit des successions",
-                "jurisdiction": "Notaire associé — Strasbourg",
+                "jurisdiction": "Tribunal de paix de Kinshasa/Ngaliema",
+                "scale": MatterScale.NATIONAL,
                 "status": MatterStatus.CLOSED,
                 "description": "Partage amiable clôturé.",
                 "closed_at": timezone.localdate() - timedelta(days=20),
@@ -420,7 +637,8 @@ class Command(BaseCommand):
                 "client": clients["hugo.petit@example.com"],
                 "lawyer": lawyer,
                 "practice_area": "Droit des baux commerciaux",
-                "jurisdiction": "TJ de Lille",
+                "jurisdiction": "Tribunal de commerce de la Gombe",
+                "scale": MatterScale.NATIONAL,
                 "opposing_party": "SARL Café du Nord",
                 "status": MatterStatus.IN_PROGRESS,
                 "description": "Commandement de payer, clause résolutoire.",
@@ -430,7 +648,8 @@ class Command(BaseCommand):
                 "client": clients["juridique@atelier-lumiere.example"],
                 "lawyer": owner,
                 "practice_area": "Propriété intellectuelle",
-                "jurisdiction": "TJ de Lyon",
+                "jurisdiction": "Tribunal de grande instance de Kinshasa/Gombe",
+                "scale": MatterScale.NATIONAL,
                 "opposing_party": "Studio Halo",
                 "status": MatterStatus.OPEN,
                 "description": "Imitation de marque et détournement de clientèle.",
@@ -440,7 +659,8 @@ class Command(BaseCommand):
                 "client": clients["direction@nord-logistique.example"],
                 "lawyer": associate,
                 "practice_area": "Droit des contrats",
-                "jurisdiction": "Tribunal de commerce de Lille",
+                "jurisdiction": "Tribunal de commerce de la Gombe",
+                "scale": MatterScale.NATIONAL,
                 "status": MatterStatus.OPEN,
                 "description": "Négociation et relecture du contrat-cadre 2026.",
             },
@@ -449,7 +669,8 @@ class Command(BaseCommand):
                 "client": clients["karim.benali@example.com"],
                 "lawyer": lawyer,
                 "practice_area": "Droit du travail",
-                "jurisdiction": "Conseil de prud'hommes de Paris",
+                "jurisdiction": "Tribunal du travail de la Gombe",
+                "scale": MatterScale.NATIONAL,
                 "opposing_party": "Industrie Métal SAS",
                 "status": MatterStatus.ON_HOLD,
                 "description": "Attente de l'ordonnance de conciliation.",
@@ -459,9 +680,34 @@ class Command(BaseCommand):
                 "client": clients["gerance@maison-bellevue.example"],
                 "lawyer": owner,
                 "practice_area": "Droit des sociétés",
+                "jurisdiction": "Tribunal de commerce de la Gombe",
+                "scale": MatterScale.NATIONAL,
                 "status": MatterStatus.CLOSED,
                 "description": "PV d'AG et cession de parts.",
                 "closed_at": timezone.localdate() - timedelta(days=45),
+            },
+            {
+                "title": "Coopération judiciaire — CPI",
+                "client": clients["contact@technova.example"],
+                "lawyer": owner,
+                "practice_area": "Droit pénal international",
+                "jurisdiction": "Cour pénale internationale",
+                "scale": MatterScale.INTERNATIONAL,
+                "opposing_party": "Procureur de la CPI",
+                "status": MatterStatus.IN_PROGRESS,
+                "description": "Demande d'entraide et d'exécution d'un mandat d'arrêt.",
+                "notes": "Traité à l'échelle internationale par le Ministère de la Justice.",
+            },
+            {
+                "title": "Différend commercial OHADA",
+                "client": clients["direction@nord-logistique.example"],
+                "lawyer": lawyer,
+                "practice_area": "Droit OHADA",
+                "jurisdiction": "Cour commune de justice et d'arbitrage (OHADA)",
+                "scale": MatterScale.INTERNATIONAL,
+                "opposing_party": "Transit Afrique SA",
+                "status": MatterStatus.OPEN,
+                "description": "Pourvoi et arbitrage devant la CCJA.",
             },
         ]
         matters: dict[str, Matter] = {}
@@ -472,6 +718,10 @@ class Command(BaseCommand):
                 title=spec["title"],
             ).first()
             if existing:
+                existing.scale = spec.get("scale", MatterScale.NATIONAL)
+                existing.jurisdiction = spec.get("jurisdiction", existing.jurisdiction)
+                existing.save(update_fields=["scale", "jurisdiction", "updated_at"])
+                stamp_granted_procuration(matter=existing, actor=owner)
                 matters[spec["title"]] = existing
                 continue
             closed_at = spec.pop("closed_at", None)
@@ -480,11 +730,12 @@ class Command(BaseCommand):
             lawyer_user = spec.pop("lawyer")
             matter = create_matter(
                 cabinet=cabinet,
-                user=owner,
+                user=ministry,
                 client=client,
                 responsible_lawyer=lawyer_user,
                 **spec,
             )
+            stamp_granted_procuration(matter=matter, actor=owner)
             if status != MatterStatus.OPEN or closed_at:
                 update_matter(
                     matter=matter,
@@ -511,7 +762,7 @@ class Command(BaseCommand):
                 "matter": matters["Licenciement contesté"],
                 "event_type": EventType.HEARING,
                 "starts_at": now + timedelta(days=3, hours=2),
-                "location": "Conseil de prud'hommes de Paris",
+                "location": "Tribunal du travail de la Gombe",
                 "assigned_to": lawyer,
                 "remind_at": now + timedelta(days=2),
             },
@@ -883,7 +1134,7 @@ class Command(BaseCommand):
         invite_member(
             cabinet=cabinet,
             email=email,
-            role=Role.ASSOCIATE,
+            role=Role.LAWYER,
             invited_by=owner,
         )
         self.stdout.write("Invitation en attente : stagiaire@example.com")

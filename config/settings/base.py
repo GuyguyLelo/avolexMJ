@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "apps.tenants",
     "apps.clients",
     "apps.matters",
+    "apps.procurations",
     "apps.calendar_app",
     "apps.documents",
     "apps.billing",
@@ -121,7 +122,7 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 LANGUAGE_CODE = "fr-fr"
-TIME_ZONE = "Europe/Paris"
+TIME_ZONE = "Africa/Kinshasa"
 USE_I18N = True
 USE_TZ = True
 
@@ -263,6 +264,11 @@ LOGGING = {
 }
 
 SITE_NAME = "AvoLex"
+SITE_COUNTRY = "République Démocratique du Congo"
+SITE_INSTITUTION = "Ministère de la Justice et Garde des Sceaux"
+SITE_AUTHORITY = "Le Gouvernement"
+# Invalide le cache navigateur des CSS/JS (changer à chaque charte visuelle)
+STATIC_VERSION = "app-css-v16"
 
 
 def require_setting(name: str) -> str:

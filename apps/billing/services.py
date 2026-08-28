@@ -70,6 +70,9 @@ def create_time_entry(
     """Crée une saisie de temps manuelle."""
     require_cabinet_perm(user=user, cabinet=cabinet, perm=PERM_ADD)
     assert_matter_cabinet(matter=matter, cabinet=cabinet)
+    from apps.procurations.services import require_matter_activity_allowed
+
+    require_matter_activity_allowed(matter)
     if duration_minutes <= 0:
         raise ValidationError({"duration_minutes": _("La durée doit être positive.")})
     now = timezone.now()
@@ -99,6 +102,9 @@ def start_timer(
     """Démarre un timer (un seul timer actif par utilisateur / cabinet)."""
     require_cabinet_perm(user=user, cabinet=cabinet, perm=PERM_ADD)
     assert_matter_cabinet(matter=matter, cabinet=cabinet)
+    from apps.procurations.services import require_matter_activity_allowed
+
+    require_matter_activity_allowed(matter)
     running = TimeEntry.objects.filter(
         cabinet=cabinet,
         user=user,
@@ -151,6 +157,9 @@ def create_expense(
     """Crée un débours."""
     require_cabinet_perm(user=user, cabinet=cabinet, perm=PERM_ADD)
     assert_matter_cabinet(matter=matter, cabinet=cabinet)
+    from apps.procurations.services import require_matter_activity_allowed
+
+    require_matter_activity_allowed(matter)
     if amount <= 0:
         raise ValidationError({"amount": _("Le montant doit être positif.")})
     return Expense.objects.create(
@@ -225,6 +234,9 @@ def create_draft_invoice(
         assert_matter_cabinet(matter=matter, cabinet=cabinet)
         if matter.client_id != client.pk:
             raise ValidationError(_("Le dossier n'appartient pas à ce client."))
+        from apps.procurations.services import require_matter_activity_allowed
+
+        require_matter_activity_allowed(matter)
 
     invoice = Invoice.objects.create(
         cabinet=cabinet,

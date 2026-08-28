@@ -1,0 +1,116 @@
+{% extends "layouts/app.html" %}
+{% load i18n static %}
+
+{% block title %}{% if procuration %}{% translate "Modifier la procuration" %}{% else %}{% translate "Délivrer une procuration" %}{% endif %} — {{ SITE_NAME }}{% endblock %}
+
+
+{% block content %}
+<div class="proc-page">
+  <header class="page-header proc-page-header">
+    <div>
+      <p class="proc-kicker">{% translate "Ministère de la Justice" %}</p>
+      <h1>{% if procuration %}{% translate "Modifier la procuration" %}{% else %}{% translate "Délivrer une procuration" %}{% endif %}</h1>
+      <p class="page-lede">
+        {% if procuration %}
+          {% translate "La procuration autorise le cabinet à accomplir des actes sur le dossier désigné." %}
+        {% else %}
+          {% translate "Choisissez le cabinet et le dossier : la procuration est accordée immédiatement au cabinet." %}
+        {% endif %}
+      </p>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="{% if procuration %}{% url 'procurations:detail' procuration.pk %}{% else %}{% url 'procurations:list' %}{% endif %}">{% translate "Retour" %}</a>
+  </header>
+
+  <form method="post" enctype="multipart/form-data" class="proc-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+    <section class="card">
+      <header class="card-header">
+        <h2 class="card-title">{% translate "Mandat ministériel" %}</h2>
+      </header>
+      <div class="form-grid" style="padding: var(--space-5);">
+        {% if form.cabinet %}
+        <div class="form-field form-field-span">
+          <label for="{{ form.cabinet.id_for_label }}">{{ form.cabinet.label }}</label>
+          {{ form.cabinet }}
+          {% if form.cabinet.help_text %}<p class="form-help">{{ form.cabinet.help_text }}</p>{% endif %}
+          {% if form.cabinet.errors %}<div class="form-error">{{ form.cabinet.errors }}</div>{% endif %}
+        </div>
+        {% endif %}
+        <div class="form-field form-field-span">
+          <label for="{{ form.matter.id_for_label }}">{{ form.matter.label }}</label>
+          {{ form.matter }}
+          {% if form.matter.help_text %}<p class="form-help">{{ form.matter.help_text }}</p>{% endif %}
+          {% if form.matter.errors %}<div class="form-error">{{ form.matter.errors }}</div>{% endif %}
+        </div>
+        <div class="form-field form-field-span">
+          <label for="{{ form.reference.id_for_label }}">{{ form.reference.label }}</label>
+          {{ form.reference }}
+          {% if form.reference.help_text %}<p class="form-help">{{ form.reference.help_text }}</p>{% endif %}
+          {% if form.reference.errors %}<div class="form-error">{{ form.reference.errors }}</div>{% endif %}
+        </div>
+        <div class="form-field form-field-span">
+          <label for="{{ form.purpose.id_for_label }}">{{ form.purpose.label }}</label>
+          {{ form.purpose }}
+          {% if form.purpose.help_text %}<p class="form-help">{{ form.purpose.help_text }}</p>{% endif %}
+          {% if form.purpose.errors %}<div class="form-error">{{ form.purpose.errors }}</div>{% endif %}
+        </div>
+        {% if form.ministry_reference %}
+        <div class="form-field">
+          <label for="{{ form.ministry_reference.id_for_label }}">{{ form.ministry_reference.label }}</label>
+          {{ form.ministry_reference }}
+          {% if form.ministry_reference.help_text %}<p class="form-help">{{ form.ministry_reference.help_text }}</p>{% endif %}
+          {% if form.ministry_reference.errors %}<div class="form-error">{{ form.ministry_reference.errors }}</div>{% endif %}
+        </div>
+        {% endif %}
+        {% if form.valid_from %}
+        <div class="form-field">
+          <label for="{{ form.valid_from.id_for_label }}">{{ form.valid_from.label }}</label>
+          {{ form.valid_from }}
+          {% if form.valid_from.errors %}<div class="form-error">{{ form.valid_from.errors }}</div>{% endif %}
+        </div>
+        {% endif %}
+        {% if form.expires_at %}
+        <div class="form-field">
+          <label for="{{ form.expires_at.id_for_label }}">{{ form.expires_at.label }}</label>
+          {{ form.expires_at }}
+          {% if form.expires_at.errors %}<div class="form-error">{{ form.expires_at.errors }}</div>{% endif %}
+        </div>
+        {% endif %}
+        <div class="form-field form-field-span">
+          <label for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
+          {{ form.notes }}
+          {% if form.notes.errors %}<div class="form-error">{{ form.notes.errors }}</div>{% endif %}
+        </div>
+        <div class="form-field form-field-span">
+          <label for="{{ form.instrument.id_for_label }}">{% translate "Acte scanné (PDF ou image)" %}</label>
+          {{ form.instrument }}
+          {% if procuration.instrument %}
+          <p class="form-help">
+            {% translate "Acte actuel :" %}
+            {{ procuration.instrument_filename|default:"acte" }}
+            —
+            {% if procuration.instrument_can_preview %}
+            <a href="{% url 'procurations:preview' procuration.pk %}" target="_blank" rel="noopener">{% translate "Afficher" %}</a>
+            ·
+            {% endif %}
+            <a href="{% url 'procurations:download' procuration.pk %}">{% translate "Télécharger" %}</a>
+          </p>
+          {% endif %}
+          {% if form.instrument.errors %}<div class="form-error">{{ form.instrument.errors }}</div>{% endif %}
+        </div>
+      </div>
+    </section>
+
+    <footer class="form-actions" style="margin-top: var(--space-5);">
+      <button class="btn btn-primary" type="submit">{% if procuration %}{% translate "Enregistrer" %}{% else %}{% translate "Délivrer la procuration" %}{% endif %}</button>
+      <a class="btn btn-ghost" href="{% if procuration %}{% url 'procurations:detail' procuration.pk %}{% else %}{% url 'procurations:list' %}{% endif %}">{% translate "Annuler" %}</a>
+    </footer>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/procurations.js' %}?v={{ STATIC_VERSION }}"></script>
+{% endblock %}

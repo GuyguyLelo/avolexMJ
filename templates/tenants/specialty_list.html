@@ -1,0 +1,68 @@
+{% extends "layouts/app.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Spécialités" %} — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<header class="page-header">
+  <div>
+    <h1>{% translate "Spécialités" %}</h1>
+    <p class="page-lede">{% translate "Matières juridiques dans lesquelles ce cabinet est compétent. Le ministère s'appuie sur cette liste pour proposer un cabinet à l'ouverture d'un dossier." %}</p>
+  </div>
+</header>
+
+{% if can_manage_specialties %}
+<section class="card" style="max-width: 36rem; margin-bottom: 1.25rem;">
+  <header class="card-header">
+    <h2 class="card-title">{% translate "Ajouter une matière" %}</h2>
+  </header>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+    <div class="form-field">
+      <label for="{{ form.practice_area.id_for_label }}">{{ form.practice_area.label }}</label>
+      {{ form.practice_area }}
+      {% if form.practice_area.errors %}<div class="form-error">{{ form.practice_area.errors }}</div>{% endif %}
+    </div>
+    <button class="btn btn-primary" type="submit"{% if not form.practice_area.field.queryset %} disabled{% endif %}>{% translate "Ajouter" %}</button>
+  </form>
+</section>
+{% endif %}
+
+<section class="card">
+  <header class="card-header">
+    <h2 class="card-title">{% translate "Matières du cabinet" %}</h2>
+  </header>
+  {% if links %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Matière" %}</th>
+          {% if can_manage_specialties %}<th></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for link in links %}
+        <tr>
+          <td>{{ link.practice_area.name }}</td>
+          {% if can_manage_specialties %}
+          <td class="table-actions">
+            <form method="post" action="{% url 'tenants:specialty_remove' link.pk %}" onsubmit="return confirm('{% translate "Retirer cette spécialité ?" %}');">
+              {% csrf_token %}
+              <button class="btn btn-ghost btn-sm" type="submit">{% translate "Retirer" %}</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty-state">{% translate "Aucune spécialité enregistrée." %}</p>
+  {% endif %}
+</section>
+{% endblock %}

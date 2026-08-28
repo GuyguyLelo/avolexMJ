@@ -1,4 +1,4 @@
-"""Vues transverses (landing, healthcheck, home)."""
+"""Vues transverses (landing, healthcheck, home, supervision)."""
 
 from __future__ import annotations
 
@@ -10,9 +10,20 @@ from django.shortcuts import redirect
 from django.views import View
 from django.views.generic import TemplateView
 
-from apps.core.dashboard import build_dashboard_stats, recent_matters, upcoming_events
+from apps.core.dashboard import (
+    build_cabinet_charts,
+    build_dashboard_stats,
+    build_platform_charts,
+    build_platform_stats,
+    recent_matters,
+    recent_platform_activity,
+    upcoming_events,
+    upcoming_hearings,
+    upcoming_platform_hearings,
+)
 from apps.core.mixins import BreadcrumbMixin
-from apps.tenants.mixins import CabinetRequiredMixin
+from apps.tenants.mixins import CabinetRequiredMixin, PlatformAdminRequiredMixin
+from apps.tenants.services import is_platform_admin
 
 
 class LandingView(TemplateView):
@@ -23,6 +34,8 @@ class LandingView(TemplateView):
     def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         """Évite de redemander une connexion si la session est déjà active."""
         if request.user.is_authenticated:
+            if is_platform_admin(request.user):  # type: ignore[arg-type]
+                return redirect("core:supervision")
             return redirect("core:home")
         return super().dispatch(request, *args, **kwargs)
 
@@ -40,9 +53,30 @@ class HomeView(CabinetRequiredMixin, BreadcrumbMixin, TemplateView):
         """Ajoute les statistiques du cabinet courant."""
         ctx = super().get_context_data(**kwargs)
         cabinet = self.request.cabinet  # type: ignore[attr-defined]
-        ctx["stats"] = build_dashboard_stats(cabinet=cabinet)
-        ctx["recent_matters"] = recent_matters(cabinet=cabinet)
+        ctx["stats"] = build_dashboard_stats(cabinet=cabinet, user=self.request.user)
+        ctx["cabinet_charts"] = build_cabinet_charts(cabinet=cabinet)
+        ctx["recent_matters"] = recent_matters(cabinet=cabinet, user=self.request.user)
         ctx["upcoming_events"] = upcoming_events(cabinet=cabinet)
+        ctx["upcoming_hearings"] = upcoming_hearings(cabinet=cabinet)
+        return ctx
+
+
+class SupervisionView(PlatformAdminRequiredMixin, BreadcrumbMixin, TemplateView):
+    """Supervision cross-cabinet : activité de tous les cabinets."""
+
+    template_name = "core/supervision.html"
+    # Pas de cabinet requis : vue globale.
+    cabinet_required = False
+
+    def get_breadcrumb(self) -> list[dict[str, str]]:
+        return [{"label": "Supervision"}]
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        ctx["platform_stats"] = build_platform_stats()
+        ctx["platform_charts"] = build_platform_charts()
+        ctx["recent_activity"] = recent_platform_activity(limit=10)
+        ctx["upcoming_hearings"] = upcoming_platform_hearings(limit=10)
         return ctx
 
 

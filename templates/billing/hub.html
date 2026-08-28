@@ -1,11 +1,8 @@
 {% extends "layouts/app.html" %}
-{% load i18n static money %}
+{% load i18n money %}
 
 {% block title %}{% translate "Facturation" %} — {{ SITE_NAME }}{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/billing.css' %}">
-{% endblock %}
 
 {% block content %}
 <header class="page-header">

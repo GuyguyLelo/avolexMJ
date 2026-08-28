@@ -20,10 +20,19 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(_("adresse e-mail"), unique=True, db_index=True)
     first_name = models.CharField(_("prénom"), max_length=150, blank=True)
     last_name = models.CharField(_("nom"), max_length=150, blank=True)
+    phone = models.CharField(_("téléphone"), max_length=32, blank=True)
     is_staff = models.BooleanField(
         _("statut équipe"),
         default=False,
         help_text=_("Indique si l'utilisateur peut accéder à l'admin Django."),
+    )
+    is_platform_admin = models.BooleanField(
+        _("administrateur plateforme"),
+        default=False,
+        db_index=True,
+        help_text=_(
+            "Supervise tous les cabinets en lecture seule (suivi d'activité cross-cabinet)."
+        ),
     )
     is_active = models.BooleanField(
         _("actif"),

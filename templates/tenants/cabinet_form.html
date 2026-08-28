@@ -1,0 +1,193 @@
+{% extends "layouts/app.html" %}
+{% load i18n static %}
+
+{% block title %}{% if cabinet %}{% translate "Modifier le cabinet" %}{% else %}{% translate "Nouveau cabinet" %}{% endif %} — {{ SITE_NAME }}{% endblock %}
+
+
+{% block content %}
+<div class="cabinets-page cabinets-form-page">
+  <header class="page-header page-header-compact cabinets-page-header">
+    <div>
+      <p class="cabinets-kicker">{% translate "Plateforme" %}</p>
+      <h1>{% if cabinet %}{% translate "Modifier le cabinet" %}{% else %}{% translate "Nouveau cabinet avocat" %}{% endif %}</h1>
+      <p class="page-lede">{% if cabinet %}{% translate "Identité, adresse et paramètres du cabinet." %}{% else %}{% translate "Identité, adresse, Caïman et membres du cabinet." %}{% endif %}</p>
+    </div>
+    <div class="cluster">
+      {% if cabinet %}
+      <a class="btn btn-secondary btn-sm" href="{% url 'tenants:cabinet_member_create' cabinet.pk %}">{% translate "Ajouter un membre" %}</a>
+      {% endif %}
+      <a class="btn btn-ghost btn-sm" href="{% if cabinet %}{% url 'tenants:cabinet_detail' cabinet.pk %}{% else %}{% url 'tenants:cabinet_list' %}{% endif %}">{% translate "Retour" %}</a>
+    </div>
+  </header>
+
+  <form method="post" class="cabinet-form" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+    <div class="cabinet-form-panels{% if form.owner_email %} cabinet-form-panels--cols-3{% endif %}">
+      <section class="form-panel">
+        <header class="form-panel-head">
+          <h2>{% translate "Identité" %}</h2>
+          <p>{% translate "Nom commercial, raison sociale et barreau." %}</p>
+        </header>
+        <div class="form-grid">
+          <div class="form-field form-field-span">
+            <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="form-error">{{ form.name.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field">
+            <label for="{{ form.contract_number.id_for_label }}">{{ form.contract_number.label }}</label>
+            {{ form.contract_number }}
+            {% if form.contract_number.errors %}<div class="form-error">{{ form.contract_number.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field form-field-span">
+            <label for="{{ form.contract_file.id_for_label }}">{{ form.contract_file.label }}</label>
+            {{ form.contract_file }}
+            {% if form.contract_file.help_text %}<p class="form-hint">{{ form.contract_file.help_text }}</p>{% endif %}
+            {% if form.contract_file.errors %}<div class="form-error">{{ form.contract_file.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field form-field-span">
+            <label for="{{ form.legal_name.id_for_label }}">{{ form.legal_name.label }}</label>
+            {{ form.legal_name }}
+            {% if form.legal_name.errors %}<div class="form-error">{{ form.legal_name.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field">
+            <label for="{{ form.bar_association.id_for_label }}">{{ form.bar_association.label }}</label>
+            {{ form.bar_association }}
+            {% if form.bar_association.errors %}<div class="form-error">{{ form.bar_association.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field">
+            <label for="{{ form.siret.id_for_label }}">{{ form.siret.label }}</label>
+            {{ form.siret }}
+            {% if form.siret.errors %}<div class="form-error">{{ form.siret.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field">
+            <label for="{{ form.vat_number.id_for_label }}">{{ form.vat_number.label }}</label>
+            {{ form.vat_number }}
+            {% if form.vat_number.errors %}<div class="form-error">{{ form.vat_number.errors }}</div>{% endif %}
+          </div>
+        </div>
+      </section>
+
+      <section class="form-panel">
+        <header class="form-panel-head">
+          <h2>{% translate "Adresse" %}</h2>
+          <p>{% translate "Siège du cabinet." %}</p>
+        </header>
+        <div class="form-grid">
+          <div class="form-field form-field-span">
+            <label for="{{ form.address_line1.id_for_label }}">{{ form.address_line1.label }}</label>
+            {{ form.address_line1 }}
+            {% if form.address_line1.errors %}<div class="form-error">{{ form.address_line1.errors }}</div>{% endif %}
+          </div>
+        </div>
+      </section>
+
+      {% if cabinet %}
+      <section class="form-panel">
+        <header class="form-panel-head">
+          <h2>{% translate "Paramètres" %}</h2>
+          <p>{% translate "Statut du cabinet." %}</p>
+        </header>
+        <div class="form-grid">
+          <div class="form-field form-field-check">
+            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+              {{ form.is_active }}
+              <span>{{ form.is_active.label }}</span>
+            </label>
+            {% if form.is_active.errors %}<div class="form-error">{{ form.is_active.errors }}</div>{% endif %}
+          </div>
+        </div>
+      </section>
+      {% endif %}
+
+      {% if form.owner_email %}
+      <section class="form-panel">
+        <header class="form-panel-head">
+          <h2>{% translate "Caïman" %}</h2>
+          <p>{% translate "Compte administrateur du cabinet." %}</p>
+        </header>
+        <div class="form-grid form-grid-stack">
+          <div class="form-field">
+            <label for="{{ form.owner_email.id_for_label }}">{{ form.owner_email.label }}</label>
+            {{ form.owner_email }}
+            {% if form.owner_email.errors %}<div class="form-error">{{ form.owner_email.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field">
+            <label for="{{ form.owner_first_name.id_for_label }}">{{ form.owner_first_name.label }}</label>
+            {{ form.owner_first_name }}
+            {% if form.owner_first_name.errors %}<div class="form-error">{{ form.owner_first_name.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field">
+            <label for="{{ form.owner_last_name.id_for_label }}">{{ form.owner_last_name.label }}</label>
+            {{ form.owner_last_name }}
+            {% if form.owner_last_name.errors %}<div class="form-error">{{ form.owner_last_name.errors }}</div>{% endif %}
+          </div>
+        </div>
+      </section>
+      {% endif %}
+
+      {% if form.owner_email %}
+      <section class="form-panel form-panel-full" id="cabinet-members-panel">
+        <header class="form-panel-head form-panel-head-actions">
+          <div>
+            <h2>{% translate "Membres du cabinet" %}</h2>
+            <p>{% translate "Avocats additionnels (facultatif). Le Caïman est défini ci-dessus." %}</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" type="button" id="cabinet-add-member-btn">{% translate "Ajouter un membre" %}</button>
+        </header>
+        <p class="cabinet-members-empty" id="cabinet-members-empty">{% translate "Aucun membre additionnel. Cliquez sur « Ajouter un membre » pour en saisir." %}</p>
+        <div id="cabinet-member-rows" class="cabinet-member-rows"></div>
+      </section>
+
+      <template id="cabinet-member-row-template">
+        <div class="cabinet-member-row">
+          <div class="cabinet-member-row-head">
+            <span class="cabinet-member-row-title">{% translate "Membre" %}</span>
+            <button class="btn btn-ghost btn-sm" type="button" data-remove-member>{% translate "Retirer" %}</button>
+          </div>
+          <div class="form-grid form-grid-member">
+            <div class="form-field">
+              <label>{% translate "E-mail" %}</label>
+              <input class="form-input" type="email" data-field="email" autocomplete="email" required>
+            </div>
+            <div class="form-field">
+              <label>{% translate "Prénom" %}</label>
+              <input class="form-input" type="text" data-field="first_name" autocomplete="given-name">
+            </div>
+            <div class="form-field">
+              <label>{% translate "Nom" %}</label>
+              <input class="form-input" type="text" data-field="last_name" autocomplete="family-name">
+            </div>
+            <div class="form-field">
+              <label>{% translate "Téléphone" %}</label>
+              <input class="form-input" type="tel" data-field="phone" autocomplete="tel">
+            </div>
+            <div class="form-field">
+              <label>{% translate "Rôle" %}</label>
+              <select class="form-input" data-field="role">
+                {% for value, label in member_role_choices %}
+                <option value="{{ value }}"{% if value == "lawyer" %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+      </template>
+      {% endif %}
+    </div>
+
+    <footer class="form-actions cabinet-form-actions">
+      <button class="btn btn-primary" type="submit">{% translate "Enregistrer" %}</button>
+      <a class="btn btn-secondary" href="{% if cabinet %}{% url 'tenants:cabinet_detail' cabinet.pk %}{% else %}{% url 'tenants:cabinet_list' %}{% endif %}">{% translate "Annuler" %}</a>
+    </footer>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if form.owner_email %}
+<script src="{% static 'js/cabinet-form.js' %}?v={{ STATIC_VERSION }}" defer></script>
+{% endif %}
+{% endblock %}

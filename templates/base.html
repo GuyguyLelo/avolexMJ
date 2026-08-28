@@ -4,15 +4,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="{% block meta_description %}{{ SITE_NAME }} — gestion de cabinet d'avocats{% endblock %}">
+  <meta name="description" content="{% block meta_description %}{{ SITE_INSTITUTION }} — {{ SITE_NAME }}, plateforme de gestion des cabinets d'avocats{% endblock %}">
   <title>{% block title %}{{ SITE_NAME }}{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/base.css' %}">
-  <link rel="stylesheet" href="{% static 'css/components.css' %}">
-  <link rel="stylesheet" href="{% static 'css/layout.css' %}">
-  {% block extra_css %}{% endblock %}
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v={{ STATIC_VERSION }}">
 </head>
 <body class="{% block body_class %}{% endblock %}">
   <a class="skip-link" href="#main">{% translate "Aller au contenu" %}</a>
@@ -22,7 +19,7 @@
   </main>
   {% endblock %}
   <div class="toast-region" data-toast-region aria-live="polite" aria-relevant="additions"></div>
-  <script type="module" src="{% static 'js/main.js' %}"></script>
+  <script type="module" src="{% static 'js/main.js' %}?v={{ STATIC_VERSION }}"></script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>

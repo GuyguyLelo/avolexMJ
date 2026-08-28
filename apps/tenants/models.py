@@ -1,9 +1,11 @@
-"""Modèles multi-tenant : Cabinet, Membership, Invitation."""
+"""Modèles multi-tenant : Cabinet, Membership, Invitation, matières."""
 
 from __future__ import annotations
 
 import secrets
+import uuid
 from datetime import datetime, timedelta
+from pathlib import PurePosixPath
 from typing import Any
 
 from django.conf import settings
@@ -15,6 +17,7 @@ from django.utils.translation import gettext_lazy as _
 from apps.core.models import BaseModel, TenantOwnedModel
 from apps.core.money import default_currency
 from apps.tenants.roles import Role
+from apps.tenants.storage import private_cabinet_contract_storage
 
 
 def default_invitation_expiry() -> datetime:
@@ -27,14 +30,29 @@ def generate_invitation_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+def cabinet_contract_upload_to(instance: Cabinet, filename: str) -> str:
+    """Chemin opaque cabinet/uuid.ext."""
+    ext = PurePosixPath(filename).suffix.lower()[:16]
+    return f"{instance.pk}/{uuid.uuid4().hex}{ext}"
+
+
 class Cabinet(BaseModel):
     """Organisation / cabinet d'avocats (tenant)."""
 
     name = models.CharField(_("nom"), max_length=255)
     slug = models.SlugField(_("slug"), max_length=255, unique=True)
+    contract_number = models.CharField(_("n° de contrat"), max_length=64, blank=True)
+    contract_file = models.FileField(
+        _("contrat"),
+        upload_to=cabinet_contract_upload_to,
+        storage=private_cabinet_contract_storage,
+        max_length=512,
+        blank=True,
+    )
+    contract_file_name = models.CharField(_("nom du contrat"), max_length=255, blank=True)
     legal_name = models.CharField(_("raison sociale"), max_length=255, blank=True)
     siret = models.CharField(_("SIRET"), max_length=14, blank=True)
-    vat_number = models.CharField(_("n° TVA"), max_length=32, blank=True)
+    vat_number = models.CharField(_("numéro impôt"), max_length=32, blank=True)
     bar_association = models.CharField(_("barreau"), max_length=255, blank=True)
     address_line1 = models.CharField(_("adresse"), max_length=255, blank=True)
     address_line2 = models.CharField(_("complément d'adresse"), max_length=255, blank=True)
@@ -56,6 +74,37 @@ class Cabinet(BaseModel):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def contract_file_mime_type(self) -> str:
+        """Type MIME du contrat joint."""
+        import mimetypes
+
+        name = self.contract_file_name
+        if not name and self.contract_file:
+            name = self.contract_file.name
+        mime, _ = mimetypes.guess_type(name or "")
+        if mime:
+            return mime
+        lower = (name or "").lower()
+        if lower.endswith(".pdf"):
+            return "application/pdf"
+        if lower.endswith((".jpg", ".jpeg")):
+            return "image/jpeg"
+        if lower.endswith(".png"):
+            return "image/png"
+        if lower.endswith(".doc"):
+            return "application/msword"
+        if lower.endswith(".docx"):
+            return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        return "application/octet-stream"
+
+    @property
+    def contract_can_preview(self) -> bool:
+        """Indique si le contrat peut être affiché (PDF ou image)."""
+        from apps.documents.services import can_preview
+
+        return bool(self.contract_file) and can_preview(self.contract_file_mime_type)
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         """Génère un slug unique si absent."""
@@ -89,7 +138,7 @@ class Membership(BaseModel):
         _("rôle"),
         max_length=32,
         choices=Role.choices,
-        default=Role.READ_ONLY,
+        default=Role.LAWYER,
     )
     is_active = models.BooleanField(_("actif"), default=True)
 
@@ -126,7 +175,7 @@ class Invitation(BaseModel):
         _("rôle"),
         max_length=32,
         choices=Role.choices,
-        default=Role.ASSOCIATE,
+        default=Role.LAWYER,
     )
     token = models.CharField(
         _("jeton"),
@@ -188,3 +237,79 @@ class CabinetPreference(TenantOwnedModel):
 
     def __str__(self) -> str:
         return f"{self.cabinet.slug}:{self.key}"
+
+
+class LegalPracticeArea(BaseModel):
+    """Matière juridique du référentiel national."""
+
+    name = models.CharField(_("intitulé"), max_length=120)
+    slug = models.SlugField(_("slug"), max_length=140)
+    description = models.TextField(_("description"), blank=True)
+    is_active = models.BooleanField(_("active"), default=True)
+
+    class Meta:
+        verbose_name = _("matière juridique")
+        verbose_name_plural = _("matières juridiques")
+        ordering = ("name",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("name",),
+                condition=models.Q(is_deleted=False),
+                name="uniq_legal_practice_area_name",
+            ),
+            models.UniqueConstraint(
+                fields=("slug",),
+                condition=models.Q(is_deleted=False),
+                name="uniq_legal_practice_area_slug",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.name
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        """Génère un slug unique si absent."""
+        if not self.slug:
+            base = slugify(self.name) or "matiere"
+            slug = base
+            counter = 1
+            while LegalPracticeArea.all_objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base}-{counter}"
+                counter += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
+
+class CabinetPracticeArea(BaseModel):
+    """Spécialité d'un cabinet (matière du référentiel)."""
+
+    cabinet = models.ForeignKey(
+        Cabinet,
+        verbose_name=_("cabinet"),
+        on_delete=models.CASCADE,
+        related_name="practice_area_links",
+    )
+    practice_area = models.ForeignKey(
+        LegalPracticeArea,
+        verbose_name=_("matière"),
+        on_delete=models.CASCADE,
+        related_name="cabinet_links",
+    )
+
+    class Meta:
+        verbose_name = _("spécialité du cabinet")
+        verbose_name_plural = _("spécialités du cabinet")
+        ordering = ("practice_area__name",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("cabinet", "practice_area"),
+                condition=models.Q(is_deleted=False),
+                name="uniq_cabinet_practice_area",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=("practice_area", "cabinet")),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.cabinet} — {self.practice_area}"

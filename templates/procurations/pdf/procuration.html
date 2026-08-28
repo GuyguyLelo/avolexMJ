@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Procuration {{ procuration.reference }}</title>
+  <style>
+    @page { size: A4; margin: 18mm; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; color: #0c1c2e; }
+    .state { height: 4px; background: linear-gradient(90deg, #007fff 0 33.34%, #f7d618 33.34% 66.67%, #ce1021 66.67%); margin: 0 0 16px; }
+    .masthead { text-align: center; margin-bottom: 22px; }
+    .country { text-transform: uppercase; letter-spacing: 0.08em; font-size: 9pt; color: #667483; margin: 0; }
+    .institution { font-size: 14pt; font-weight: 700; color: #003d99; margin: 4px 0 10px; }
+    .doc-title { font-size: 13pt; letter-spacing: 0.16em; color: #c4a40a; margin: 0; }
+    .ref { font-size: 13pt; font-weight: 700; margin: 6px 0 0; }
+    .muted { color: #667483; font-size: 9.5pt; }
+    h2 { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.06em; color: #667483; margin: 16px 0 4px; font-weight: 700; }
+    p { margin: 0.2rem 0; }
+    .lead { margin: 0 0 14px; line-height: 1.45; }
+    .sign { margin-top: 28px; text-align: right; }
+    .sign .role { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.05em; color: #667483; }
+    .footer { margin-top: 36px; font-size: 8pt; color: #667483; border-top: 1px solid #c4a43c; padding-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="state"></div>
+  <header class="masthead">
+    <p class="country">{{ country }}</p>
+    <p class="institution">{{ institution }}</p>
+    <p class="doc-title">PROCURATION</p>
+    <p class="ref">{{ procuration.reference }}</p>
+    {% if procuration.ministry_reference %}
+    <p class="muted">Référence ministérielle : {{ procuration.ministry_reference }}</p>
+    {% endif %}
+  </header>
+
+  <p class="lead">
+    Le Ministre de la Justice et Garde des Sceaux donne par les présentes procuration
+    au cabinet d'avocats ci-après désigné, pour accomplir les actes de procédure et de
+    représentation dans le dossier indiqué.
+  </p>
+
+  <h2>Cabinet destinataire</h2>
+  <p><strong>{{ cabinet.name }}</strong></p>
+  {% if cabinet.legal_name and cabinet.legal_name != cabinet.name %}<p>{{ cabinet.legal_name }}</p>{% endif %}
+  {% if cabinet.bar_association %}<p class="muted">{{ cabinet.bar_association }}</p>{% endif %}
+  {% if cabinet.address_line1 %}<p class="muted">{{ cabinet.address_line1 }}</p>{% endif %}
+  <p class="muted">{% if cabinet.postal_code %}{{ cabinet.postal_code }} {% endif %}{{ cabinet.city }}</p>
+
+  <h2>Objet de la procuration</h2>
+  <p>{{ procuration.purpose|default:procuration.subject }}</p>
+
+  <h2>Dossier</h2>
+  {% if matter %}
+  <p><strong>{{ matter.reference }} — {{ matter.title }}</strong></p>
+  {% if client_name %}<p>Justiciable : {{ client_name }}</p>{% endif %}
+  {% if matter.jurisdiction %}<p>Juridiction : {{ matter.jurisdiction }}</p>{% endif %}
+  <p>Échelle : {{ matter.get_scale_display }}</p>
+  {% if matter.opposing_party %}<p>Partie adverse : {{ matter.opposing_party }}</p>{% endif %}
+  {% else %}
+  <p><strong>{{ procuration.subject|default:procuration.purpose }}</strong></p>
+  {% if procuration.client_name %}<p>Justiciable : {{ procuration.client_name }}</p>{% endif %}
+  {% endif %}
+
+  <h2>Validité</h2>
+  <p>
+    Du
+    {% if procuration.valid_from %}{{ procuration.valid_from|date:"d/m/Y" }}{% elif procuration.granted_at %}{{ procuration.granted_at|date:"d/m/Y" }}{% else %}—{% endif %}
+    au {% if procuration.expires_at %}{{ procuration.expires_at|date:"d/m/Y" }}{% else %}sans terme{% endif %}.
+  </p>
+
+  {% if procuration.notes %}
+  <h2>Observations</h2>
+  <p>{{ procuration.notes }}</p>
+  {% endif %}
+
+  <p>Fait à Kinshasa, le {{ procuration.granted_at|date:"d/m/Y"|default:"—" }}.</p>
+
+  <div class="sign">
+    <p class="role">Pour le Ministre de la Justice</p>
+    <p><strong>{{ granted_by|default:"—" }}</strong></p>
+  </div>
+
+  <p class="footer">Acte généré par AvoLex — {{ institution }}.</p>
+</body>
+</html>

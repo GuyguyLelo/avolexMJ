@@ -1,0 +1,200 @@
+{% extends "layouts/app.html" %}
+{% load i18n %}
+
+{% block title %}{{ procuration.reference }} — {{ SITE_NAME }}{% endblock %}
+
+
+{% block content %}
+<article class="detail-sheet">
+  <header class="detail-sheet-header">
+    <div class="detail-sheet-identity">
+      <span class="detail-sheet-avatar is-gold" aria-hidden="true">MJ</span>
+      <div class="detail-sheet-title">
+        <p class="detail-sheet-kicker">{% translate "Ministère de la Justice" %}</p>
+        <h1>{{ procuration.reference }}</h1>
+        <p class="detail-sheet-lede">
+          <span>{{ procuration.subject|default:procuration.purpose }}</span>
+          <span class="badge {% if procuration.status == 'granted' %}badge-success{% elif procuration.status == 'requested' %}badge-gold{% elif procuration.status == 'draft' %}badge-info{% elif procuration.status == 'refused' or procuration.status == 'revoked' %}badge-danger{% endif %}">
+            {{ procuration.get_status_display }}
+          </span>
+          {% if procuration.is_currently_valid %}
+          <span class="badge badge-success">{% translate "Valide" %}</span>
+          {% endif %}
+        </p>
+      </div>
+    </div>
+    <div class="detail-sheet-actions">
+      {% if can_edit %}
+      <a class="btn btn-secondary btn-sm" href="{% url 'procurations:update' procuration.pk %}">{% translate "Modifier" %}</a>
+      {% endif %}
+      {% if can_submit %}
+      <form method="post" action="{% url 'procurations:submit' procuration.pk %}">
+        {% csrf_token %}
+        <button class="btn btn-primary btn-sm" type="submit">{% translate "Transmettre au ministère" %}</button>
+      </form>
+      {% endif %}
+      {% if can_delete %}
+      <form method="post" action="{% url 'procurations:delete' procuration.pk %}" onsubmit="return confirm('{% translate "Supprimer cette procuration ?" %}');">
+        {% csrf_token %}
+        <button class="btn btn-ghost btn-sm" type="submit">{% translate "Supprimer" %}</button>
+      </form>
+      {% endif %}
+      {% if can_generate %}
+      <form method="post" action="{% url 'procurations:generate' procuration.pk %}"{% if procuration.instrument %} onsubmit="return confirm('{% translate "Un acte est déjà joint. Le remplacer ?" %}');"{% endif %}>
+        {% csrf_token %}
+        <button class="btn btn-primary btn-sm" type="submit">{% if procuration.instrument %}{% translate "Régénérer l'acte" %}{% else %}{% translate "Générer la procuration" %}{% endif %}</button>
+      </form>
+      {% endif %}
+      {% if procuration.instrument %}
+        {% if procuration.instrument_can_preview %}
+        <a class="btn btn-secondary btn-sm" href="{% url 'procurations:preview' procuration.pk %}" target="_blank" rel="noopener">{% translate "Afficher l'acte" %}</a>
+        {% endif %}
+        <a class="btn btn-secondary btn-sm" href="{% url 'procurations:download' procuration.pk %}">{% translate "Télécharger" %}</a>
+      {% endif %}
+    </div>
+  </header>
+
+  <section class="card">
+    <dl class="matter-facts">
+      <div class="matter-fact">
+        <dt>{% translate "Cabinet" %}</dt>
+        <dd>{{ procuration.cabinet.name }}</dd>
+      </div>
+      <div class="matter-fact">
+        <dt>{% translate "Dossier" %}</dt>
+        <dd>
+          {% if procuration.matter_id %}
+          <a href="{% url 'matters:detail' procuration.matter_id %}">{{ procuration.matter.reference }}</a>
+          — {{ procuration.matter.title }}
+          ·
+          <span class="badge {% if procuration.matter.scale == 'international' %}badge-gold{% else %}badge-info{% endif %}">
+            {{ procuration.matter.get_scale_display }}
+          </span>
+          {% else %}
+          {{ procuration.subject|default:"—" }}
+          {% endif %}
+        </dd>
+      </div>
+      <div class="matter-fact">
+        <dt>{% translate "Client" %}</dt>
+        <dd>
+          {% if procuration.matter_id %}
+            {{ procuration.matter.client.display_name }}
+          {% else %}
+            {{ procuration.client_name|default:"—" }}
+          {% endif %}
+        </dd>
+      </div>
+      {% if procuration.jurisdiction %}
+      <div class="matter-fact">
+        <dt>{% translate "Juridiction" %}</dt>
+        <dd>{{ procuration.jurisdiction }}</dd>
+      </div>
+      {% endif %}
+      {% if procuration.purpose %}
+      <div class="matter-fact">
+        <dt>{% translate "Objet" %}</dt>
+        <dd>{{ procuration.purpose }}</dd>
+      </div>
+      {% endif %}
+      <div class="matter-fact">
+        <dt>{% translate "Référence ministérielle" %}</dt>
+        <dd>{{ procuration.ministry_reference|default:"—" }}</dd>
+      </div>
+      <div class="matter-fact">
+        <dt>{% translate "Validité" %}</dt>
+        <dd>
+          {% if procuration.valid_from %}{{ procuration.valid_from|date:"d/m/Y" }}{% else %}—{% endif %}
+          →
+          {% if procuration.expires_at %}{{ procuration.expires_at|date:"d/m/Y" }}{% else %}{% translate "sans terme" %}{% endif %}
+        </dd>
+      </div>
+      {% if procuration.granted_by %}
+      <div class="matter-fact">
+        <dt>{% translate "Accordée par" %}</dt>
+        <dd>{{ procuration.granted_by.get_full_name|default:procuration.granted_by.email }}</dd>
+      </div>
+      {% endif %}
+      {% if procuration.notes %}
+      <div class="matter-fact matter-fact--wide">
+        <dt>{% translate "Notes" %}</dt>
+        <dd>{{ procuration.notes }}</dd>
+      </div>
+      {% endif %}
+      {% if procuration.refusal_reason %}
+      <div class="matter-fact matter-fact--wide">
+        <dt>{% translate "Motif du refus" %}</dt>
+        <dd>{{ procuration.refusal_reason }}</dd>
+      </div>
+      {% endif %}
+      {% if procuration.revocation_reason %}
+      <div class="matter-fact matter-fact--wide">
+        <dt>{% translate "Motif de révocation" %}</dt>
+        <dd>{{ procuration.revocation_reason }}</dd>
+      </div>
+      {% endif %}
+    </dl>
+  </section>
+
+  {% if can_generate and not procuration.instrument %}
+  <section class="card" style="margin-top: var(--space-6);">
+    <header class="card-header">
+      <h2 class="card-title">{% translate "Acte de procuration" %}</h2>
+    </header>
+    <div style="padding: 0 var(--space-5) var(--space-5);">
+      <p class="page-lede">{% translate "Générez l'acte officiel au format PDF pour le cabinet." %}</p>
+      <form method="post" action="{% url 'procurations:generate' procuration.pk %}">
+        {% csrf_token %}
+        <button class="btn btn-primary" type="submit">{% translate "Générer la procuration" %}</button>
+      </form>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if can_grant or can_refuse %}
+  <section class="card" style="margin-top: var(--space-6);">
+    <header class="card-header">
+      <h2 class="card-title">{% translate "Décision du ministère" %}</h2>
+    </header>
+    <div class="proc-decision" style="padding: var(--space-5); display: grid; gap: var(--space-6);">
+      {% if can_grant %}
+      <form method="post" action="{% url 'procurations:grant' procuration.pk %}">
+        {% csrf_token %}
+        <h3 style="margin: 0 0 var(--space-3); font-size: var(--text-base);">{% translate "Accorder" %}</h3>
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="{{ grant_form.ministry_reference.id_for_label }}">{{ grant_form.ministry_reference.label }}</label>
+            {{ grant_form.ministry_reference }}
+          </div>
+          <div class="form-field">
+            <label for="{{ grant_form.valid_from.id_for_label }}">{{ grant_form.valid_from.label }}</label>
+            {{ grant_form.valid_from }}
+          </div>
+          <div class="form-field">
+            <label for="{{ grant_form.expires_at.id_for_label }}">{{ grant_form.expires_at.label }}</label>
+            {{ grant_form.expires_at }}
+          </div>
+          <div class="form-field form-field-span">
+            <label for="{{ grant_form.notes.id_for_label }}">{{ grant_form.notes.label }}</label>
+            {{ grant_form.notes }}
+          </div>
+        </div>
+        <button class="btn btn-primary" type="submit" style="margin-top: var(--space-4);">{% translate "Accorder la procuration" %}</button>
+      </form>
+      {% endif %}
+      {% if can_refuse %}
+      <form method="post" action="{% url 'procurations:refuse' procuration.pk %}">
+        {% csrf_token %}
+        <h3 style="margin: 0 0 var(--space-3); font-size: var(--text-base);">{% translate "Refuser" %}</h3>
+        <div class="form-field">
+          <label for="id_reason">{% translate "Motif" %}</label>
+          <textarea class="form-input" id="id_reason" name="reason" rows="3" required></textarea>
+        </div>
+        <button class="btn btn-danger" type="submit" style="margin-top: var(--space-3);">{% translate "Refuser" %}</button>
+      </form>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+</article>
+{% endblock %}

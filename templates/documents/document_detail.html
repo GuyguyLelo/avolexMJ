@@ -1,36 +1,85 @@
 {% extends "layouts/app.html" %}
-{% load i18n static %}
+{% load i18n %}
 
 {% block title %}{{ document.title }} — {{ SITE_NAME }}{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/documents.css' %}">
-{% endblock %}
 
 {% block content %}
-<header class="page-header">
-  <div>
-    <h1>{{ document.title }}</h1>
-    <p class="page-lede">
-      {% translate "Dossier" %} :
-      <strong>{{ document.matter.reference }}</strong> — {{ document.matter.title }}
-    </p>
-  </div>
-  <div class="cluster">
-    {% if document.current_version %}
-    <a class="btn btn-primary" href="{% url 'documents:download' document.current_version.pk %}">
-      {% translate "Télécharger" %}
-    </a>
-    {% if can_preview %}
-    <a class="btn btn-secondary" href="{% url 'documents:preview' document.current_version.pk %}" target="_blank" rel="noopener">
-      {% translate "Aperçu" %}
-    </a>
-    {% endif %}
-    {% endif %}
-  </div>
-</header>
+<article class="detail-sheet">
+  <header class="detail-sheet-header">
+    <div class="detail-sheet-identity">
+      <span class="detail-sheet-avatar is-file" aria-hidden="true">{{ document.title|slice:":1"|upper }}</span>
+      <div class="detail-sheet-title">
+        <p class="detail-sheet-kicker">{% translate "Document" %}</p>
+        <h1>{{ document.title }}</h1>
+        <p class="detail-sheet-lede">
+          <a href="{% url 'matters:detail' document.matter.pk %}">{{ document.matter.reference }}</a>
+          <span>{{ document.matter.title }}</span>
+          {% if document.current_version %}
+          <span class="badge badge-info">v{{ document.current_version.version_number }}</span>
+          {% endif %}
+        </p>
+      </div>
+    </div>
+    <div class="detail-sheet-actions">
+      {% if document.current_version %}
+      <a class="btn btn-primary btn-sm" href="{% url 'documents:download' document.current_version.pk %}">
+        {% translate "Télécharger" %}
+      </a>
+      {% if can_preview %}
+      <a class="btn btn-secondary btn-sm" href="{% url 'documents:preview' document.current_version.pk %}" target="_blank" rel="noopener">
+        {% translate "Aperçu" %}
+      </a>
+      {% endif %}
+      {% endif %}
+    </div>
+  </header>
 
-<div class="doc-detail">
+  <dl class="matter-facts">
+    <div class="matter-fact">
+      <dt>{% translate "Dossier" %}</dt>
+      <dd>
+        <a class="list-entity" href="{% url 'matters:detail' document.matter.pk %}">
+          <span class="avatar" aria-hidden="true">{{ document.matter.reference|slice:"-2:" }}</span>
+          <span class="list-entity-text">
+            <span class="list-entity-title list-ref">{{ document.matter.reference }}</span>
+            <span class="list-entity-meta">{{ document.matter.title }}</span>
+          </span>
+        </a>
+      </dd>
+    </div>
+    <div class="matter-fact">
+      <dt>{% translate "Fichier" %}</dt>
+      <dd>
+        {% if document.current_version %}
+        <span class="matter-fact-value">{{ document.current_version.original_filename }}</span>
+        {% else %}
+        <span class="matter-fact-empty">—</span>
+        {% endif %}
+      </dd>
+    </div>
+    <div class="matter-fact">
+      <dt>{% translate "Mis à jour" %}</dt>
+      <dd><span class="matter-fact-value">{{ document.updated_at|date:"d/m/Y H:i" }}</span></dd>
+    </div>
+    {% if document.tags %}
+    <div class="matter-fact">
+      <dt>{% translate "Tags" %}</dt>
+      <dd>
+        {% for tag in document.tags %}
+        <span class="badge badge-gold">{{ tag }}</span>
+        {% endfor %}
+      </dd>
+    </div>
+    {% endif %}
+    {% if document.description %}
+    <div class="matter-fact matter-fact--wide">
+      <dt>{% translate "Description" %}</dt>
+      <dd class="matter-desc">{{ document.description }}</dd>
+    </div>
+    {% endif %}
+  </dl>
+
   <section class="card">
     <header class="card-header">
       <h2 class="card-title">{% translate "Versions" %}</h2>
@@ -99,10 +148,10 @@
       <button class="btn btn-primary" type="submit">{% translate "Ajouter la version" %}</button>
     </form>
   </section>
-</div>
 
-<form method="post" action="{% url 'documents:delete' document.pk %}" onsubmit="return confirm('{% translate "Supprimer ce document ?" %}');" style="margin-top: var(--space-8);">
-  {% csrf_token %}
-  <button class="btn btn-danger" type="submit">{% translate "Supprimer le document" %}</button>
-</form>
+  <form class="detail-sheet-footer" method="post" action="{% url 'documents:delete' document.pk %}" onsubmit="return confirm('{% translate "Supprimer ce document ?" %}');">
+    {% csrf_token %}
+    <button class="btn btn-ghost btn-sm" type="submit">{% translate "Supprimer le document" %}</button>
+  </form>
+</article>
 {% endblock %}

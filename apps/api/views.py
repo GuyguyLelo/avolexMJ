@@ -69,14 +69,17 @@ class MatterViewSet(CabinetModelViewSet):
     """CRUD dossiers via API."""
 
     serializer_class = MatterSerializer
-    search_fields = ("reference", "title", "practice_area", "client__last_name", "client__company_name")
+    search_fields = ("reference", "title", "practice_area", "jurisdiction", "client__last_name", "client__company_name")
 
     def get_queryset(self) -> QuerySet[Matter]:
-        qs = Matter.objects.filter(cabinet=self.request.cabinet).select_related("client")  # type: ignore[attr-defined]
-        status = self.request.query_params.get("status")
-        if status:
-            qs = qs.filter(status=status)
-        return qs.order_by("-updated_at")
+        from apps.matters.services import matters_queryset
+
+        return matters_queryset(
+            cabinet=self.request.cabinet,  # type: ignore[attr-defined]
+            user=self.request.user,  # type: ignore[arg-type]
+            status=self.request.query_params.get("status") or "",
+            scale=self.request.query_params.get("scale") or "",
+        )
 
     def perform_create(self, serializer: MatterSerializer) -> None:
         data: dict[str, Any] = dict(serializer.validated_data)

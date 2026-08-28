@@ -7,7 +7,7 @@
   <style>
     @page { size: A4; margin: 16mm; }
     body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #161c24; }
-    h1 { font-size: 16pt; margin: 0 0 0.35rem; color: #0c1c2e; }
+    h1 { font-size: 16pt; margin: 0 0 0.35rem; color: #003d99; }
     .muted { color: #667483; font-size: 9pt; margin: 0.15rem 0; }
     .grid { display: table; width: 100%; margin-bottom: 1.2rem; }
     .col { display: table-cell; width: 50%; vertical-align: top; }
@@ -17,12 +17,14 @@
     .right { text-align: right; }
     .totals { width: 48%; margin-left: auto; }
     .totals td { border: 0; padding: 0.3rem 0; }
-    .totals .grand { font-weight: 700; font-size: 12pt; color: #0c1c2e; }
-    .gold { color: #c49a3c; }
+    .totals .grand { font-weight: 700; font-size: 12pt; color: #003d99; }
+    .gold { color: #c4a40a; }
+    .state { height: 4px; background: linear-gradient(90deg, #007fff 0 33.34%, #f7d618 33.34% 66.67%, #ce1021 66.67%); margin: 0 0 12px; }
     p { margin: 0.15rem 0; }
   </style>
 </head>
 <body>
+  <div class="state"></div>
   <div class="grid">
     <div class="col">
       <h1>{{ cabinet.name }}</h1>
@@ -30,7 +32,7 @@
       {% if cabinet.address_line1 %}<p>{{ cabinet.address_line1 }}</p>{% endif %}
       <p>{% if cabinet.postal_code %}{{ cabinet.postal_code }} {% endif %}{{ cabinet.city }}</p>
       {% if cabinet.siret %}<p class="muted">SIRET {{ cabinet.siret }}</p>{% endif %}
-      {% if cabinet.vat_number %}<p class="muted">TVA {{ cabinet.vat_number }}</p>{% endif %}
+      {% if cabinet.vat_number %}<p class="muted">{% translate "Impôt" %} {{ cabinet.vat_number }}</p>{% endif %}
       {% if cabinet.bar_association %}<p class="muted">{{ cabinet.bar_association }}</p>{% endif %}
     </div>
     <div class="col right">
@@ -86,7 +88,7 @@
   <p class="muted">{{ invoice.notes }}</p>
   {% endif %}
   <p class="muted" style="margin-top:2rem;font-size:9pt;">
-    Document généré par AvoLex — ne constitue pas un conseil juridique.
+    Document généré par AvoLex — Ministère de la Justice et Garde des Sceaux (RDC).
   </p>
 </body>
 </html>

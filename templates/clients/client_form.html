@@ -3,9 +3,6 @@
 
 {% block title %}{% if client %}{% translate "Modifier le client" %}{% else %}{% translate "Nouveau client" %}{% endif %} — {{ SITE_NAME }}{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/clients.css' %}">
-{% endblock %}
 
 {% block content %}
 <div class="clients-page clients-form-page">

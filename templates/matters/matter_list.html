@@ -7,9 +7,11 @@
 <header class="page-header">
   <div>
     <h1>{% translate "Dossiers" %}</h1>
-    <p class="page-lede">{% translate "Affaires du cabinet — recherche et filtres." %}</p>
+    <p class="page-lede">{% translate "Affaires nationales et internationales. Le ministère délivre une procuration au cabinet pour autoriser les actes sur chaque dossier." %}</p>
   </div>
+  {% if is_platform_admin %}
   <a class="btn btn-primary" href="{% url 'matters:create' %}">{% translate "Nouveau dossier" %}</a>
+  {% endif %}
 </header>
 
 <form class="list-toolbar" method="get" action="{% url 'matters:list' %}">
@@ -17,6 +19,15 @@
     <label class="sr-only" for="q">{% translate "Recherche" %}</label>
     <input class="form-input" id="q" type="search" name="q" value="{{ filter_q }}"
            placeholder="{% translate 'Référence, titre, client…' %}">
+  </div>
+  <div class="form-field">
+    <label class="sr-only" for="scale">{% translate "Échelle" %}</label>
+    <select class="form-input" id="scale" name="scale">
+      <option value="">{% translate "Toutes les échelles" %}</option>
+      {% for value, label in scale_choices %}
+      <option value="{{ value }}" {% if filter_scale == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
   </div>
   <div class="form-field">
     <label class="sr-only" for="status">{% translate "Statut" %}</label>
@@ -55,6 +66,7 @@
         <th>{% translate "Dossier" %}</th>
         <th>{% translate "Client" %}</th>
         <th>{% translate "Matière" %}</th>
+        <th>{% translate "Échelle" %}</th>
         <th>{% translate "Statut" %}</th>
         <th>{% translate "Avocat" %}</th>
       </tr>
@@ -76,6 +88,11 @@
         </td>
         <td>{{ m.practice_area|default:"—" }}</td>
         <td>
+          <span class="badge {% if m.scale == 'international' %}badge-gold{% else %}badge-info{% endif %}">
+            {{ m.get_scale_display }}
+          </span>
+        </td>
+        <td>
           <span class="badge {% if m.status == 'open' %}badge-info{% elif m.status == 'in_progress' %}badge-gold{% elif m.status == 'on_hold' %}badge-warning{% elif m.status == 'closed' %}badge-success{% endif %}">
             {{ m.get_status_display }}
           </span>
@@ -93,8 +110,12 @@
 {% else %}
 <section class="empty-state">
   <h2>{% translate "Aucun dossier" %}</h2>
+  {% if is_platform_admin %}
   <p>{% translate "Ouvrez un dossier et rattachez-le à un client." %}</p>
   <a class="btn btn-primary" href="{% url 'matters:create' %}">{% translate "Nouveau dossier" %}</a>
+  {% else %}
+  <p>{% translate "Aucun dossier n'est encore couvert par une procuration ministérielle." %}</p>
+  {% endif %}
 </section>
 {% endif %}
 {% endblock %}

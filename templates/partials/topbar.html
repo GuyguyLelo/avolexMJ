@@ -11,39 +11,7 @@
     <span class="menu-toggle-bar" aria-hidden="true"></span>
   </button>
 
-  <form class="app-topbar-search" role="search" action="#" method="get" aria-label="{% translate 'Recherche globale' %}">
-    <label class="sr-only" for="global-search">{% translate "Rechercher" %}</label>
-    <input
-      id="global-search"
-      type="search"
-      name="q"
-      placeholder="{% translate 'Rechercher clients, dossiers…' %}"
-      disabled
-      title="{% translate 'Recherche globale — disponible prochainement' %}"
-    >
-  </form>
-
-  {% if user_cabinets %}
-  <form class="app-cabinet-select" method="post" action="{% url 'tenants:switch' %}">
-    {% csrf_token %}
-    <span class="app-cabinet-mark" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
-        <path d="M4 20V8l8-4 8 4v12H4Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-        <path d="M9 20v-6h6v6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-      </svg>
-    </span>
-    <div class="app-cabinet-meta">
-      <label for="cabinet_id">{% translate "Cabinet actif" %}</label>
-      <select name="cabinet_id" id="cabinet_id" onchange="this.form.submit()">
-        {% for c in user_cabinets %}
-        <option value="{{ c.id }}" {% if current_cabinet and c.id == current_cabinet.id %}selected{% endif %}>
-          {{ c.name }}
-        </option>
-        {% endfor %}
-      </select>
-    </div>
-  </form>
-  {% endif %}
+  <span class="app-topbar-spacer" aria-hidden="true"></span>
 
   <div class="dropdown" data-dropdown>
     <button

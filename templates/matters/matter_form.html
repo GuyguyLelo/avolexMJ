@@ -1,5 +1,5 @@
 {% extends "layouts/app.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% if matter %}{% translate "Modifier le dossier" %}{% else %}{% translate "Nouveau dossier" %}{% endif %} — {{ SITE_NAME }}{% endblock %}
 
@@ -7,23 +7,48 @@
 <header class="page-header">
   <div>
     <h1>{% if matter %}{% translate "Modifier le dossier" %}{% else %}{% translate "Nouveau dossier" %}{% endif %}</h1>
-    {% if not matter %}<p class="page-lede">{% translate "La référence sera générée automatiquement (DOS-AAAA-NNNNN)." %}</p>{% endif %}
+    {% if not matter %}<p class="page-lede">{% translate "Choisissez la matière, le cabinet spécialisé, puis ouvrez le dossier. Une procuration sera ensuite délivrée au cabinet." %}</p>{% endif %}
   </div>
 </header>
 
-<form method="post" class="card" novalidate style="max-width: 42rem;">
+<form method="post" class="card" novalidate style="max-width: 42rem;"{% if not matter %} data-matter-create data-context-url="{% url 'matters:create_context' %}"{% endif %}>
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
   {% for field in form %}
   <div class="form-field">
     <label for="{{ field.id_for_label }}">{{ field.label }}</label>
     {{ field }}
+    {% if field.help_text %}<p class="form-help">{{ field.help_text }}</p>{% endif %}
     {% if field.errors %}<div class="form-error">{{ field.errors }}</div>{% endif %}
   </div>
+  {% if field.name == 'practice_area' and not matter %}
+  <div class="suggest-cabinets" data-cabinet-suggestions {% if not suggested_cabinets %}hidden{% endif %}>
+    <p class="suggest-cabinets-title">{% translate "Cabinets spécialisés dans cette matière" %}</p>
+    <p class="form-help">{% translate "Cliquez pour préremplir le cabinet destinataire, ses justiciables et ses avocats." %}</p>
+    <ul class="suggest-cabinets-list">
+      {% for cab in suggested_cabinets %}
+      <li>
+        <button type="button" class="suggest-cabinet-card{% if target_cabinet and cab.pk == target_cabinet.pk %} is-selected{% endif %}" data-cabinet-id="{{ cab.pk }}">
+          <span class="suggest-cabinet-name">{{ cab.name }}</span>
+          <span class="suggest-cabinet-meta">{% if cab.city %}{{ cab.city }}{% endif %}{% if cab.bar_association %} · {{ cab.bar_association }}{% endif %}</span>
+        </button>
+      </li>
+      {% empty %}
+      <li class="suggest-cabinets-empty">{% translate "Aucun cabinet n'a encore déclaré cette spécialité." %}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
   {% endfor %}
   <div class="cluster">
     <button class="btn btn-primary" type="submit">{% translate "Enregistrer" %}</button>
     <a class="btn btn-secondary" href="{% if matter %}{% url 'matters:detail' matter.pk %}{% else %}{% url 'matters:list' %}{% endif %}">{% translate "Annuler" %}</a>
   </div>
 </form>
+{% endblock %}
+
+{% block extra_js %}
+{% if not matter %}
+<script type="module" src="{% static 'js/matters.js' %}?v={{ STATIC_VERSION }}"></script>
+{% endif %}
 {% endblock %}

@@ -8,8 +8,15 @@ from django.utils import timezone
 from factory.django import DjangoModelFactory
 
 from apps.clients.models import Client, ClientType
-from apps.matters.models import Matter, MatterStatus
-from apps.tenants.models import Cabinet, CabinetPreference, Invitation, Membership
+from apps.matters.models import Matter, MatterScale, MatterStatus
+from apps.tenants.models import (
+    Cabinet,
+    CabinetPracticeArea,
+    CabinetPreference,
+    Invitation,
+    LegalPracticeArea,
+    Membership,
+)
 from apps.tenants.roles import Role
 
 User = get_user_model()
@@ -70,6 +77,28 @@ class InvitationFactory(DjangoModelFactory):
     invited_by = factory.SubFactory(UserFactory)
 
 
+class LegalPracticeAreaFactory(DjangoModelFactory):
+    """Matière juridique du référentiel."""
+
+    class Meta:
+        model = LegalPracticeArea
+        django_get_or_create = ("name",)
+
+    name = factory.Sequence(lambda n: f"Matière {n}")
+    slug = factory.Sequence(lambda n: f"matiere-{n}")
+    is_active = True
+
+
+class CabinetPracticeAreaFactory(DjangoModelFactory):
+    """Spécialité d'un cabinet de test."""
+
+    class Meta:
+        model = CabinetPracticeArea
+
+    cabinet = factory.SubFactory(CabinetFactory)
+    practice_area = factory.SubFactory(LegalPracticeAreaFactory)
+
+
 class CabinetPreferenceFactory(DjangoModelFactory):
     """Préférence tenant-scoped (tests d'isolation)."""
 
@@ -104,5 +133,33 @@ class MatterFactory(DjangoModelFactory):
     responsible_lawyer = factory.SubFactory(UserFactory)
     reference = factory.Sequence(lambda n: f"DOS-2026-{n:04d}")
     title = factory.Sequence(lambda n: f"Affaire {n}")
+    scale = MatterScale.NATIONAL
     status = MatterStatus.OPEN
     opened_at = factory.LazyFunction(lambda: timezone.localdate())
+
+    @factory.post_generation
+    def with_procuration(self, create: bool, extracted: object, **kwargs: object) -> None:
+        """Accorde une procuration par défaut (désactiver avec with_procuration=False)."""
+        if not create or extracted is False:
+            return
+        from apps.procurations.services import stamp_granted_procuration
+
+        stamp_granted_procuration(matter=self, actor=self.responsible_lawyer)
+
+
+def granted_procuration(
+    *,
+    cabinet: Cabinet,
+    actor: object,
+    subject: str = "Mandat de représentation",
+    **kwargs: object,
+) -> object:
+    """Procuration accordée (tests). Passer matter= pour la lier à un dossier."""
+    from apps.procurations.services import stamp_granted_procuration
+
+    return stamp_granted_procuration(  # type: ignore[no-any-return]
+        cabinet=cabinet,
+        actor=actor,  # type: ignore[arg-type]
+        subject=subject,
+        **kwargs,  # type: ignore[arg-type]
+    )

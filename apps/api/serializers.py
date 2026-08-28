@@ -50,7 +50,9 @@ class MatterSerializer(serializers.ModelSerializer):
             "title",
             "description",
             "practice_area",
+            "scale",
             "status",
+            "jurisdiction",
             "client",
             "client_name",
             "responsible_lawyer",
@@ -77,9 +79,14 @@ class EventSerializer(serializers.ModelSerializer):
             "ends_at",
             "all_day",
             "location",
+            "court",
+            "chamber",
+            "hearing_status",
+            "hearing_report",
+            "hearing_report_filename",
             "is_done",
             "assigned_to",
             "remind_at",
             "created_at",
         )
-        read_only_fields = ("id", "created_at")
+        read_only_fields = ("id", "created_at", "hearing_report_filename")

@@ -1,43 +1,130 @@
 {% load i18n %}
 <aside class="app-sidebar" data-sidebar id="app-sidebar" aria-label="{% translate 'Navigation cabinet' %}">
-  <a class="app-sidebar-brand" href="{% url 'core:home' %}">
-    <span class="app-sidebar-mark" aria-hidden="true">A</span>
-    <span class="app-sidebar-name">{{ SITE_NAME }}</span>
+  <a class="app-sidebar-brand brand-block is-compact" href="{% url 'core:home' %}">
+    {% include "partials/brand.html" %}
   </a>
 
   <nav class="app-nav" aria-label="{% translate 'Menu principal' %}">
-    <p class="app-nav-section">{% translate "Espace de travail" %}</p>
-    <a class="app-nav-link {% if request.resolver_match.url_name == 'home' %}is-active{% endif %}" href="{% url 'core:home' %}">
-      {% translate "Tableau de bord" %}
-    </a>
-    <a class="app-nav-link {% if request.resolver_match.app_name == 'clients' %}is-active{% endif %}" href="{% url 'clients:list' %}">
-      {% translate "Clients" %}
-    </a>
-    <a class="app-nav-link {% if request.resolver_match.app_name == 'matters' %}is-active{% endif %}" href="{% url 'matters:list' %}">
-      {% translate "Dossiers" %}
-    </a>
-    <a class="app-nav-link {% if request.resolver_match.app_name == 'calendar' %}is-active{% endif %}" href="{% url 'calendar:list' %}">
-      {% translate "Agenda" %}
-    </a>
-    <a class="app-nav-link {% if request.resolver_match.app_name == 'documents' %}is-active{% endif %}" href="{% url 'documents:list' %}">
-      {% translate "Documents" %}
-    </a>
+    {% if is_platform_admin %}
+    <div class="app-nav-group">
+      <p class="app-nav-section">{% translate "Plateforme" %}</p>
+      <a class="app-nav-link {% if request.resolver_match.url_name == 'supervision' %}is-active{% endif %}" href="{% url 'core:supervision' %}">
+        <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3 20 7v5c0 5-3.4 8.4-8 9.5C7.4 20.4 4 17 4 12V7l8-4Z"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+        <span>{% translate "Supervision" %}</span>
+      </a>
+      <a class="app-nav-link {% if request.resolver_match.url_name == 'cabinet_list' or request.resolver_match.url_name == 'cabinet_create' or request.resolver_match.url_name == 'cabinet_detail' or request.resolver_match.url_name == 'cabinet_update' %}is-active{% endif %}" href="{% url 'tenants:cabinet_list' %}">
+        <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 20V8l8-4 8 4v12H4Z"/>
+          <path d="M9 20v-6h6v6"/>
+        </svg>
+        <span>{% translate "Cabinets avocats" %}</span>
+      </a>
+      <a class="app-nav-link {% if request.resolver_match.url_name == 'practice_area_list' or request.resolver_match.url_name == 'practice_area_create' or request.resolver_match.url_name == 'practice_area_update' %}is-active{% endif %}" href="{% url 'tenants:practice_area_list' %}">
+        <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 4h9l5 5v11H6z"/>
+          <path d="M15 4v5h5M9 13h8M9 17h5"/>
+        </svg>
+        <span>{% translate "Matières juridiques" %}</span>
+      </a>
+    </div>
+    {% endif %}
 
-    <p class="app-nav-section">{% translate "Cabinet" %}</p>
-    <a class="app-nav-link {% if request.resolver_match.app_name == 'billing' %}is-active{% endif %}" href="{% url 'billing:hub' %}">
-      {% translate "Facturation" %}
-    </a>
-    <a class="app-nav-link {% if request.resolver_match.app_name == 'tenants' %}is-active{% endif %}" href="{% url 'tenants:invitation_list' %}">
-      {% translate "Équipe & invitations" %}
-    </a>
+    <div class="app-nav-group">
+      <p class="app-nav-section">{% translate "Espace de travail" %}</p>
+      <a class="app-nav-link {% if request.resolver_match.url_name == 'home' %}is-active{% endif %}" href="{% url 'core:home' %}">
+        <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1.2"/>
+          <rect x="14" y="3" width="7" height="7" rx="1.2"/>
+          <rect x="3" y="14" width="7" height="7" rx="1.2"/>
+          <rect x="14" y="14" width="7" height="7" rx="1.2"/>
+        </svg>
+        <span>{% translate "Tableau de bord" %}</span>
+      </a>
+      <a class="app-nav-link {% if request.resolver_match.app_name == 'clients' %}is-active{% endif %}" href="{% url 'clients:list' %}">
+        <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="9" cy="8" r="3"/>
+          <path d="M3.5 19a5.5 5.5 0 0 1 11 0"/>
+          <circle cx="17" cy="9" r="2.2"/>
+          <path d="M21.5 19a4.5 4.5 0 0 0-6-4"/>
+        </svg>
+        <span>{% translate "Clients" %}</span>
+      </a>
+      <a class="app-nav-link {% if request.resolver_match.app_name == 'matters' %}is-active{% endif %}" href="{% url 'matters:list' %}">
+        <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 7.5h16v12H4z"/>
+          <path d="M9 7.5V6a3 3 0 0 1 6 0v1.5"/>
+        </svg>
+        <span>{% translate "Dossiers" %}</span>
+      </a>
+      <a class="app-nav-link {% if request.resolver_match.app_name == 'procurations' %}is-active{% endif %}" href="{% url 'procurations:list' %}">
+        <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 3h8l5 5v13H7z"/>
+          <path d="M15 3v5h5M9 13h6M9 17h4"/>
+          <path d="m10.2 12.2 1.4 1.4 2.6-2.8"/>
+        </svg>
+        <span>{% translate "Procurations" %}</span>
+      </a>
+      <a class="app-nav-link {% if request.resolver_match.app_name == 'hearings' %}is-active{% endif %}" href="{% url 'hearings:list' %}">
+        <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3v6"/>
+          <path d="m7 9 5 3 5-3"/>
+          <path d="M8 21h8"/>
+          <path d="M12 12v9"/>
+          <path d="M5 9h14"/>
+        </svg>
+        <span>{% translate "Audiences" %}</span>
+      </a>
+      <a class="app-nav-link {% if request.resolver_match.app_name == 'calendar' %}is-active{% endif %}" href="{% url 'calendar:list' %}">
+        <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="5" width="18" height="16" rx="2"/>
+          <path d="M3 10h18M8 3v4M16 3v4"/>
+        </svg>
+        <span>{% translate "Agenda" %}</span>
+      </a>
+      <a class="app-nav-link {% if request.resolver_match.app_name == 'documents' %}is-active{% endif %}" href="{% url 'documents:list' %}">
+        <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 3h8l5 5v13H7z"/>
+          <path d="M15 3v5h5M9 13h8M9 17h5"/>
+        </svg>
+        <span>{% translate "Documents" %}</span>
+      </a>
+    </div>
+
+    <div class="app-nav-group">
+      <p class="app-nav-section">{% translate "Cabinet" %}</p>
+      <a class="app-nav-link {% if request.resolver_match.app_name == 'billing' %}is-active{% endif %}" href="{% url 'billing:hub' %}">
+        <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 3h12v18l-2.2-1.4L14 21l-2-1.4L10 21l-2.2-1.4L6 21V3Z"/>
+          <path d="M9 8h6M9 12h6M9 16h3"/>
+        </svg>
+        <span>{% translate "Facturation" %}</span>
+      </a>
+      <a class="app-nav-link {% if request.resolver_match.url_name == 'member_list' or request.resolver_match.url_name == 'member_create' or request.resolver_match.url_name == 'member_update' or request.resolver_match.url_name == 'invite' %}is-active{% endif %}" href="{% url 'tenants:member_list' %}">
+        <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="9" cy="8" r="3"/>
+          <path d="M3.2 19a5.8 5.8 0 0 1 11.6 0"/>
+          <path d="M19 8v6M16 11h6"/>
+        </svg>
+        <span>{% translate "Équipe" %}</span>
+      </a>
+      <a class="app-nav-link {% if request.resolver_match.url_name == 'specialty_list' %}is-active{% endif %}" href="{% url 'tenants:specialty_list' %}">
+        <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 5h16M4 12h10M4 19h13"/>
+          <path d="m15 10 2 2 4-4"/>
+        </svg>
+        <span>{% translate "Spécialités" %}</span>
+      </a>
+    </div>
   </nav>
 
   <div class="app-sidebar-footer">
-    {% if current_cabinet %}
-      <p>{{ current_cabinet.name }}</p>
-    {% endif %}
-    {% if current_membership %}
-      <p>{{ current_membership.get_role_display }}</p>
+    <p class="app-sidebar-footer-kicker">{% translate "Connecté" %}</p>
+    <p class="app-sidebar-footer-name">{{ user.get_full_name|default:user.email }}</p>
+    {% if user.get_full_name and user.email != user.get_full_name %}
+    <p class="app-sidebar-footer-role">{{ user.email }}</p>
     {% endif %}
   </div>
 </aside>

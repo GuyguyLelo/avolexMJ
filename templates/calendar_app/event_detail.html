@@ -1,45 +1,47 @@
 {% extends "layouts/app.html" %}
-{% load i18n static %}
+{% load i18n %}
 
 {% block title %}{{ event.title }} — {{ SITE_NAME }}{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/calendar.css' %}">
-{% endblock %}
 
 {% block content %}
-<header class="page-header">
-  <div>
-    <p class="dash-date">{{ event.starts_at|date:"l j F Y"|capfirst }}</p>
-    <h1>{{ event.title }}</h1>
-    <p class="page-lede">
-      <span class="badge {% if event.event_type == 'hearing' %}badge-danger{% elif event.event_type == 'deadline' %}badge-warning{% elif event.event_type == 'appointment' %}badge-info{% elif event.event_type == 'task' %}badge-gold{% else %}badge-gold{% endif %}">
-        {{ event.get_event_type_display }}
-      </span>
-      {% if event.is_done %}
-      · <span class="badge badge-success">{% translate "Terminé" %}</span>
+<article class="detail-sheet">
+  <header class="detail-sheet-header">
+    <div class="detail-sheet-identity">
+      <span class="detail-sheet-avatar{% if event.event_type == 'hearing' %} is-gold{% endif %}" aria-hidden="true">{{ event.title|slice:":1"|upper }}</span>
+      <div class="detail-sheet-title">
+        <p class="detail-sheet-kicker">{{ event.starts_at|date:"l j F Y"|capfirst }}</p>
+        <h1>{{ event.title }}</h1>
+        <p class="detail-sheet-lede">
+          <span class="badge {% if event.event_type == 'hearing' %}badge-danger{% elif event.event_type == 'deadline' %}badge-warning{% elif event.event_type == 'appointment' %}badge-info{% elif event.event_type == 'task' %}badge-gold{% else %}badge-gold{% endif %}">
+            {{ event.get_event_type_display }}
+          </span>
+          {% if event.is_done %}
+          <span class="badge badge-success">{% translate "Terminé" %}</span>
+          {% endif %}
+          {% if event.event_type == 'hearing' and event.hearing_status %}
+          <span class="badge {% if event.hearing_status == 'held' %}badge-success{% elif event.hearing_status == 'postponed' %}badge-warning{% elif event.hearing_status == 'cancelled' %}badge-gold{% else %}badge-danger{% endif %}">
+            {{ event.get_hearing_status_display }}
+          </span>
+          {% endif %}
+        </p>
+      </div>
+    </div>
+    <div class="detail-sheet-actions">
+      {% if event.event_type == 'hearing' %}
+      <a class="btn btn-primary btn-sm" href="#rapport">{% if event.has_hearing_report %}{% translate "Rapport" %}{% else %}{% translate "Joindre le rapport" %}{% endif %}</a>
+      <a class="btn btn-secondary btn-sm" href="{% url 'hearings:update' event.pk %}">{% translate "Modifier" %}</a>
+      {% else %}
+      <a class="btn btn-secondary btn-sm" href="{% url 'calendar:event_update' event.pk %}">{% translate "Modifier" %}</a>
       {% endif %}
-    </p>
-  </div>
-  <div class="cluster">
-    {% if event.event_type == 'task' and not event.is_done %}
-    <form method="post" action="{% url 'calendar:event_done' event.pk %}">
-      {% csrf_token %}
-      <button class="btn btn-secondary" type="submit">{% translate "Marquer terminé" %}</button>
-    </form>
-    {% endif %}
-    <a class="btn btn-secondary" href="{% url 'calendar:event_update' event.pk %}">{% translate "Modifier" %}</a>
-    <form method="post" action="{% url 'calendar:event_delete' event.pk %}" onsubmit="return confirm('{% translate "Supprimer cet événement ?" %}');">
-      {% csrf_token %}
-      <button class="btn btn-danger" type="submit">{% translate "Supprimer" %}</button>
-    </form>
-  </div>
-</header>
+      <form method="post" action="{% url 'calendar:event_delete' event.pk %}" onsubmit="return confirm('{% translate "Supprimer cet événement ?" %}');">
+        {% csrf_token %}
+        <button class="btn btn-ghost btn-sm" type="submit">{% translate "Supprimer" %}</button>
+      </form>
+    </div>
+  </header>
 
 <section class="card event-info">
-  <header class="card-header">
-    <h2 class="card-title">{% translate "Informations" %}</h2>
-  </header>
   <dl class="event-facts">
     <div class="event-fact">
       <dt>{% translate "Début" %}</dt>
@@ -77,6 +79,28 @@
         {% endif %}
       </dd>
     </div>
+    {% if event.event_type == 'hearing' %}
+    <div class="event-fact">
+      <dt>{% translate "Tribunal" %}</dt>
+      <dd>
+        {% if event.court %}
+        <span>{{ event.court }}</span>
+        {% else %}
+        <span class="event-fact-empty">—</span>
+        {% endif %}
+      </dd>
+    </div>
+    <div class="event-fact">
+      <dt>{% translate "Chambre" %}</dt>
+      <dd>
+        {% if event.chamber %}
+        <span>{{ event.chamber }}</span>
+        {% else %}
+        <span class="event-fact-empty">—</span>
+        {% endif %}
+      </dd>
+    </div>
+    {% endif %}
     <div class="event-fact">
       <dt>{% translate "Dossier" %}</dt>
       <dd>
@@ -132,4 +156,95 @@
     {% endif %}
   </dl>
 </section>
+
+{% if event.event_type == 'hearing' %}
+<section class="card hearing-report-panel" id="rapport">
+  <header class="card-header">
+    <h2 class="card-title">{% translate "Rapport d'audience" %}</h2>
+    {% if event.hearing_report_file %}
+    <div class="cluster">
+      {% if event.hearing_report_can_preview %}
+      <a class="btn btn-primary btn-sm" href="{% url 'hearings:report_preview' event.pk %}" target="_blank" rel="noopener">{% translate "Afficher" %}</a>
+      {% endif %}
+      <a class="btn btn-secondary btn-sm" href="{% url 'hearings:report_download' event.pk %}">{% translate "Télécharger" %}</a>
+    </div>
+    {% endif %}
+  </header>
+  {% if event.hearing_report_file %}
+    {% if event.hearing_report_can_preview %}
+    <div class="doc-preview-frame hearing-report-preview">
+      <iframe
+        title="{% translate "Aperçu du rapport" %}"
+        src="{% url 'hearings:report_preview' event.pk %}"
+      ></iframe>
+    </div>
+    {% else %}
+    <p class="page-lede hearing-report-empty">
+      {{ event.hearing_report_filename }}
+      — {% translate "Ce fichier Word ne peut pas s'afficher dans le navigateur. Téléchargez-le pour le consulter." %}
+    </p>
+    {% endif %}
+  {% elif event.hearing_report %}
+  <div class="hearing-report-body">{{ event.hearing_report|linebreaksbr }}</div>
+  <p class="text-muted hearing-report-empty">{% translate "Joignez un fichier Word ou PDF pour remplacer ce compte-rendu texte." %}</p>
+  {% else %}
+  <p class="text-muted hearing-report-empty">{% translate "Aucun rapport n'a encore été joint." %}</p>
+  {% endif %}
+  <form method="post" action="{% url 'hearings:report' event.pk %}" class="hearing-report-form" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="form-field">
+      <label for="hearing-report-file">{% if event.hearing_report_file %}{% translate "Remplacer le fichier" %}{% else %}{% translate "Joindre un rapport Word ou PDF" %}{% endif %}</label>
+      <input
+        class="form-input"
+        type="file"
+        id="hearing-report-file"
+        name="report_file"
+        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        {% if not event.hearing_report_file %}required{% endif %}
+      >
+    </div>
+    <div class="hearing-report-actions">
+      <button class="btn btn-primary" type="submit">{% translate "Enregistrer le rapport" %}</button>
+      {% if event.hearing_status != 'held' %}
+      <button class="btn btn-secondary" type="submit" name="mark_held" value="1">{% translate "Enregistrer et marquer tenue" %}</button>
+      {% endif %}
+    </div>
+  </form>
+</section>
+{% endif %}
+
+{% if event.event_type == 'hearing' and event.hearing_status != 'held' and event.hearing_status != 'cancelled' %}
+<section class="card hearing-status-panel">
+  <header class="card-header">
+    <h2 class="card-title">{% translate "Suivi de l'audience" %}</h2>
+  </header>
+  <div class="hearing-status-actions">
+    <form method="post" action="{% url 'hearings:status' event.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="status" value="held">
+      <button class="btn btn-primary btn-sm" type="submit">{% translate "Audience tenue" %}</button>
+    </form>
+    <form method="post" action="{% url 'hearings:status' event.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="status" value="postponed">
+      <button class="btn btn-secondary btn-sm" type="submit">{% translate "Reportée" %}</button>
+    </form>
+    <form method="post" action="{% url 'hearings:status' event.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="status" value="cancelled">
+      <button class="btn btn-ghost btn-sm" type="submit">{% translate "Annulée" %}</button>
+    </form>
+  </div>
+</section>
+{% endif %}
+
+{% if event.event_type == 'task' and not event.is_done %}
+<section class="card">
+  <form method="post" action="{% url 'calendar:event_done' event.pk %}">
+    {% csrf_token %}
+    <button class="btn btn-secondary" type="submit">{% translate "Marquer la tâche terminée" %}</button>
+  </form>
+</section>
+{% endif %}
+</article>
 {% endblock %}

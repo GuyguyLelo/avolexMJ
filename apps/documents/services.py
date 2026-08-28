@@ -158,6 +158,9 @@ def create_document_with_file(
     """Crée un document et sa première version."""
     require_cabinet_perm(user=user, cabinet=cabinet, perm=PERM_ADD)
     assert_matter_in_cabinet(matter=matter, cabinet=cabinet)
+    from apps.procurations.services import require_matter_activity_allowed
+
+    require_matter_activity_allowed(matter)
 
     mime, checksum, size = validate_upload(
         filename=filename,
@@ -211,6 +214,9 @@ def add_document_version(
 ) -> DocumentVersion:
     """Ajoute une nouvelle version et la définit comme courante."""
     require_cabinet_perm(user=user, cabinet=document.cabinet, perm=PERM_CHANGE)
+    from apps.procurations.services import require_matter_activity_allowed
+
+    require_matter_activity_allowed(document.matter)
 
     mime, checksum, size = validate_upload(
         filename=filename,

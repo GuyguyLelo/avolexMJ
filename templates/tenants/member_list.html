@@ -1,0 +1,100 @@
+{% extends "layouts/app.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Équipe" %} — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<header class="page-header">
+  <div>
+    <h1>{% translate "Équipe" %}</h1>
+    <p class="page-lede">{% translate "Membres du cabinet et invitations en attente." %}</p>
+  </div>
+  <div class="cluster">
+    {% if can_invite %}
+    <a class="btn btn-secondary" href="{% url 'tenants:invite' %}">{% translate "Inviter" %}</a>
+    {% endif %}
+    {% if can_manage_members %}
+    <a class="btn btn-primary" href="{% url 'tenants:member_create' %}">{% translate "Nouveau membre" %}</a>
+    {% endif %}
+  </div>
+</header>
+
+<section class="card">
+  <header class="card-header">
+    <h2 class="card-title">{% translate "Membres" %}</h2>
+  </header>
+  {% if memberships %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Membre" %}</th>
+          <th>{% translate "E-mail" %}</th>
+          <th>{% translate "Téléphone" %}</th>
+          <th>{% translate "Rôle" %}</th>
+          <th>{% translate "Statut" %}</th>
+          {% if can_manage_members %}<th></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in memberships %}
+        <tr>
+          <td>{{ m.user.full_name }}</td>
+          <td>{{ m.user.email }}</td>
+          <td>{{ m.user.phone|default:"—" }}</td>
+          <td><span class="badge">{{ m.get_role_display }}</span></td>
+          <td>
+            {% if m.is_active %}<span class="badge badge-success">{% translate "Actif" %}</span>
+            {% else %}<span class="badge badge-warning">{% translate "Inactif" %}</span>{% endif %}
+          </td>
+          {% if can_manage_members %}
+          <td class="table-actions">
+            <a class="btn btn-ghost btn-sm" href="{% url 'tenants:member_update' m.pk %}">{% translate "Modifier" %}</a>
+            <form method="post" action="{% url 'tenants:member_delete' m.pk %}" onsubmit="return confirm('{% translate "Retirer ce membre du cabinet ?" %}');">
+              {% csrf_token %}
+              <button class="btn btn-ghost btn-sm" type="submit">{% translate "Retirer" %}</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "partials/pagination.html" %}
+  {% else %}
+  <p class="empty-state">{% translate "Aucun membre." %}</p>
+  {% endif %}
+</section>
+
+{% if invitations %}
+<section class="card" style="margin-top:1.25rem;">
+  <header class="card-header">
+    <h2 class="card-title">{% translate "Invitations en attente" %}</h2>
+    {% if can_invite %}
+    <a class="card-header-link" href="{% url 'tenants:invite' %}">{% translate "Nouvelle invitation" %}</a>
+    {% endif %}
+  </header>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{% translate "Invité" %}</th>
+          <th>{% translate "Rôle" %}</th>
+          <th>{% translate "Expire" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invitations %}
+        <tr>
+          <td>{{ inv.email }}</td>
+          <td>{{ inv.get_role_display }}</td>
+          <td>{{ inv.expires_at|date:"d/m/Y H:i" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

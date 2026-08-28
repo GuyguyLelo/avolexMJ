@@ -12,7 +12,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.clients.models import Client, ClientType
 from apps.tenants.roles import PERM_ADD, PERM_CHANGE, PERM_DELETE, PERM_VIEW
-from apps.tenants.services import require_cabinet_perm
+from apps.tenants.services import is_platform_admin, require_cabinet_perm
 
 if TYPE_CHECKING:
     from apps.accounts.models import User
@@ -61,7 +61,8 @@ def _validate_client_identity(*, client_type: str, data: dict[str, Any]) -> None
 @transaction.atomic
 def create_client(*, cabinet: Cabinet, user: User, **fields: Any) -> Client:
     """Crée un client pour le cabinet courant."""
-    require_cabinet_perm(user=user, cabinet=cabinet, perm=PERM_ADD)
+    if not is_platform_admin(user):
+        require_cabinet_perm(user=user, cabinet=cabinet, perm=PERM_ADD)
     client_type = fields.get("client_type") or ClientType.PERSON
     _validate_client_identity(client_type=client_type, data=fields)
     client = Client.objects.create(cabinet=cabinet, created_by=user, **fields)

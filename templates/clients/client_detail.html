@@ -1,11 +1,8 @@
 {% extends "layouts/app.html" %}
-{% load i18n static %}
+{% load i18n %}
 
 {% block title %}{{ client.display_name }} — {{ SITE_NAME }}{% endblock %}
 
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/clients.css' %}">
-{% endblock %}
 
 {% block content %}
 <article class="client-sheet">
@@ -30,12 +27,16 @@
       </div>
     </div>
     <div class="client-sheet-actions">
+      {% if is_platform_admin %}
       <a class="btn btn-primary btn-sm" href="{% url 'matters:create' %}?client={{ client.pk }}">{% translate "Nouveau dossier" %}</a>
+      {% endif %}
+      {% if not is_platform_admin %}
       <a class="btn btn-secondary btn-sm" href="{% url 'clients:update' client.pk %}">{% translate "Modifier" %}</a>
       <form method="post" action="{% url 'clients:delete' client.pk %}" onsubmit="return confirm('{% translate "Supprimer ce client ?" %}');">
         {% csrf_token %}
         <button class="btn btn-ghost btn-sm" type="submit">{% translate "Supprimer" %}</button>
       </form>
+      {% endif %}
     </div>
   </header>
 
@@ -97,7 +98,9 @@
         <h2>{% translate "Historique des dossiers" %}</h2>
         <p class="client-sheet-matters-lede">{% translate "Affaires rattachées à ce client." %}</p>
       </div>
+      {% if is_platform_admin %}
       <a class="btn btn-secondary btn-sm" href="{% url 'matters:create' %}?client={{ client.pk }}">{% translate "Ajouter" %}</a>
+      {% endif %}
     </header>
 
     {% if matters %}
@@ -107,6 +110,7 @@
           <tr>
             <th>{% translate "Référence" %}</th>
             <th>{% translate "Intitulé" %}</th>
+            <th>{% translate "Échelle" %}</th>
             <th>{% translate "Statut" %}</th>
             <th>{% translate "Avocat" %}</th>
             <th>{% translate "Ouverture" %}</th>
@@ -119,6 +123,11 @@
               <a class="list-ref" href="{% url 'matters:detail' m.pk %}">{{ m.reference }}</a>
             </td>
             <td>{{ m.title }}</td>
+            <td>
+              <span class="badge {% if m.scale == 'international' %}badge-gold{% else %}badge-info{% endif %}">
+                {{ m.get_scale_display }}
+              </span>
+            </td>
             <td>
               <span class="badge {% if m.status == 'closed' %}badge-success{% elif m.status == 'in_progress' %}badge-info{% elif m.status == 'on_hold' %}badge-warning{% else %}badge-gold{% endif %}">
                 {{ m.get_status_display }}
@@ -137,7 +146,9 @@
     {% else %}
     <div class="client-empty-matters">
       <p>{% translate "Aucun dossier pour ce client." %}</p>
+      {% if is_platform_admin %}
       <a class="btn btn-primary btn-sm" href="{% url 'matters:create' %}?client={{ client.pk }}">{% translate "Ouvrir un dossier" %}</a>
+      {% endif %}
     </div>
     {% endif %}
   </section>

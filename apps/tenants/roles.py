@@ -9,11 +9,15 @@ from django.utils.translation import gettext_lazy as _
 class Role(models.TextChoices):
     """Rôles d'un membre au sein d'un cabinet."""
 
-    OWNER = "owner", _("Propriétaire")
+    CAIMAN = "caiman", _("Caïman")
     LAWYER = "lawyer", _("Avocat")
-    ASSOCIATE = "associate", _("Collaborateur")
-    SECRETARY = "secretary", _("Secrétaire")
-    READ_ONLY = "read_only", _("Lecture seule")
+
+
+# Alias techniques pour les anciens appels ; ils ne figurent plus dans les choix affichés.
+Role.OWNER = Role.CAIMAN  # type: ignore[attr-defined]
+Role.ASSOCIATE = Role.LAWYER  # type: ignore[attr-defined]
+Role.SECRETARY = Role.LAWYER  # type: ignore[attr-defined]
+Role.READ_ONLY = "read_only"  # type: ignore[attr-defined]
 
 
 # Permissions logiques (pas Django auth perms)
@@ -40,11 +44,8 @@ _ALL = frozenset(
 )
 
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
-    Role.OWNER: _ALL,
+    Role.CAIMAN: _ALL,
     Role.LAWYER: frozenset({PERM_VIEW, PERM_ADD, PERM_CHANGE, PERM_DELETE, PERM_INVITE}),
-    Role.ASSOCIATE: frozenset({PERM_VIEW, PERM_ADD, PERM_CHANGE}),
-    Role.SECRETARY: frozenset({PERM_VIEW, PERM_ADD, PERM_CHANGE}),
-    Role.READ_ONLY: frozenset({PERM_VIEW}),
 }
 
 

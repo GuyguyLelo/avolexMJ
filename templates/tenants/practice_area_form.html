@@ -1,0 +1,40 @@
+{% extends "layouts/app.html" %}
+{% load i18n %}
+
+{% block title %}{% if practice_area %}{% translate "Modifier la matière" %}{% else %}{% translate "Nouvelle matière" %}{% endif %} — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<header class="page-header">
+  <div>
+    <h1>{% if practice_area %}{% translate "Modifier la matière" %}{% else %}{% translate "Nouvelle matière juridique" %}{% endif %}</h1>
+    <p class="page-lede">{% translate "Intitulé visible lors de l'ouverture d'un dossier et des spécialités des cabinets." %}</p>
+  </div>
+</header>
+
+<section class="card" style="max-width: 32rem;">
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+    {% for field in form %}
+    <div class="form-field{% if field.name == 'is_active' %} form-field-check{% endif %}">
+      {% if field.name == 'is_active' %}
+      <label class="form-check-label" for="{{ field.id_for_label }}">
+        {{ field }}
+        <span>{{ field.label }}</span>
+      </label>
+      {% else %}
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% endif %}
+      {% if field.errors %}<div class="form-error">{{ field.errors }}</div>{% endif %}
+    </div>
+    {% endfor %}
+    <div class="cluster">
+      <button class="btn btn-primary" type="submit">{% translate "Enregistrer" %}</button>
+      <a class="btn btn-ghost" href="{% url 'tenants:practice_area_list' %}">{% translate "Annuler" %}</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

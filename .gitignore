@@ -48,6 +48,8 @@ celerybeat.pid
 # Misc
 *.pdf
 !docs/**/*.pdf
+identifiants*.docx
+~$*.docx
 
 .tmp_test.sqlite3
 *.sqlite3
