@@ -53,8 +53,8 @@ class Document(TenantOwnedModel):
     )
 
     class Meta:
-        verbose_name = _("document")
-        verbose_name_plural = _("documents")
+        verbose_name = _("Document")
+        verbose_name_plural = _("Documents")
         ordering = ("-updated_at",)
         indexes = [
             models.Index(fields=["cabinet", "matter"], name="documents_doc_cabinet_matter"),
@@ -95,8 +95,8 @@ class DocumentVersion(TenantOwnedModel):
     change_note = models.CharField(_("note de version"), max_length=255, blank=True)
 
     class Meta:
-        verbose_name = _("version de document")
-        verbose_name_plural = _("versions de document")
+        verbose_name = _("Version de document")
+        verbose_name_plural = _("Versions de document")
         ordering = ("-version_number",)
         constraints = [
             models.UniqueConstraint(

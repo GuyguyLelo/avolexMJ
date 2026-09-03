@@ -6,40 +6,83 @@
 {% block content %}
 <header class="page-header">
   <div>
-    <h1>{% if matter %}{% translate "Modifier le dossier" %}{% else %}{% translate "Nouveau dossier" %}{% endif %}</h1>
-    {% if not matter %}<p class="page-lede">{% translate "Choisissez la matière, le cabinet spécialisé, puis ouvrez le dossier. Une procuration sera ensuite délivrée au cabinet." %}</p>{% endif %}
+    <h1>{% if matter %}{% translate "Modifier le dossier" %} : {{ matter.reference }}{% else %}{% translate "Nouveau dossier" %}{% endif %}</h1>
   </div>
 </header>
 
-<form method="post" class="card" novalidate style="max-width: 42rem;"{% if not matter %} data-matter-create data-context-url="{% url 'matters:create_context' %}"{% endif %}>
+<form method="post" class="card compact-form" enctype="multipart/form-data" novalidate{% if not matter %} data-matter-create data-context-url="{% url 'matters:create_context' %}"{% endif %}>
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
-  {% for field in form %}
-  <div class="form-field">
-    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-    {{ field }}
-    {% if field.help_text %}<p class="form-help">{{ field.help_text }}</p>{% endif %}
-    {% if field.errors %}<div class="form-error">{{ field.errors }}</div>{% endif %}
+  
+  <div class="form-grid">
+    {% for field in form %}
+    {% if field.name != 'opposing_party' %}
+    <div class="form-field">
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<p class="form-help">{{ field.help_text }}</p>{% endif %}
+      {% if field.errors %}<div class="form-error">{{ field.errors }}</div>{% endif %}
+    </div>
+    {% endif %}
+    {% if field.name == 'practice_area' and not matter %}
+    <div class="suggest-cabinets" data-cabinet-suggestions {% if not suggested_cabinets %}hidden{% endif %}>
+      <p class="suggest-cabinets-title">{% translate "Cabinets spécialisés dans cette matière" %}</p>
+      <p class="form-help">{% translate "Cliquez pour préremplir le cabinet destinataire, ses justiciables et ses avocats." %}</p>
+      <ul class="suggest-cabinets-list">
+        {% for cab in suggested_cabinets %}
+        <li>
+          <button type="button" class="suggest-cabinet-card{% if target_cabinet and cab.pk == target_cabinet.pk %} is-selected{% endif %}" data-cabinet-id="{{ cab.pk }}">
+            <span class="suggest-cabinet-name">{{ cab.name }}</span>
+            <span class="suggest-cabinet-meta">{% if cab.city %}{{ cab.city }}{% endif %}{% if cab.bar_association %} · {{ cab.bar_association }}{% endif %}</span>
+          </button>
+        </li>
+        {% empty %}
+        <li class="suggest-cabinets-empty">{% translate "Aucun cabinet n'a encore déclaré cette spécialité." %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% endfor %}
   </div>
-  {% if field.name == 'practice_area' and not matter %}
-  <div class="suggest-cabinets" data-cabinet-suggestions {% if not suggested_cabinets %}hidden{% endif %}>
-    <p class="suggest-cabinets-title">{% translate "Cabinets spécialisés dans cette matière" %}</p>
-    <p class="form-help">{% translate "Cliquez pour préremplir le cabinet destinataire, ses justiciables et ses avocats." %}</p>
-    <ul class="suggest-cabinets-list">
-      {% for cab in suggested_cabinets %}
-      <li>
-        <button type="button" class="suggest-cabinet-card{% if target_cabinet and cab.pk == target_cabinet.pk %} is-selected{% endif %}" data-cabinet-id="{{ cab.pk }}">
-          <span class="suggest-cabinet-name">{{ cab.name }}</span>
-          <span class="suggest-cabinet-meta">{% if cab.city %}{{ cab.city }}{% endif %}{% if cab.bar_association %} · {{ cab.bar_association }}{% endif %}</span>
-        </button>
-      </li>
-      {% empty %}
-      <li class="suggest-cabinets-empty">{% translate "Aucun cabinet n'a encore déclaré cette spécialité." %}</li>
+  
+  {% if parties_formset %}
+  <div class="parties-section" style="margin-top: 1.5rem;">
+    <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">{% translate "Parties concernées" %}</h3>
+    <p class="form-help" style="margin-bottom: 1rem;">{% translate "Le Ministère de la Justice défend les services de l'État congolais. Indiquez les parties plaignantes/accusatrices et défendeurs/accusés." %}</p>
+    {{ parties_formset.management_form }}
+    <div class="parties-grid" style="display: grid; gap: 1rem;">
+      {% for form in parties_formset %}
+      <div class="party-form card" style="padding: 1rem; background: #f8f9fa;">
+        <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div class="form-field">
+            <label for="{{ form.name.id_for_label }}">{% translate "Nom de la partie" %}</label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="form-error">{{ form.name.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field">
+            <label for="{{ form.role.id_for_label }}">{% translate "Rôle" %}</label>
+            {{ form.role }}
+            {% if form.role.errors %}<div class="form-error">{{ form.role.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field" style="grid-column: 1 / -1;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              {{ form.is_state_entity }}
+              <label for="{{ form.is_state_entity.id_for_label }}" style="margin: 0; font-size: 0.85rem;">{% translate "Entité étatique (service de l'État congolais)" %}</label>
+            </div>
+            {% if form.is_state_entity.errors %}<div class="form-error">{{ form.is_state_entity.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field" style="grid-column: 1 / -1;">
+            <label for="{{ form.notes.id_for_label }}">{% translate "Notes" %}</label>
+            {{ form.notes }}
+            {% if form.notes.errors %}<div class="form-error">{{ form.notes.errors }}</div>{% endif %}
+          </div>
+        </div>
+      </div>
       {% endfor %}
-    </ul>
+    </div>
   </div>
   {% endif %}
-  {% endfor %}
+  
   <div class="cluster">
     <button class="btn btn-primary" type="submit">{% translate "Enregistrer" %}</button>
     <a class="btn btn-secondary" href="{% if matter %}{% url 'matters:detail' matter.pk %}{% else %}{% url 'matters:list' %}{% endif %}">{% translate "Annuler" %}</a>

@@ -268,7 +268,7 @@ SITE_COUNTRY = "République Démocratique du Congo"
 SITE_INSTITUTION = "Ministère de la Justice et Garde des Sceaux"
 SITE_AUTHORITY = "Le Gouvernement"
 # Invalide le cache navigateur des CSS/JS (changer à chaque charte visuelle)
-STATIC_VERSION = "app-css-v16"
+STATIC_VERSION = "app-css-v24"
 
 
 def require_setting(name: str) -> str:

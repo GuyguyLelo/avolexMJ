@@ -6,6 +6,7 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.bar_associations import bar_association_choices_with_value
+from apps.core.widgets import PrivateClearableFileInput
 from apps.tenants.models import Cabinet, LegalPracticeArea
 from apps.tenants.roles import Role
 from apps.tenants.services import validate_cabinet_contract_file
@@ -74,7 +75,7 @@ class CabinetForm(forms.ModelForm):
         )
         contract_widget: forms.Widget
         if self.instance.pk:
-            contract_widget = forms.ClearableFileInput(
+            contract_widget = PrivateClearableFileInput(
                 attrs={"class": "form-input", "accept": _CONTRACT_ACCEPT},
             )
         else:

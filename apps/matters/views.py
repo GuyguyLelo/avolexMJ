@@ -18,7 +18,7 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from apps.calendar_app.models import EventType, HearingStatus
 from apps.clients.models import Client
 from apps.core.mixins import BreadcrumbMixin
-from apps.matters.forms import MatterForm
+from apps.matters.forms import MatterForm, MatterPartyFormSet
 from apps.matters.models import Matter, MatterScale, MatterStatus
 from apps.matters.services import (
     archive_matter,
@@ -123,6 +123,7 @@ class MatterDetailView(CabinetPermissionMixin, BreadcrumbMixin, DetailView):
             matter.procurations.select_related("granted_by").order_by("-created_at").first()
         )
         ctx["display_procuration"] = ctx["valid_procuration"] or ctx["latest_procuration"]
+        ctx["parties"] = matter.parties.all().order_by("role", "name")
         return ctx
 
 
@@ -219,9 +220,18 @@ class MatterCreateView(CabinetPermissionMixin, BreadcrumbMixin, CreateView):
             practice_area_name=practice_area
         )
         ctx["target_cabinet"] = _resolve_target_cabinet(self.request)
+        if self.request.POST:
+            ctx["parties_formset"] = MatterPartyFormSet(self.request.POST)
+        else:
+            ctx["parties_formset"] = MatterPartyFormSet()
         return ctx
 
     def form_valid(self, form: MatterForm) -> HttpResponse:
+        parties_formset = MatterPartyFormSet(self.request.POST)
+        if not parties_formset.is_valid():
+            messages.error(self.request, _g("Erreur dans les parties du dossier."))
+            return self.form_invalid(form)
+        
         data = form.cleaned_data
         cabinet = data["target_cabinet"]
         try:
@@ -234,13 +244,25 @@ class MatterCreateView(CabinetPermissionMixin, BreadcrumbMixin, CreateView):
                 description=data.get("description") or "",
                 practice_area=data.get("practice_area") or "",
                 jurisdiction=data.get("jurisdiction") or "",
-                opposing_party=data.get("opposing_party") or "",
                 scale=data.get("scale") or MatterScale.NATIONAL,
                 status=data.get("status") or MatterStatus.OPEN,
                 opened_at=data.get("opened_at"),
                 closed_at=data.get("closed_at"),
                 notes=data.get("notes") or "",
             )
+            # Save parties
+            for party_form in parties_formset:
+                if party_form.cleaned_data and not party_form.cleaned_data.get('DELETE'):
+                    from apps.matters.models import MatterParty
+                    MatterParty.objects.create(
+                        cabinet=matter.cabinet,
+                        matter=matter,
+                        name=party_form.cleaned_data['name'],
+                        role=party_form.cleaned_data['role'],
+                        is_state_entity=party_form.cleaned_data.get('is_state_entity', False),
+                        notes=party_form.cleaned_data.get('notes', ''),
+                        created_by=self.request.user,
+                    )
         except (ValidationError, PermissionDenied) as exc:
             if isinstance(exc, ValidationError) and hasattr(exc, "message_dict"):
                 for field, errs in exc.message_dict.items():
@@ -282,13 +304,50 @@ class MatterUpdateView(CabinetPermissionMixin, BreadcrumbMixin, UpdateView):
         kwargs["lawyer_queryset"] = _lawyer_queryset(cabinet)
         return kwargs
 
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        if self.request.POST:
+            ctx["parties_formset"] = MatterPartyFormSet(self.request.POST)
+        else:
+            # Pre-populate with existing parties
+            existing_parties = self.object.parties.all()
+            initial_data = []
+            for party in existing_parties:
+                initial_data.append({
+                    'name': party.name,
+                    'role': party.role,
+                    'is_state_entity': party.is_state_entity,
+                    'notes': party.notes,
+                })
+            ctx["parties_formset"] = MatterPartyFormSet(initial=initial_data)
+        return ctx
+
     def form_valid(self, form: MatterForm) -> HttpResponse:
+        parties_formset = MatterPartyFormSet(self.request.POST)
+        if not parties_formset.is_valid():
+            messages.error(self.request, _g("Erreur dans les parties du dossier."))
+            return self.form_invalid(form)
+        
         try:
             update_matter(
                 matter=self.object,
                 user=self.request.user,  # type: ignore[arg-type]
                 **form.cleaned_data,
             )
+            # Update parties - delete existing and recreate
+            from apps.matters.models import MatterParty
+            self.object.parties.all().delete()
+            for party_form in parties_formset:
+                if party_form.cleaned_data and not party_form.cleaned_data.get('DELETE'):
+                    MatterParty.objects.create(
+                        cabinet=self.object.cabinet,
+                        matter=self.object,
+                        name=party_form.cleaned_data['name'],
+                        role=party_form.cleaned_data['role'],
+                        is_state_entity=party_form.cleaned_data.get('is_state_entity', False),
+                        notes=party_form.cleaned_data.get('notes', ''),
+                        created_by=self.request.user,
+                    )
         except (ValidationError, PermissionDenied) as exc:
             messages.error(self.request, str(exc))
             return self.form_invalid(form)

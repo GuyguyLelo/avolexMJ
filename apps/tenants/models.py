@@ -68,8 +68,8 @@ class Cabinet(BaseModel):
     is_active = models.BooleanField(_("actif"), default=True)
 
     class Meta:
-        verbose_name = _("cabinet")
-        verbose_name_plural = _("cabinets")
+        verbose_name = _("Cabinet")
+        verbose_name_plural = _("Cabinets")
         ordering = ("name",)
 
     def __str__(self) -> str:
@@ -143,8 +143,8 @@ class Membership(BaseModel):
     is_active = models.BooleanField(_("actif"), default=True)
 
     class Meta:
-        verbose_name = _("adhésion")
-        verbose_name_plural = _("adhésions")
+        verbose_name = _("Adhésion")
+        verbose_name_plural = _("Adhésions")
         constraints = [
             models.UniqueConstraint(
                 fields=("cabinet", "user"),
@@ -195,8 +195,8 @@ class Invitation(BaseModel):
     accepted_at = models.DateTimeField(_("acceptée le"), null=True, blank=True)
 
     class Meta:
-        verbose_name = _("invitation")
-        verbose_name_plural = _("invitations")
+        verbose_name = _("Invitation")
+        verbose_name_plural = _("Invitations")
         ordering = ("-created_at",)
 
     def __str__(self) -> str:
@@ -225,8 +225,8 @@ class CabinetPreference(TenantOwnedModel):
     value = models.JSONField(_("valeur"), default=dict, blank=True)
 
     class Meta:
-        verbose_name = _("préférence cabinet")
-        verbose_name_plural = _("préférences cabinet")
+        verbose_name = _("Préférence cabinet")
+        verbose_name_plural = _("Préférences cabinet")
         constraints = [
             models.UniqueConstraint(
                 fields=("cabinet", "key"),
@@ -248,8 +248,8 @@ class LegalPracticeArea(BaseModel):
     is_active = models.BooleanField(_("active"), default=True)
 
     class Meta:
-        verbose_name = _("matière juridique")
-        verbose_name_plural = _("matières juridiques")
+        verbose_name = _("Matière juridique")
+        verbose_name_plural = _("Matières juridiques")
         ordering = ("name",)
         constraints = [
             models.UniqueConstraint(
@@ -297,8 +297,8 @@ class CabinetPracticeArea(BaseModel):
     )
 
     class Meta:
-        verbose_name = _("spécialité du cabinet")
-        verbose_name_plural = _("spécialités du cabinet")
+        verbose_name = _("Spécialité du cabinet")
+        verbose_name_plural = _("Spécialités du cabinet")
         ordering = ("practice_area__name",)
         constraints = [
             models.UniqueConstraint(

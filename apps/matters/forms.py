@@ -9,15 +9,33 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
+from django.forms import formset_factory
 
 from apps.clients.models import Client
 from apps.core.kinshasa_courts import court_choices_with_value
-from apps.matters.models import Matter, MatterScale, MatterStatus
+from apps.matters.models import Matter, MatterParty, MatterScale, MatterStatus
 from apps.matters.services import validate_matter_scale
 from apps.tenants.legal_areas import ensure_default_legal_practice_areas
 from apps.tenants.models import Cabinet, LegalPracticeArea
 
 User = get_user_model()
+
+
+class MatterPartyForm(forms.ModelForm):
+    """Formulaire pour une partie d'un dossier."""
+
+    class Meta:
+        model = MatterParty
+        fields = ("name", "role", "is_state_entity", "notes")
+        widgets = {
+            "name": forms.TextInput(attrs={"class": "form-input"}),
+            "role": forms.Select(attrs={"class": "form-input"}),
+            "is_state_entity": forms.CheckboxInput(attrs={"class": "form-input"}),
+            "notes": forms.Textarea(attrs={"class": "form-input", "rows": 2}),
+        }
+
+
+MatterPartyFormSet = formset_factory(MatterPartyForm, extra=2, can_delete=False)
 
 
 class MatterForm(forms.ModelForm):
@@ -39,11 +57,11 @@ class MatterForm(forms.ModelForm):
             "description",
             "practice_area",
             "jurisdiction",
-            "opposing_party",
             "status",
             "responsible_lawyer",
             "opened_at",
             "closed_at",
+            "initial_pdf",
             "notes",
         )
         widgets = {
@@ -52,11 +70,11 @@ class MatterForm(forms.ModelForm):
             "scale": forms.Select(attrs={"class": "form-input"}),
             "description": forms.Textarea(attrs={"class": "form-input", "rows": 4}),
             "practice_area": forms.Select(attrs={"class": "form-input"}),
-            "opposing_party": forms.TextInput(attrs={"class": "form-input"}),
             "status": forms.Select(attrs={"class": "form-input"}),
             "responsible_lawyer": forms.Select(attrs={"class": "form-input"}),
             "opened_at": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
             "closed_at": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
+            "initial_pdf": forms.FileInput(attrs={"class": "form-input", "accept": ".pdf,application/pdf"}),
             "notes": forms.Textarea(attrs={"class": "form-input", "rows": 3}),
         }
 
@@ -122,11 +140,11 @@ class MatterForm(forms.ModelForm):
                     "scale",
                     "description",
                     "jurisdiction",
-                    "opposing_party",
                     "status",
                     "responsible_lawyer",
                     "opened_at",
                     "closed_at",
+                    "initial_pdf",
                     "notes",
                 ]
             )

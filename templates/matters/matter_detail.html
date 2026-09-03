@@ -5,7 +5,7 @@
 
 
 {% block content %}
-<article class="detail-sheet">
+<article class="detail-sheet detail-sheet--compact">
   <header class="detail-sheet-header">
     <div class="detail-sheet-identity">
       <span class="detail-sheet-avatar" aria-hidden="true">{{ matter.reference|slice:"-2:" }}</span>
@@ -42,7 +42,7 @@
       </form>
       {% endif %}
       {% if not is_platform_admin and can_delete_matter %}
-      <form method="post" action="{% url 'matters:delete' matter.pk %}" onsubmit="return confirm('{% translate "Supprimer ce dossier ?" %}');">
+      <form method="post" action="{% url 'matters:delete' matter.pk %}" onsubmit="return confirm('Supprimer ce dossier ?');">
         {% csrf_token %}
         <button class="btn btn-ghost btn-sm" type="submit">{% translate "Supprimer" %}</button>
       </form>
@@ -50,59 +50,44 @@
     </div>
   </header>
 
-{% if has_valid_procuration and valid_procuration %}
-<aside class="proc-banner is-ok">
-  <p>
-    {% translate "Procuration ministérielle en cours :" %}
-    <a href="{% url 'procurations:detail' valid_procuration.pk %}">{{ valid_procuration.reference }}</a>
-    {% if valid_procuration.expires_at %}
-    — {% translate "valide jusqu'au" %} {{ valid_procuration.expires_at|date:"d/m/Y" }}
+  {% if has_valid_procuration and valid_procuration %}
+  <aside class="proc-banner is-ok">
+    <p>
+      {% translate "Procuration ministérielle en cours :" %}
+      <a href="{% url 'procurations:detail' valid_procuration.pk %}">{{ valid_procuration.reference }}</a>
+      {% if valid_procuration.expires_at %}
+      — {% translate "valide jusqu'au" %} {{ valid_procuration.expires_at|date:"d/m/Y" }}
+      {% endif %}
+    </p>
+  </aside>
+  {% else %}
+  <aside class="proc-banner">
+    <p>
+      {% translate "Aucune procuration délivrée par le Ministère de la Justice. Les documents, audiences, agenda et la facturation de ce dossier sont bloqués." %}
+    </p>
+    {% if latest_procuration %}
+    <a class="btn btn-primary btn-sm" href="{% url 'procurations:detail' latest_procuration.pk %}">{% translate "Voir la procuration" %}</a>
+    {% elif is_platform_admin %}
+    <a class="btn btn-primary btn-sm" href="{% url 'procurations:create' %}?matter={{ matter.pk }}&cabinet={{ matter.cabinet_id }}">{% translate "Délivrer une procuration" %}</a>
     {% endif %}
-  </p>
-</aside>
-{% else %}
-<aside class="proc-banner">
-  <p>
-    {% translate "Aucune procuration délivrée par le Ministère de la Justice. Les documents, audiences, agenda et la facturation de ce dossier sont bloqués." %}
-  </p>
-  {% if latest_procuration %}
-  <a class="btn btn-primary" href="{% url 'procurations:detail' latest_procuration.pk %}">{% translate "Voir la procuration" %}</a>
-  {% elif is_platform_admin %}
-  <a class="btn btn-primary" href="{% url 'procurations:create' %}?matter={{ matter.pk }}&cabinet={{ matter.cabinet_id }}">{% translate "Délivrer une procuration" %}</a>
+  </aside>
   {% endif %}
-</aside>
-{% endif %}
 
-<section class="card matter-info">
-  <dl class="matter-facts">
+  <section class="matter-facts" aria-label="{% translate 'Informations' %}">
     <div class="matter-fact">
       <dt>{% translate "Client" %}</dt>
       <dd>
-        <a class="list-entity" href="{% url 'clients:detail' matter.client_id %}">
-          <span class="avatar{% if matter.client.client_type == 'company' %} avatar-company{% endif %}" aria-hidden="true">{{ matter.client.display_name|slice:":1" }}</span>
-          <span class="list-entity-text">
-            <span class="list-entity-title">{{ matter.client.display_name }}</span>
-            <span class="list-entity-meta">{{ matter.client.get_client_type_display }}</span>
-          </span>
-        </a>
+        <a href="{% url 'clients:detail' matter.client_id %}">{{ matter.client.display_name }}</a>
       </dd>
     </div>
     <div class="matter-fact">
       <dt>{% translate "Type d'affaire" %}</dt>
       <dd>
         {% if matter.practice_area %}
-        <span class="badge badge-gold">{{ matter.practice_area }}</span>
+        {{ matter.practice_area }}
         {% else %}
         <span class="matter-fact-empty">—</span>
         {% endif %}
-      </dd>
-    </div>
-    <div class="matter-fact">
-      <dt>{% translate "Échelle" %}</dt>
-      <dd>
-        <span class="badge {% if matter.scale == 'international' %}badge-gold{% else %}badge-info{% endif %}">
-          {{ matter.get_scale_display }}
-        </span>
       </dd>
     </div>
     <div class="matter-fact">
@@ -117,17 +102,7 @@
     </div>
     <div class="matter-fact">
       <dt>{% translate "Avocat" %}</dt>
-      <dd>
-        <span class="list-entity">
-          <span class="avatar" aria-hidden="true">{{ matter.responsible_lawyer.get_full_name|default:matter.responsible_lawyer.email|slice:":1" }}</span>
-          <span class="list-entity-text">
-            <span class="list-entity-title">{{ matter.responsible_lawyer.get_full_name|default:matter.responsible_lawyer.email }}</span>
-            {% if matter.responsible_lawyer.get_full_name %}
-            <span class="list-entity-meta">{{ matter.responsible_lawyer.email }}</span>
-            {% endif %}
-          </span>
-        </span>
-      </dd>
+      <dd>{{ matter.responsible_lawyer.get_full_name|default:matter.responsible_lawyer.email }}</dd>
     </div>
     <div class="matter-fact">
       <dt>{% translate "Ouverture" %}</dt>
@@ -155,198 +130,178 @@
       <dd class="matter-desc">{{ matter.description }}</dd>
     </div>
     {% endif %}
-  </dl>
-</section>
-
-{% if display_procuration %}
-{% with p=display_procuration %}
-<section class="card matter-info">
-  <header class="card-header">
-    <h2 class="card-title">{% translate "Procuration" %}</h2>
-    <div class="cluster">
-      <a class="card-header-link" href="{% url 'procurations:detail' p.pk %}">{% translate "Voir la procuration" %}</a>
-      {% if is_platform_admin and p.status == 'granted' %}
-      <form method="post" action="{% url 'procurations:generate' p.pk %}"{% if p.instrument %} onsubmit="return confirm('{% translate "Un acte est déjà joint. Le remplacer ?" %}');"{% endif %}>
-        {% csrf_token %}
-        <button class="btn btn-primary btn-sm" type="submit">{% if p.instrument %}{% translate "Régénérer l'acte" %}{% else %}{% translate "Générer la procuration" %}{% endif %}</button>
-      </form>
-      {% endif %}
-    </div>
-  </header>
-  <dl class="matter-facts">
+    {% if matter.initial_pdf %}
     <div class="matter-fact">
-      <dt>{% translate "Référence" %}</dt>
+      <dt>{% translate "PDF initial" %}</dt>
       <dd>
-        <a href="{% url 'procurations:detail' p.pk %}">{{ p.reference }}</a>
+        <a href="{{ matter.initial_pdf.url }}" target="_blank" rel="noopener">{% translate "Télécharger" %}</a>
       </dd>
     </div>
-    <div class="matter-fact">
-      <dt>{% translate "Statut" %}</dt>
-      <dd>
-        <span class="badge {% if p.status == 'granted' %}badge-success{% elif p.status == 'requested' %}badge-gold{% elif p.status == 'draft' %}badge-info{% elif p.status == 'refused' or p.status == 'revoked' %}badge-danger{% endif %}">
-          {{ p.get_status_display }}
-        </span>
-        {% if p.is_currently_valid %}
-        <span class="badge badge-success">{% translate "Valide" %}</span>
-        {% endif %}
-      </dd>
-    </div>
-    <div class="matter-fact">
-      <dt>{% translate "Objet" %}</dt>
-      <dd>
-        {% if p.purpose %}
-        <span class="matter-fact-value">{{ p.purpose }}</span>
-        {% else %}
-        <span class="matter-fact-empty">—</span>
-        {% endif %}
-      </dd>
-    </div>
-    <div class="matter-fact">
-      <dt>{% translate "Référence ministérielle" %}</dt>
-      <dd>
-        {% if p.ministry_reference %}
-        <span class="matter-fact-value">{{ p.ministry_reference }}</span>
-        {% else %}
-        <span class="matter-fact-empty">—</span>
-        {% endif %}
-      </dd>
-    </div>
-    <div class="matter-fact">
-      <dt>{% translate "Demandée le" %}</dt>
-      <dd>
-        {% if p.requested_at %}
-        <span class="matter-fact-value">{{ p.requested_at|date:"d/m/Y" }}</span>
-        {% else %}
-        <span class="matter-fact-empty">—</span>
-        {% endif %}
-      </dd>
-    </div>
-    <div class="matter-fact">
-      <dt>{% translate "Accordée le" %}</dt>
-      <dd>
-        {% if p.granted_at %}
-        <span class="matter-fact-value">{{ p.granted_at|date:"d/m/Y" }}</span>
-        {% else %}
-        <span class="matter-fact-empty">—</span>
-        {% endif %}
-      </dd>
-    </div>
-    <div class="matter-fact">
-      <dt>{% translate "Validité" %}</dt>
-      <dd>
-        <span class="matter-fact-value">
-          {% if p.valid_from %}{{ p.valid_from|date:"d/m/Y" }}{% else %}—{% endif %}
-          →
-          {% if p.expires_at %}{{ p.expires_at|date:"d/m/Y" }}{% else %}{% translate "sans terme" %}{% endif %}
-        </span>
-      </dd>
-    </div>
-    {% if p.granted_by %}
-    <div class="matter-fact">
-      <dt>{% translate "Accordée par" %}</dt>
-      <dd>{{ p.granted_by.get_full_name|default:p.granted_by.email }}</dd>
-    </div>
-    {% endif %}
-    {% if p.instrument %}
-    <div class="matter-fact">
-      <dt>{% translate "Acte" %}</dt>
-      <dd>
-        <a href="{% url 'procurations:download' p.pk %}">{% if p.instrument_filename %}{{ p.instrument_filename }}{% else %}{% translate "Télécharger" %}{% endif %}</a>
-        {% if p.instrument_can_preview %}
-        · <a href="{% url 'procurations:preview' p.pk %}" target="_blank" rel="noopener">{% translate "Afficher" %}</a>
-        {% endif %}
-      </dd>
-    </div>
-    {% endif %}
-    {% if p.notes %}
-    <div class="matter-fact matter-fact--wide">
-      <dt>{% translate "Notes" %}</dt>
-      <dd>{{ p.notes }}</dd>
-    </div>
-    {% endif %}
-    {% if p.refusal_reason %}
-    <div class="matter-fact matter-fact--wide">
-      <dt>{% translate "Motif du refus" %}</dt>
-      <dd>{{ p.refusal_reason }}</dd>
-    </div>
-    {% endif %}
-    {% if p.revocation_reason %}
-    <div class="matter-fact matter-fact--wide">
-      <dt>{% translate "Motif de révocation" %}</dt>
-      <dd>{{ p.revocation_reason }}</dd>
-    </div>
-    {% endif %}
-  </dl>
-</section>
-{% endwith %}
-{% endif %}
-
-{% if upcoming_hearings %}
-<section class="card matter-hearings">
-  <header class="card-header">
-    <h2 class="card-title">{% translate "Audiences à venir" %}</h2>
-    {% if not is_platform_admin %}
-    <a class="btn btn-secondary btn-sm" href="{% url 'hearings:create' %}?matter={{ matter.pk }}">{% translate "Planifier" %}</a>
-    {% endif %}
-  </header>
-  <div class="table-wrap">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>{% translate "Date" %}</th>
-          <th>{% translate "Intitulé" %}</th>
-          <th>{% translate "Tribunal" %}</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for h in upcoming_hearings %}
-        <tr>
-          <td>{{ h.starts_at|date:"d/m/Y H:i" }}</td>
-          <td>{{ h.title }}</td>
-          <td>{{ h.court|default:"—" }}</td>
-          <td>
-            <a class="btn btn-sm btn-ghost" href="{% url 'calendar:event_detail' h.pk %}">{% translate "Voir" %}</a>
-            <a class="btn btn-sm btn-secondary" href="{% url 'calendar:event_detail' h.pk %}#rapport">{% translate "Rapport" %}</a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-{% endif %}
-
-<section class="detail-sheet-block">
-    <header class="detail-sheet-block-head">
-      <h2>{% translate "Historique des actions" %}</h2>
-    </header>
-    {% if actions %}
-    <div class="table-wrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>{% translate "Date" %}</th>
-            <th>{% translate "Action" %}</th>
-            <th>{% translate "Auteur" %}</th>
-            <th>{% translate "Détail" %}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for a in actions %}
-          <tr>
-            <td>{{ a.created_at|date:"d/m/Y H:i" }}</td>
-            <td>{{ a.action }}</td>
-            <td>{% if a.actor %}{{ a.actor.get_full_name|default:a.actor.email }}{% else %}—{% endif %}</td>
-            <td>{{ a.message|default:"—" }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-    <p class="text-muted">{% translate "Aucune action enregistrée." %}</p>
     {% endif %}
   </section>
+
+  {% if parties %}
+  <section class="card matter-parties">
+    <header class="card-header">
+      <h2 class="card-title">{% translate "Parties concernées" %}</h2>
+    </header>
+    <div class="parties-list">
+      {% for party in parties %}
+      <div class="party-item">
+        <div class="party-info">
+          <span class="party-name">{{ party.name }}</span>
+          <span class="party-role">
+            {% if party.role == 'plaintiff' %}{% translate "Plaignant / Accusateur" %}{% elif party.role == 'defendant' %}{% translate "Défendeur / Accusé" %}{% elif party.role == 'witness' %}{% translate "Témoin" %}{% else %}{% translate "Tiers" %}{% endif %}
+          </span>
+          {% if party.is_state_entity %}
+          <span class="badge badge-gold">{% translate "Entité étatique" %}</span>
+          {% endif %}
+        </div>
+        {% if party.notes %}
+        <p class="party-notes">{{ party.notes }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if display_procuration %}
+  {% with p=display_procuration %}
+  <section class="card matter-info">
+    <header class="card-header">
+      <h2 class="card-title">{% translate "Procuration" %}</h2>
+      <div class="cluster">
+        <a class="card-header-link" href="{% url 'procurations:detail' p.pk %}">{% translate "Voir" %}</a>
+        {% if is_platform_admin and p.status == 'granted' %}
+        <form method="post" action="{% url 'procurations:generate' p.pk %}"{% if p.instrument %} onsubmit="return confirm('Un acte est déjà joint. Le remplacer ?');"{% endif %}>
+          {% csrf_token %}
+          <button class="btn btn-primary btn-sm" type="submit">{% if p.instrument %}{% translate "Régénérer" %}{% else %}{% translate "Générer" %}{% endif %}</button>
+        </form>
+        {% endif %}
+      </div>
+    </header>
+    <dl class="matter-facts matter-facts--inline">
+      <div class="matter-fact">
+        <dt>{% translate "Référence" %}</dt>
+        <dd><a href="{% url 'procurations:detail' p.pk %}">{{ p.reference }}</a></dd>
+      </div>
+      <div class="matter-fact">
+        <dt>{% translate "Statut" %}</dt>
+        <dd>
+          <span class="badge {% if p.status == 'granted' %}badge-success{% elif p.status == 'requested' %}badge-gold{% elif p.status == 'draft' %}badge-info{% elif p.status == 'refused' or p.status == 'revoked' %}badge-danger{% endif %}">
+            {{ p.get_status_display }}
+          </span>
+          {% if p.is_currently_valid %}
+          <span class="badge badge-success">{% translate "Valide" %}</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div class="matter-fact">
+        <dt>{% translate "Validité" %}</dt>
+        <dd>
+          <span class="matter-fact-value">
+            {% if p.valid_from %}{{ p.valid_from|date:"d/m/Y" }}{% else %}—{% endif %}
+            →
+            {% if p.expires_at %}{{ p.expires_at|date:"d/m/Y" }}{% else %}{% translate "sans terme" %}{% endif %}
+          </span>
+        </dd>
+      </div>
+      {% if p.purpose %}
+      <div class="matter-fact">
+        <dt>{% translate "Objet" %}</dt>
+        <dd><span class="matter-fact-value">{{ p.purpose }}</span></dd>
+      </div>
+      {% endif %}
+      {% if p.ministry_reference %}
+      <div class="matter-fact">
+        <dt>{% translate "Réf. ministérielle" %}</dt>
+        <dd><span class="matter-fact-value">{{ p.ministry_reference }}</span></dd>
+      </div>
+      {% endif %}
+      {% if p.instrument %}
+      <div class="matter-fact">
+        <dt>{% translate "Acte" %}</dt>
+        <dd>
+          <a href="{% url 'procurations:download' p.pk %}">{% if p.instrument_filename %}{{ p.instrument_filename }}{% else %}{% translate "Télécharger" %}{% endif %}</a>
+          {% if p.instrument_can_preview %}
+          · <a href="{% url 'procurations:preview' p.pk %}" target="_blank" rel="noopener">{% translate "Afficher" %}</a>
+          {% endif %}
+        </dd>
+      </div>
+      {% endif %}
+    </dl>
+  </section>
+  {% endwith %}
+  {% endif %}
+
+  <div class="detail-sheet-panels">
+    {% if upcoming_hearings %}
+    <section class="card matter-hearings">
+      <header class="card-header">
+        <h2 class="card-title">{% translate "Audiences à venir" %}</h2>
+        {% if not is_platform_admin %}
+        <a class="btn btn-secondary btn-sm" href="{% url 'hearings:create' %}?matter={{ matter.pk }}">{% translate "Planifier" %}</a>
+        {% endif %}
+      </header>
+      <div class="table-wrap">
+        <table class="table table-compact">
+          <thead>
+            <tr>
+              <th>{% translate "Date" %}</th>
+              <th>{% translate "Intitulé" %}</th>
+              <th>{% translate "Tribunal" %}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for h in upcoming_hearings %}
+            <tr>
+              <td>{{ h.starts_at|date:"d/m/Y H:i" }}</td>
+              <td>{{ h.title }}</td>
+              <td>{{ h.court|default:"—" }}</td>
+              <td class="table-actions">
+                <a class="btn btn-sm btn-ghost" href="{% url 'calendar:event_detail' h.pk %}">{% translate "Voir" %}</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="detail-sheet-block">
+      <header class="detail-sheet-block-head">
+        <h2>{% translate "Historique" %}</h2>
+      </header>
+      {% if actions %}
+      <div class="table-wrap">
+        <table class="table table-compact">
+          <thead>
+            <tr>
+              <th>{% translate "Date" %}</th>
+              <th>{% translate "Action" %}</th>
+              <th>{% translate "Auteur" %}</th>
+              <th>{% translate "Détail" %}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in actions %}
+            <tr>
+              <td>{{ a.created_at|date:"d/m/Y H:i" }}</td>
+              <td>{{ a.action }}</td>
+              <td>{% if a.actor %}{{ a.actor.get_full_name|default:a.actor.email }}{% else %}—{% endif %}</td>
+              <td>{{ a.message|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted empty-state-compact">{% translate "Aucune action enregistrée." %}</p>
+      {% endif %}
+    </section>
+  </div>
 </article>
 {% endblock %}

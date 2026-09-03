@@ -44,8 +44,8 @@ class Client(TenantOwnedModel):
     search_vector = SearchVectorField(_("vecteur de recherche"), null=True, editable=False)
 
     class Meta:
-        verbose_name = _("client")
-        verbose_name_plural = _("clients")
+        verbose_name = _("Client")
+        verbose_name_plural = _("Clients")
         ordering = ("-updated_at",)
         indexes = [
             GinIndex(fields=["search_vector"], name="clients_client_search_gin"),

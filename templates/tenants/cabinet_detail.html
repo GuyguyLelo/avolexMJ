@@ -33,10 +33,15 @@
       {% if can_manage_members %}
       <a class="btn btn-secondary btn-sm" href="{% url 'tenants:cabinet_member_create' cabinet.pk %}">{% translate "Ajouter un membre" %}</a>
       {% endif %}
-      <form method="post" action="{% url 'tenants:cabinet_delete' cabinet.pk %}" onsubmit="return confirm('{% translate "Supprimer ce cabinet ? Les données resteront archivées." %}');">
-        {% csrf_token %}
-        <button class="btn btn-ghost btn-sm" type="submit">{% translate "Supprimer" %}</button>
-      </form>
+      {% if cabinet.contract_file %}
+      <a
+        class="btn btn-ghost btn-sm"
+        href="{% if cabinet.contract_can_preview %}{% url 'tenants:cabinet_contract_preview' cabinet.pk %}{% else %}{% url 'tenants:cabinet_contract_download' cabinet.pk %}{% endif %}"
+        {% if cabinet.contract_can_preview %}target="_blank" rel="noopener"{% endif %}
+      >
+        {% translate "Voir le contrat" %}
+      </a>
+      {% endif %}
     </div>
   </header>
 
@@ -78,6 +83,18 @@
       <span class="cabinet-sheet-label">{% translate "Numéro impôt" %}</span>
       <span>{% if cabinet.vat_number %}{{ cabinet.vat_number }}{% else %}<span class="cabinet-fact-empty">—</span>{% endif %}</span>
     </div>
+    {% if cabinet.contract_file %}
+    <div class="cabinet-fact">
+      <span class="cabinet-sheet-label">{% translate "Contrat joint" %}</span>
+      <span class="cabinet-fact-links">
+        {{ cabinet.contract_file_name|default:"Contrat" }}
+        <a href="{% url 'tenants:cabinet_contract_download' cabinet.pk %}">{% translate "Télécharger" %}</a>
+        {% if cabinet.contract_can_preview %}
+        <a href="{% url 'tenants:cabinet_contract_preview' cabinet.pk %}" target="_blank" rel="noopener">{% translate "Ouvrir" %}</a>
+        {% endif %}
+      </span>
+    </div>
+    {% endif %}
     <div class="cabinet-fact">
       <span class="cabinet-sheet-label">{% translate "Adresse" %}</span>
       <span>{% if cabinet.address_line1 %}{{ cabinet.address_line1 }}{% else %}<span class="cabinet-fact-empty">—</span>{% endif %}</span>
@@ -93,29 +110,6 @@
       <span class="cabinet-fact-mono">{{ cabinet.slug }}</span>
     </div>
   </section>
-
-  {% if cabinet.contract_file %}
-  <section class="card cabinet-contract-card">
-    <header class="card-header">
-      <h2 class="card-title">{% translate "Contrat" %}</h2>
-      <div class="cluster">
-        <a class="btn btn-secondary btn-sm" href="{% url 'tenants:cabinet_contract_download' cabinet.pk %}">{% translate "Télécharger" %}</a>
-        {% if cabinet.contract_can_preview %}
-        <a class="btn btn-ghost btn-sm" href="{% url 'tenants:cabinet_contract_preview' cabinet.pk %}" target="_blank" rel="noopener">{% translate "Ouvrir" %}</a>
-        {% endif %}
-      </div>
-    </header>
-    <p class="cabinet-contract-name">{{ cabinet.contract_file_name|default:cabinet.contract_number|default:"Contrat" }}</p>
-    {% if cabinet.contract_can_preview %}
-    <div class="doc-preview-frame cabinet-contract-preview">
-      <iframe
-        title="{% translate 'Aperçu du contrat' %}"
-        src="{% url 'tenants:cabinet_contract_preview' cabinet.pk %}"
-      ></iframe>
-    </div>
-    {% endif %}
-  </section>
-  {% endif %}
 
   <div class="cabinet-sheet-panels">
     <section class="card cabinet-sheet-panel">

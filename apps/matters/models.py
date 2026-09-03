@@ -14,7 +14,7 @@ from apps.core.models import TenantOwnedModel
 class MatterStatus(models.TextChoices):
     """Statut d'un dossier."""
 
-    OPEN = "open", _("Ouvert")
+    OPEN = "open", _("Ouvert (En introduction)")
     IN_PROGRESS = "in_progress", _("En cours")
     ON_HOLD = "on_hold", _("En attente")
     CLOSED = "closed", _("Clos")
@@ -27,6 +27,15 @@ class MatterScale(models.TextChoices):
     INTERNATIONAL = "international", _("Internationale")
 
 
+class PartyRole(models.TextChoices):
+    """Rôle d'une partie dans un dossier."""
+
+    PLAINTIFF = "plaintiff", _("Plaignant / Accusateur")
+    DEFENDANT = "defendant", _("Défendeur / Accusé")
+    WITNESS = "witness", _("Témoin")
+    THIRD_PARTY = "third_party", _("Tiers")
+
+
 class Matter(TenantOwnedModel):
     """Dossier / affaire du cabinet."""
 
@@ -35,7 +44,6 @@ class Matter(TenantOwnedModel):
     description = models.TextField(_("description"), blank=True)
     practice_area = models.CharField(_("matière / domaine"), max_length=120, blank=True)
     jurisdiction = models.CharField(_("juridiction"), max_length=255, blank=True)
-    opposing_party = models.CharField(_("partie adverse"), max_length=255, blank=True)
     scale = models.CharField(
         _("échelle"),
         max_length=20,
@@ -67,11 +75,12 @@ class Matter(TenantOwnedModel):
     closed_at = models.DateField(_("clos le"), null=True, blank=True)
     is_archived = models.BooleanField(_("archivé"), default=False, db_index=True)
     notes = models.TextField(_("notes"), blank=True)
+    initial_pdf = models.FileField(_("PDF initial"), upload_to="matters/%Y/%m/", blank=True, null=True)
     search_vector = SearchVectorField(_("vecteur de recherche"), null=True, editable=False)
 
     class Meta:
-        verbose_name = _("dossier")
-        verbose_name_plural = _("dossiers")
+        verbose_name = _("Dossier")
+        verbose_name_plural = _("Dossiers")
         ordering = ("-updated_at",)
         indexes = [
             GinIndex(fields=["search_vector"], name="matters_matter_search_gin"),
@@ -99,6 +108,38 @@ class Matter(TenantOwnedModel):
         return self.status == MatterStatus.CLOSED or self.is_archived
 
 
+class MatterParty(TenantOwnedModel):
+    """Partie impliquée dans un dossier avec son rôle."""
+
+    matter = models.ForeignKey(
+        Matter,
+        verbose_name=_("dossier"),
+        on_delete=models.CASCADE,
+        related_name="parties",
+    )
+    name = models.CharField(_("nom de la partie"), max_length=255)
+    role = models.CharField(
+        _("rôle"),
+        max_length=20,
+        choices=PartyRole.choices,
+        default=PartyRole.DEFENDANT,
+    )
+    is_state_entity = models.BooleanField(
+        _("entité étatique"),
+        default=False,
+        help_text=_("Indique si cette partie est un service de l'État congolais"),
+    )
+    notes = models.TextField(_("notes"), blank=True)
+
+    class Meta:
+        verbose_name = _("Partie")
+        verbose_name_plural = _("Parties")
+        ordering = ("role", "name")
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.get_role_display})"
+
+
 class MatterSequence(TenantOwnedModel):
     """Séquence de numérotation des références de dossiers par année."""
 
@@ -106,8 +147,8 @@ class MatterSequence(TenantOwnedModel):
     last_number = models.PositiveIntegerField(_("dernier numéro"), default=0)
 
     class Meta:
-        verbose_name = _("séquence dossier")
-        verbose_name_plural = _("séquences dossiers")
+        verbose_name = _("Séquence dossier")
+        verbose_name_plural = _("Séquences dossiers")
         constraints = [
             models.UniqueConstraint(
                 fields=("cabinet", "year"),
@@ -141,8 +182,8 @@ class MatterAction(TenantOwnedModel):
     message = models.TextField(_("détail"), blank=True)
 
     class Meta:
-        verbose_name = _("action dossier")
-        verbose_name_plural = _("actions dossiers")
+        verbose_name = _("Action dossier")
+        verbose_name_plural = _("Actions dossiers")
         ordering = ("-created_at",)
 
     def __str__(self) -> str:

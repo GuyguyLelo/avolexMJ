@@ -73,8 +73,8 @@ class TimeEntry(TenantOwnedModel):
     )
 
     class Meta:
-        verbose_name = _("saisie de temps")
-        verbose_name_plural = _("saisies de temps")
+        verbose_name = _("Saisie de temps")
+        verbose_name_plural = _("Saisies de temps")
         ordering = ("-started_at", "-created_at")
         indexes = [
             models.Index(fields=["cabinet", "matter"], name="billing_time_cab_matter"),
@@ -124,8 +124,8 @@ class Expense(TenantOwnedModel):
     )
 
     class Meta:
-        verbose_name = _("débours")
-        verbose_name_plural = _("débours")
+        verbose_name = _("Débours")
+        verbose_name_plural = _("Débours")
         ordering = ("-incurred_on", "-created_at")
         indexes = [
             models.Index(fields=["cabinet", "matter"], name="billing_exp_cab_matter"),
@@ -143,8 +143,8 @@ class InvoiceSequence(TenantOwnedModel):
     last_number = models.PositiveIntegerField(_("dernier numéro"), default=0)
 
     class Meta:
-        verbose_name = _("séquence de facture")
-        verbose_name_plural = _("séquences de factures")
+        verbose_name = _("Séquence de facture")
+        verbose_name_plural = _("Séquences de factures")
         constraints = [
             models.UniqueConstraint(
                 fields=("cabinet", "year"),
@@ -226,8 +226,8 @@ class Invoice(TenantOwnedModel):
     )
 
     class Meta:
-        verbose_name = _("facture")
-        verbose_name_plural = _("factures")
+        verbose_name = _("Facture")
+        verbose_name_plural = _("Factures")
         ordering = ("-created_at",)
         constraints = [
             models.UniqueConstraint(
@@ -306,8 +306,8 @@ class InvoiceLine(TenantOwnedModel):
     )
 
     class Meta:
-        verbose_name = _("ligne de facture")
-        verbose_name_plural = _("lignes de facture")
+        verbose_name = _("Ligne de facture")
+        verbose_name_plural = _("Lignes de facture")
         ordering = ("created_at",)
 
     def __str__(self) -> str:

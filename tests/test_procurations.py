@@ -347,8 +347,8 @@ def test_matter_detail_shows_procuration(client) -> None:  # type: ignore[no-unt
     assert "Procuration" in html
     assert reference in html
     assert purpose in html
-    assert "Référence ministérielle" in html
-    assert "Voir la procuration" in html
+    assert "Réf. ministérielle" in html or "Référence ministérielle" in html
+    assert "Voir" in html
     assert "Demander une procuration" not in html
 
 

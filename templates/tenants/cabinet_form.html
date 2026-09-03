@@ -45,6 +45,15 @@
             <label for="{{ form.contract_file.id_for_label }}">{{ form.contract_file.label }}</label>
             {{ form.contract_file }}
             {% if form.contract_file.help_text %}<p class="form-hint">{{ form.contract_file.help_text }}</p>{% endif %}
+            {% if cabinet and cabinet.contract_file %}
+            <p class="form-hint">
+              {% translate "Fichier actuel :" %}
+              <a href="{% url 'tenants:cabinet_contract_download' cabinet.pk %}">{{ cabinet.contract_file_name|default:"Contrat" }}</a>
+              {% if cabinet.contract_can_preview %}
+              · <a href="{% url 'tenants:cabinet_contract_preview' cabinet.pk %}" target="_blank" rel="noopener">{% translate "Ouvrir" %}</a>
+              {% endif %}
+            </p>
+            {% endif %}
             {% if form.contract_file.errors %}<div class="form-error">{{ form.contract_file.errors }}</div>{% endif %}
           </div>
           <div class="form-field form-field-span">

@@ -53,8 +53,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS: ClassVar[list[str]] = []
 
     class Meta:
-        verbose_name = _("utilisateur")
-        verbose_name_plural = _("utilisateurs")
+        verbose_name = _("Utilisateur")
+        verbose_name_plural = _("Utilisateurs")
         ordering = ("email",)
 
     def __str__(self) -> str:

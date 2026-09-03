@@ -187,6 +187,7 @@ def test_platform_admin_uploads_cabinet_contract(client) -> None:  # type: ignor
     detail = client.get(reverse("tenants:cabinet_detail", args=[cabinet.pk]))
     assert detail.status_code == 200
     assert b"contrat-cabinet.pdf" in detail.content
+    assert b"Voir le contrat" in detail.content
 
     download = client.get(reverse("tenants:cabinet_contract_download", args=[cabinet.pk]))
     assert download.status_code == 200
@@ -195,6 +196,10 @@ def test_platform_admin_uploads_cabinet_contract(client) -> None:  # type: ignor
     preview = client.get(reverse("tenants:cabinet_contract_preview", args=[cabinet.pk]))
     assert preview.status_code == 200
     assert preview["Content-Type"] == "application/pdf"
+
+    edit = client.get(reverse("tenants:cabinet_update", args=[cabinet.pk]))
+    assert edit.status_code == 200
+    assert b"contrat-cabinet.pdf" in edit.content
 
 
 @pytest.mark.django_db

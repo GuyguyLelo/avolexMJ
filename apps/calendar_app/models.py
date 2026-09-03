@@ -101,8 +101,8 @@ class Event(TenantOwnedModel):
     reminder_sent_at = models.DateTimeField(_("rappel envoyé le"), null=True, blank=True)
 
     class Meta:
-        verbose_name = _("événement")
-        verbose_name_plural = _("événements")
+        verbose_name = _("Événement")
+        verbose_name_plural = _("Événements")
         ordering = ("starts_at",)
         indexes = [
             models.Index(fields=["cabinet", "starts_at"], name="calendar_ap_cabinet_7be077_idx"),
