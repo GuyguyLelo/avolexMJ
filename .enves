@@ -1,0 +1,53 @@
+# AvoLex — copier vers .env et adapter
+# cp .env.example .env
+
+DJANGO_SETTINGS_MODULE=config.settings.prod
+DEBUG=True
+
+
+# Séparer par virgules
+ALLOWED_HOSTS=127.0.0.1,localhost
+
+# PostgreSQL 16 local (sans Docker)
+# Format: postgres://USER:PASSWORD@HOST:PORT/NAME
+DATABASE_URL=postgres://user_avolex_db:Mohk%40ndolo2303@localhost:5432/AvoLexMJ_db
+CONN_MAX_AGE=60
+
+# Redis local (cache + Celery)
+REDIS_URL=redis://127.0.0.1:6379/0
+CELERY_BROKER_URL=redis://127.0.0.1:6379/0
+CELERY_RESULT_BACKEND=redis://127.0.0.1:6379/0
+CELERY_TASK_ALWAYS_EAGER=False
+
+# E-mail (console en dev)
+EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+DEFAULT_FROM_EMAIL=AvoLex <noreply@avolex.local>
+
+# Sécurité auth (django-axes)
+AXES_FAILURE_LIMIT=5
+AXES_COOLOFF_TIME=1
+
+# Debug toolbar (optionnel)
+ENABLE_DEBUG_TOOLBAR=False
+LOG_LEVEL=INFO
+
+# GED — taille max upload (octets), défaut 20 Mo
+DOCUMENTS_MAX_UPLOAD_BYTES=20971520
+
+# Facturation
+BILLING_DEFAULT_HOURLY_RATE=250.00
+BILLING_DEFAULT_TAX_RATE=20.00
+
+# --- Production (config.settings.prod) ---
+# DEBUG=False
+# SECRET_KEY=...
+# ALLOWED_HOSTS=avolex.example.com
+# CSRF_TRUSTED_ORIGINS=https://avolex.example.com
+# SECURE_SSL_REDIRECT=True
+# USE_X_FORWARDED_HOST=True
+# EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+# EMAIL_HOST=smtp.example.com
+# EMAIL_PORT=587
+# EMAIL_HOST_USER=
+# EMAIL_HOST_PASSWORD=
+# EMAIL_USE_TLS=True
