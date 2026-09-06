@@ -36,7 +36,8 @@ def build_procuration_pdf(procuration: Procuration) -> bytes:
 
     procuration = (
         type(procuration)
-        .unscoped.select_related("cabinet", "matter", "matter__client", "granted_by")
+        .unscoped.select_related("cabinet", "matter", "granted_by")
+        .prefetch_related("matter__parties")
         .get(pk=procuration.pk)
     )
 
@@ -73,10 +74,11 @@ def _try_weasyprint(procuration: Procuration) -> bytes | None:
 def _template_context(procuration: Procuration) -> dict[str, object]:
     cabinet = procuration.cabinet
     matter = procuration.matter
-    client_name = ""
-    if matter is not None and matter.client_id:
-        client_name = matter.client.display_name
-    client_name = client_name or procuration.client_name
+    # Use parties instead of client
+    parties = []
+    if matter is not None:
+        parties = list(matter.parties.all().order_by("role", "name"))
+    client_name = procuration.client_name
     granted_by = ""
     if procuration.granted_by_id:
         granted_by = procuration.granted_by.get_full_name() or procuration.granted_by.email
@@ -84,6 +86,7 @@ def _template_context(procuration: Procuration) -> dict[str, object]:
         "procuration": procuration,
         "cabinet": cabinet,
         "matter": matter,
+        "parties": parties,
         "client_name": client_name,
         "granted_by": granted_by,
         "country": getattr(settings, "SITE_COUNTRY", "République Démocratique du Congo"),
@@ -229,11 +232,16 @@ def _build_with_fpdf(procuration: Procuration) -> bytes:
     if matter is not None:
         _body(f"{matter.reference} — {matter.title}", bold=True)
         details = [
-            f"Justiciable : {ctx['client_name']}" if ctx["client_name"] else "",
             f"Juridiction : {matter.jurisdiction}" if matter.jurisdiction else "",
             f"Échelle : {matter.get_scale_display()}",
-            f"Partie adverse : {matter.opposing_party}" if matter.opposing_party else "",
         ]
+        # Add parties
+        for party in ctx.get("parties", []):
+            role_display = party.get_role_display()
+            state_marker = " (État)" if party.is_state_entity else ""
+            details.append(f"{role_display}{state_marker} : {party.name}")
+            if party.notes:
+                details.append(f"  Note : {party.notes}")
     else:
         _body(procuration.subject or procuration.purpose, bold=True)
         details = [

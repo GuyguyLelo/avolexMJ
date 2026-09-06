@@ -104,7 +104,6 @@ def stamp_granted_procuration(
     scale: str = "",
     jurisdiction: str = "",
     practice_area: str = "",
-    opposing_party: str = "",
     client_name: str = "",
     ministry_reference: str = "",
     expires_at: date | None = None,
@@ -124,9 +123,6 @@ def stamp_granted_procuration(
         scale = scale or matter.scale
         jurisdiction = jurisdiction or matter.jurisdiction
         practice_area = practice_area or matter.practice_area
-        opposing_party = opposing_party or matter.opposing_party
-        if not client_name and matter.client_id:
-            client_name = matter.client.display_name
     if cabinet is None:
         raise ValidationError(_("Un cabinet est obligatoire pour créer une procuration."))
     with cabinet_context(cabinet):
@@ -139,7 +135,6 @@ def stamp_granted_procuration(
             scale=scale or MatterScale.NATIONAL,
             jurisdiction=jurisdiction,
             practice_area=practice_area,
-            opposing_party=opposing_party,
             client_name=client_name,
             reference=allocate_procuration_reference(cabinet=cabinet),
             purpose=(purpose or _("Représentation et actes de procédure")).strip(),
@@ -157,7 +152,6 @@ def stamp_granted_procuration(
 
 RELATED_FIELDS = (
     "matter",
-    "matter__client",
     "granted_by",
     "created_by",
     "cabinet",
@@ -200,8 +194,6 @@ def procurations_queryset(
             | Q(client_name__icontains=q)
             | Q(matter__reference__icontains=q)
             | Q(matter__title__icontains=q)
-            | Q(matter__client__last_name__icontains=q)
-            | Q(matter__client__company_name__icontains=q)
             | Q(cabinet__name__icontains=q)
         )
     if status:
@@ -277,28 +269,17 @@ def create_procuration(
     cabinet: Cabinet,
     user: User,
     matter: Matter,
-    purpose: str,
     notes: str = "",
-    reference: str = "",
     instrument: File | BinaryIO | None = None,
-    ministry_reference: str = "",
-    valid_from: date | None = None,
-    expires_at: date | None = None,
-    submit: bool = False,
 ) -> Procuration:
     """Le ministère délivre une procuration accordée à un cabinet pour un dossier."""
-    del submit  # plus de transmission par le cabinet
     return issue_granted_procuration(
         cabinet=cabinet,
         actor=user,
         matter=matter,
-        purpose=purpose,
+        purpose="Représentation et actes de procédure",
         notes=notes,
-        reference=reference,
         instrument=instrument,
-        ministry_reference=ministry_reference,
-        valid_from=valid_from,
-        expires_at=expires_at,
     )
 
 
@@ -307,14 +288,6 @@ def update_procuration(
     *,
     procuration: Procuration,
     user: User,
-    purpose: str | None = None,
-    reference: str | None = None,
-    subject: str | None = None,
-    scale: str | None = None,
-    jurisdiction: str | None = None,
-    practice_area: str | None = None,
-    opposing_party: str | None = None,
-    client_name: str | None = None,
     notes: str | None = None,
     instrument: File | BinaryIO | None = None,
 ) -> Procuration:
@@ -322,33 +295,6 @@ def update_procuration(
     require_platform_admin(user)
     if procuration.status not in PENDING_STATUSES:
         raise ValidationError(_("Cette procuration ne peut plus être modifiée."))
-    if purpose is not None:
-        if not purpose.strip():
-            raise ValidationError({"purpose": _("L'objet de la procuration est obligatoire.")})
-        procuration.purpose = purpose.strip()
-    if reference is not None:
-        value = reference.strip()
-        if value and value != procuration.reference:
-            _assert_unique_reference(
-                cabinet=procuration.cabinet,
-                reference=value,
-                exclude_pk=procuration.pk,
-            )
-            procuration.reference = value
-    if subject is not None:
-        if not subject.strip():
-            raise ValidationError({"subject": _("L'intitulé de l'affaire est obligatoire.")})
-        procuration.subject = subject.strip()
-    if scale is not None:
-        procuration.scale = scale
-    if jurisdiction is not None:
-        procuration.jurisdiction = jurisdiction.strip()
-    if practice_area is not None:
-        procuration.practice_area = practice_area.strip()
-    if opposing_party is not None:
-        procuration.opposing_party = opposing_party.strip()
-    if client_name is not None:
-        procuration.client_name = client_name.strip()
     if notes is not None:
         procuration.notes = notes.strip()
     if instrument:
@@ -465,6 +411,7 @@ def issue_granted_procuration(
     ministry_reference: str = "",
     valid_from: date | None = None,
     expires_at: date | None = None,
+    client_name: str = "",
 ) -> Procuration:
     """Le ministère délivre une procuration accordée à un cabinet pour un dossier."""
     from apps.matters.models import MatterScale
@@ -490,8 +437,7 @@ def issue_granted_procuration(
             scale=scale or MatterScale.NATIONAL,
             jurisdiction=matter.jurisdiction or "",
             practice_area=matter.practice_area or "",
-            opposing_party=matter.opposing_party or "",
-            client_name=matter.client.display_name if matter.client_id else "",
+            client_name=client_name or "",
             reference=_resolve_reference(cabinet=cabinet, reference=reference),
             purpose=purpose.strip(),
             notes=notes.strip() if notes else "",
@@ -518,7 +464,7 @@ def generate_procuration_instrument(*, procuration: Procuration, actor: User) ->
     if procuration.status != ProcurationStatus.GRANTED:
         raise ValidationError(_("Seule une procuration accordée peut générer un acte."))
     loaded = Procuration.unscoped.select_related(
-        "cabinet", "matter", "matter__client", "granted_by"
+        "cabinet", "matter", "granted_by"
     ).get(pk=procuration.pk)
     pdf_bytes = build_procuration_pdf(loaded)
     filename = f"{loaded.reference}.pdf"

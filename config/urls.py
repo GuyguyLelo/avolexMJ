@@ -11,7 +11,7 @@ urlpatterns = [
     path("", include("apps.core.urls")),
     path("accounts/", include("apps.accounts.urls")),
     path("cabinets/", include("apps.tenants.urls")),
-    path("clients/", include("apps.clients.urls")),
+    path("clients/", include("apps.clients.urls")),  # Temporarily re-enabled
     path("dossiers/", include("apps.matters.urls")),
     path("procurations/", include("apps.procurations.urls")),
     path("agenda/", include("apps.calendar_app.urls")),

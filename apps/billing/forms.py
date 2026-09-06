@@ -11,7 +11,6 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.billing.services import default_hourly_rate, default_tax_rate
-from apps.clients.models import Client
 from apps.matters.models import Matter
 
 
@@ -116,15 +115,9 @@ class ExpenseForm(forms.Form):
 class InvoiceCreateForm(forms.Form):
     """Création d'une facture brouillon."""
 
-    client = forms.ModelChoiceField(
-        label=_("Client"),
-        queryset=Client.objects.none(),
-        widget=forms.Select(attrs={"class": "form-input"}),
-    )
     matter = forms.ModelChoiceField(
-        label=_("Dossier (optionnel)"),
+        label=_("Dossier"),
         queryset=Matter.objects.none(),
-        required=False,
         widget=forms.Select(attrs={"class": "form-input"}),
     )
     tax_rate = forms.DecimalField(
@@ -153,15 +146,12 @@ class InvoiceCreateForm(forms.Form):
     def __init__(
         self,
         *args: Any,
-        client_queryset: QuerySet[Client] | None = None,
         matter_queryset: QuerySet[Matter] | None = None,
         time_choices: list[tuple[str, str]] | None = None,
         expense_choices: list[tuple[str, str]] | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
-        if client_queryset is not None:
-            self.fields["client"].queryset = client_queryset
         if matter_queryset is not None:
             self.fields["matter"].queryset = matter_queryset
         self.fields["time_entries"].choices = time_choices or []

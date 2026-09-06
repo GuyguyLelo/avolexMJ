@@ -172,7 +172,7 @@ class ProcurationCreateView(PlatformAdminRequiredMixin, BreadcrumbMixin, CreateV
         if cabinet_id:
             kwargs["matter_queryset"] = (
                 Matter.unscoped.filter(cabinet_id=cabinet_id, is_archived=False)
-                .select_related("client")
+                .select_related("responsible_lawyer")
                 .order_by("-updated_at")
             )
         else:
@@ -196,13 +196,8 @@ class ProcurationCreateView(PlatformAdminRequiredMixin, BreadcrumbMixin, CreateV
                 cabinet=form.cleaned_data["cabinet"],
                 user=self.request.user,  # type: ignore[arg-type]
                 matter=form.cleaned_data["matter"],
-                purpose=form.cleaned_data["purpose"],
                 notes=form.cleaned_data.get("notes") or "",
-                reference=form.cleaned_data.get("reference") or "",
                 instrument=form.cleaned_data.get("instrument"),
-                ministry_reference=form.cleaned_data.get("ministry_reference") or "",
-                valid_from=form.cleaned_data.get("valid_from"),
-                expires_at=form.cleaned_data.get("expires_at"),
             )
         except (ValidationError, PermissionDenied) as exc:
             if isinstance(exc, ValidationError) and hasattr(exc, "message_dict"):
@@ -255,9 +250,7 @@ class ProcurationUpdateView(PlatformAdminRequiredMixin, BreadcrumbMixin, UpdateV
             procuration = update_procuration(
                 procuration=self.object,
                 user=self.request.user,  # type: ignore[arg-type]
-                purpose=form.cleaned_data["purpose"],
                 notes=form.cleaned_data.get("notes") or "",
-                reference=form.cleaned_data.get("reference") or "",
                 instrument=form.cleaned_data.get("instrument"),
             )
             if submit and procuration.status == ProcurationStatus.DRAFT:

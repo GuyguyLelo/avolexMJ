@@ -21,6 +21,7 @@ class EmailAuthenticationForm(AuthenticationForm):
                 "autocomplete": "email",
                 "autofocus": True,
                 "class": "form-input",
+                "placeholder": "exemple@email.com",
             }
         ),
     )
@@ -31,6 +32,7 @@ class EmailAuthenticationForm(AuthenticationForm):
             attrs={
                 "autocomplete": "current-password",
                 "class": "form-input",
+                "placeholder": "••••••••",
             }
         ),
     )

@@ -11,7 +11,6 @@ from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
 from django.forms import formset_factory
 
-from apps.clients.models import Client
 from apps.core.kinshasa_courts import court_choices_with_value
 from apps.matters.models import Matter, MatterParty, MatterScale, MatterStatus
 from apps.matters.services import validate_matter_scale
@@ -51,27 +50,23 @@ class MatterForm(forms.ModelForm):
     class Meta:
         model = Matter
         fields = (
-            "client",
             "title",
             "scale",
             "description",
             "practice_area",
             "jurisdiction",
             "status",
-            "responsible_lawyer",
             "opened_at",
             "closed_at",
             "initial_pdf",
             "notes",
         )
         widgets = {
-            "client": forms.Select(attrs={"class": "form-input"}),
             "title": forms.TextInput(attrs={"class": "form-input"}),
             "scale": forms.Select(attrs={"class": "form-input"}),
             "description": forms.Textarea(attrs={"class": "form-input", "rows": 4}),
             "practice_area": forms.Select(attrs={"class": "form-input"}),
             "status": forms.Select(attrs={"class": "form-input"}),
-            "responsible_lawyer": forms.Select(attrs={"class": "form-input"}),
             "opened_at": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
             "closed_at": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
             "initial_pdf": forms.FileInput(attrs={"class": "form-input", "accept": ".pdf,application/pdf"}),
@@ -81,17 +76,11 @@ class MatterForm(forms.ModelForm):
     def __init__(
         self,
         *args: Any,
-        client_queryset: QuerySet[Client] | None = None,
-        lawyer_queryset: QuerySet[Any] | None = None,
         include_cabinet: bool = False,
         cabinets: QuerySet[Cabinet] | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
-        if client_queryset is not None:
-            self.fields["client"].queryset = client_queryset
-        if lawyer_queryset is not None:
-            self.fields["responsible_lawyer"].queryset = lawyer_queryset
         self.fields["status"].choices = MatterStatus.choices
         self.fields["scale"].choices = MatterScale.choices
         self.fields["scale"].help_text = _(
@@ -135,13 +124,11 @@ class MatterForm(forms.ModelForm):
                 [
                     "practice_area",
                     "target_cabinet",
-                    "client",
                     "title",
                     "scale",
                     "description",
                     "jurisdiction",
                     "status",
-                    "responsible_lawyer",
                     "opened_at",
                     "closed_at",
                     "initial_pdf",

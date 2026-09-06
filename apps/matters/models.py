@@ -59,12 +59,6 @@ class Matter(TenantOwnedModel):
         default=MatterStatus.OPEN,
         db_index=True,
     )
-    client = models.ForeignKey(
-        "clients.Client",
-        verbose_name=_("client"),
-        on_delete=models.PROTECT,
-        related_name="matters",
-    )
     responsible_lawyer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         verbose_name=_("avocat responsable"),

@@ -1,29 +1,69 @@
-{% extends "layouts/auth.html" %}
 {% load i18n %}
-
-{% block title %}{% translate "Connexion" %} — {{ SITE_NAME }}{% endblock %}
-
-{% block content %}
-<h1>{% translate "Connexion" %}</h1>
-<p class="auth-lede">{% translate "Espace du Ministère de la Justice et Garde des Sceaux — cabinets, dossiers, audiences et facturation." %}</p>
-<form method="post" action="{% url 'accounts:login' %}" novalidate>
-  {% csrf_token %}
-  {% if form.non_field_errors %}
-  <div class="alert alert-danger">{{ form.non_field_errors }}</div>
-  {% endif %}
-  {% for field in form %}
-  <div class="form-field">
-    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-    {{ field }}
-    {% if field.errors %}<div class="form-error">{{ field.errors }}</div>{% endif %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE|default:'fr' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="{{ SITE_INSTITUTION }} — {{ SITE_NAME }}, plateforme de gestion des cabinets d'avocats">
+  <title>{% translate "Connexion" %} — {{ SITE_NAME }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v={{ STATIC_VERSION }}">
+  <link rel="stylesheet" href="{% static 'css/login_official.css' %}?v={{ STATIC_VERSION }}">
+</head>
+<body>
+<div class="official-login-container">
+  <div class="official-header">
+    <div class="official-logo">
+      <img src="{% static 'img/logo_min_justice.png' %}" alt="{% translate 'Logo Ministère de la Justice' %}" class="ministry-logo">
+    </div>
+    <div class="official-identity">
+      <div class="official-ministry">{% translate "République Démocratique du Congo" %}</div>
+      <div class="official-department">{% translate "Ministère de la Justice et Garde des Sceaux" %}</div>
+    </div>
   </div>
-  {% endfor %}
-  {% if redirect_field_value %}
-  <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
-  {% endif %}
-  <button class="btn btn-primary btn-block" type="submit">{% translate "Se connecter" %}</button>
-</form>
-<div class="auth-footer-links">
-  <a href="{% url 'accounts:password_reset' %}">{% translate "Mot de passe oublié ?" %}</a>
+
+  <div class="official-login-box">
+    <div class="official-title-section">
+      <h1 class="official-title">Login AvoLex</h1>
+    </div>
+
+    <form method="post" action="{% url 'accounts:login' %}" class="official-form" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+      <div class="official-alert official-alert-error">{{ form.non_field_errors }}</div>
+      {% endif %}
+      
+      <div class="official-form-group">
+        <label for="{{ form.username.id_for_label }}" class="official-label">{% translate "Adresse e-mail" %}</label>
+        {{ form.username }}
+        {% if form.username.errors %}<div class="official-error">{{ form.username.errors }}</div>{% endif %}
+      </div>
+
+      <div class="official-form-group">
+        <label for="{{ form.password.id_for_label }}" class="official-label">{% translate "Mot de passe" %}</label>
+        {{ form.password }}
+        {% if form.password.errors %}<div class="official-error">{{ form.password.errors }}</div>{% endif %}
+      </div>
+
+      {% if redirect_field_value %}
+      <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+      {% endif %}
+
+      <button class="official-button" type="submit">
+        <span class="button-text">{% translate "Se connecter" %}</span>
+        <span class="button-icon">→</span>
+      </button>
+    </form>
+
+    <div class="official-footer">
+      <a href="{% url 'accounts:password_reset' %}" class="official-link">
+        {% translate "Mot de passe oublié ?" %}
+      </a>
+    </div>
+  </div>
 </div>
-{% endblock %}
+</body>
+</html>

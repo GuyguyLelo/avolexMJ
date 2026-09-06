@@ -43,15 +43,6 @@
         </svg>
         <span>{% translate "Tableau de bord" %}</span>
       </a>
-      <a class="app-nav-link {% if request.resolver_match.app_name == 'clients' %}is-active{% endif %}" href="{% url 'clients:list' %}">
-        <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="9" cy="8" r="3"/>
-          <path d="M3.5 19a5.5 5.5 0 0 1 11 0"/>
-          <circle cx="17" cy="9" r="2.2"/>
-          <path d="M21.5 19a4.5 4.5 0 0 0-6-4"/>
-        </svg>
-        <span>{% translate "Clients" %}</span>
-      </a>
       <a class="app-nav-link {% if request.resolver_match.app_name == 'matters' %}is-active{% endif %}" href="{% url 'matters:list' %}">
         <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 7.5h16v12H4z"/>

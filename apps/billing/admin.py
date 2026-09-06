@@ -36,10 +36,10 @@ class ExpenseAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
 class InvoiceAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
     """Admin factures."""
 
-    list_display = ("number", "status", "client", "total", "issued_at", "cabinet")
+    list_display = ("number", "status", "matter", "total", "issued_at", "cabinet")
     list_filter = ("status",)
-    search_fields = ("number", "client__last_name", "client__company_name")
-    raw_id_fields = ("client", "matter", "cabinet", "created_by")
+    search_fields = ("number", "matter__reference", "matter__title")
+    raw_id_fields = ("matter", "cabinet", "created_by")
     inlines = [InvoiceLineInline]
 
 

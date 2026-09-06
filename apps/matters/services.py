@@ -20,7 +20,6 @@ from apps.tenants.services import is_platform_admin, require_cabinet_perm
 
 if TYPE_CHECKING:
     from apps.accounts.models import User
-    from apps.clients.models import Client
     from apps.tenants.models import Cabinet
 
 
@@ -65,7 +64,6 @@ def refresh_matter_search_vector(matter: Matter) -> None:
             + SearchVector("description", weight="B", config="french")
             + SearchVector("practice_area", weight="B", config="french")
             + SearchVector("jurisdiction", weight="B", config="french")
-            + SearchVector("opposing_party", weight="C", config="french")
         )
     )
 
@@ -75,14 +73,12 @@ def matters_queryset(
     cabinet: Cabinet,
     q: str = "",
     status: str = "",
-    client_id: str = "",
     archived: str = "",
     scale: str = "",
     user: User | None = None,
 ) -> QuerySet[Matter]:
     """Liste filtrée des dossiers. Un cabinet ne voit que ceux avec procuration valide."""
     qs = Matter.objects.filter(cabinet=cabinet).select_related(
-        "client",
         "responsible_lawyer",
     )
     if user is not None and not is_platform_admin(user):
@@ -102,15 +98,10 @@ def matters_queryset(
             Q(reference__icontains=q)
             | Q(title__icontains=q)
             | Q(practice_area__icontains=q)
-            | Q(opposing_party__icontains=q)
             | Q(jurisdiction__icontains=q)
-            | Q(client__last_name__icontains=q)
-            | Q(client__company_name__icontains=q)
         )
     if status:
         qs = qs.filter(status=status)
-    if client_id:
-        qs = qs.filter(client_id=client_id)
     if scale:
         qs = qs.filter(scale=scale)
     return qs.order_by("-updated_at")
@@ -141,13 +132,11 @@ def create_matter(
     *,
     cabinet: Cabinet,
     user: User,
-    client: Client,
     title: str,
-    responsible_lawyer: User,
+    responsible_lawyer: User | None = None,
     description: str = "",
     practice_area: str = "",
     jurisdiction: str = "",
-    opposing_party: str = "",
     scale: str = MatterScale.NATIONAL,
     status: str = MatterStatus.OPEN,
     opened_at: date | None = None,
@@ -157,24 +146,30 @@ def create_matter(
     """Crée un dossier : réservé au Ministère de la Justice."""
     if not is_platform_admin(user):
         raise PermissionDenied(_("Seul le Ministère de la Justice peut ouvrir un dossier."))
-    if client.cabinet_id != cabinet.pk:
-        raise PermissionDenied(_("Client inaccessible."))
     if not title.strip():
         raise ValidationError({"title": _("L'intitulé est obligatoire.")})
+    
+    # Si aucun avocat responsable n'est fourni, utiliser le premier avocat du cabinet
+    if responsible_lawyer is None:
+        from apps.tenants.models import Membership
+        membership = Membership.objects.filter(cabinet=cabinet, role="lawyer").first()
+        if membership:
+            responsible_lawyer = membership.user
+        else:
+            raise ValidationError(_("Aucun avocat disponible dans ce cabinet."))
+    
     scale = scale or MatterScale.NATIONAL
     validate_matter_scale(scale=scale, jurisdiction=jurisdiction)
     with cabinet_context(cabinet):
         matter = Matter.objects.create(
             cabinet=cabinet,
             created_by=user,
-            client=client,
             responsible_lawyer=responsible_lawyer,
             reference=allocate_matter_reference(cabinet=cabinet),
             title=title.strip(),
             description=description,
             practice_area=practice_area,
             jurisdiction=jurisdiction,
-            opposing_party=opposing_party,
             scale=scale,
             status=status,
             opened_at=opened_at or timezone.localdate(),
@@ -202,8 +197,6 @@ def update_matter(*, matter: Matter, user: User, **fields: Any) -> Matter:
         from apps.procurations.services import require_valid_procuration
 
         require_valid_procuration(matter)
-    if "client" in fields and fields["client"].cabinet_id != matter.cabinet_id:
-        raise PermissionDenied(_("Client inaccessible."))
     for key, value in fields.items():
         setattr(matter, key, value)
     validate_matter_scale(scale=matter.scale, jurisdiction=matter.jurisdiction)

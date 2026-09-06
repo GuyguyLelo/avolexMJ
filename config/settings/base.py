@@ -41,7 +41,7 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.accounts",
     "apps.tenants",
-    "apps.clients",
+    "apps.clients",  # Temporarily re-enabled - to be fully removed after cleaning references
     "apps.matters",
     "apps.procurations",
     "apps.calendar_app",
@@ -268,7 +268,7 @@ SITE_COUNTRY = "République Démocratique du Congo"
 SITE_INSTITUTION = "Ministère de la Justice et Garde des Sceaux"
 SITE_AUTHORITY = "Le Gouvernement"
 # Invalide le cache navigateur des CSS/JS (changer à chaque charte visuelle)
-STATIC_VERSION = "app-css-v24"
+STATIC_VERSION = "app-css-v43"
 
 
 def require_setting(name: str) -> str:

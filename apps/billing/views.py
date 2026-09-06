@@ -33,7 +33,6 @@ from apps.billing.services import (
     unbilled_expenses,
     unbilled_time_entries,
 )
-from apps.clients.models import Client
 from apps.core.mixins import BreadcrumbMixin
 from apps.core.money import format_money
 from apps.matters.models import Matter
@@ -70,7 +69,7 @@ class BillingHubView(CabinetPermissionMixin, BreadcrumbMixin, TemplateView):
         ctx["recent_expenses"] = Expense.objects.select_related("matter").filter(cabinet=cabinet)[
             :8
         ]
-        ctx["recent_invoices"] = Invoice.objects.select_related("client").filter(cabinet=cabinet)[
+        ctx["recent_invoices"] = Invoice.objects.select_related("matter").filter(cabinet=cabinet)[
             :8
         ]
         ctx["timer_form"] = TimerStartForm(matter_queryset=Matter.objects.order_by("reference"))
@@ -282,7 +281,7 @@ class InvoiceListView(CabinetPermissionMixin, BreadcrumbMixin, ListView):
         ]
 
     def get_queryset(self) -> QuerySet[Invoice]:
-        qs = Invoice.objects.select_related("client", "matter").order_by(
+        qs = Invoice.objects.select_related("matter").order_by(
             "-issued_at", "-created_at"
         )
         status = self.request.GET.get("status")
@@ -316,7 +315,6 @@ class InvoiceCreateView(CabinetPermissionMixin, BreadcrumbMixin, FormView):
         cabinet = self.request.cabinet  # type: ignore[attr-defined]
         times = unbilled_time_entries(cabinet=cabinet)
         expenses = unbilled_expenses(cabinet=cabinet)
-        kwargs["client_queryset"] = Client.objects.order_by("last_name", "company_name")
         kwargs["matter_queryset"] = Matter.objects.order_by("reference")
         kwargs["time_choices"] = [
             (
@@ -339,8 +337,7 @@ class InvoiceCreateView(CabinetPermissionMixin, BreadcrumbMixin, FormView):
             invoice = create_draft_invoice(
                 cabinet=self.request.cabinet,  # type: ignore[attr-defined]
                 user=self.request.user,  # type: ignore[arg-type]
-                client=form.cleaned_data["client"],
-                matter=form.cleaned_data.get("matter"),
+                matter=form.cleaned_data["matter"],
                 time_entry_ids=form.cleaned_data.get("time_entries") or [],
                 expense_ids=form.cleaned_data.get("expenses") or [],
                 tax_rate=form.cleaned_data["tax_rate"],
@@ -361,7 +358,7 @@ class InvoiceDetailView(CabinetPermissionMixin, BreadcrumbMixin, DetailView):
     required_perm = PERM_VIEW
 
     def get_queryset(self) -> QuerySet[Invoice]:
-        return Invoice.objects.select_related("client", "matter", "cabinet").prefetch_related(
+        return Invoice.objects.select_related("matter", "cabinet").prefetch_related(
             "lines"
         )
 

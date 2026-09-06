@@ -13,7 +13,6 @@ from django.utils import timezone
 
 from apps.billing.models import Invoice, InvoiceStatus, TimeEntry
 from apps.calendar_app.models import Event, EventType, HearingStatus
-from apps.clients.models import Client
 from apps.matters.models import Matter, MatterScale, MatterStatus
 from apps.procurations.models import Procuration, ProcurationStatus
 from apps.tenants.models import Cabinet, Membership
@@ -41,7 +40,6 @@ def _matters_qs(*, cabinet: Cabinet, user: Any | None = None):
 class DashboardStats:
     """KPIs simples du cabinet."""
 
-    clients_count: int
     matters_active: int
     matters_total: int
     events_upcoming: int
@@ -59,7 +57,6 @@ def build_dashboard_stats(*, cabinet: Cabinet, user: Any | None = None) -> Dashb
     now = timezone.now()
     matters = _matters_qs(cabinet=cabinet, user=user)
 
-    clients_count = Client.objects.filter(cabinet=cabinet).count()
     matters_total = matters.filter(is_archived=False).count()
     matters_active = matters.filter(
         is_archived=False,
@@ -110,7 +107,6 @@ def build_dashboard_stats(*, cabinet: Cabinet, user: Any | None = None) -> Dashb
     )
 
     return DashboardStats(
-        clients_count=clients_count,
         matters_active=matters_active,
         matters_total=matters_total,
         events_upcoming=events_upcoming,
@@ -127,7 +123,7 @@ def recent_matters(*, cabinet: Cabinet, user: Any | None = None, limit: int = 5)
     return list(
         _matters_qs(cabinet=cabinet, user=user)
         .filter(is_archived=False)
-        .select_related("client")
+        .select_related("responsible_lawyer")
         .order_by("-updated_at")[:limit]
     )
 
@@ -141,7 +137,7 @@ def upcoming_hearings(*, cabinet: Cabinet, limit: int = 5) -> list[Event]:
             starts_at__gte=timezone.now(),
             hearing_status__in=(HearingStatus.SCHEDULED, ""),
         )
-        .select_related("matter", "matter__client")
+        .select_related("matter")
         .order_by("starts_at")[:limit]
     )
 
@@ -161,7 +157,6 @@ class CabinetOverview:
 
     cabinet: Cabinet
     members_count: int
-    clients_count: int
     matters_active: int
     hearings_upcoming: int
     unpaid_invoices: int
@@ -173,7 +168,6 @@ class PlatformStats:
 
     cabinets_count: int
     members_count: int
-    clients_count: int
     matters_active: int
     hearings_upcoming: int
     unpaid_invoices: int
@@ -185,7 +179,6 @@ def build_platform_stats() -> PlatformStats:
     now = timezone.now()
     cabinets_count = Cabinet.objects.filter(is_active=True).count()
     members_count = Membership.objects.filter(is_active=True).count()
-    clients_count = Client.unscoped.count()
     matters_active = Matter.unscoped.filter(
         is_archived=False,
         status__in=ACTIVE_MATTER_STATUSES,
@@ -200,7 +193,6 @@ def build_platform_stats() -> PlatformStats:
     return PlatformStats(
         cabinets_count=cabinets_count,
         members_count=members_count,
-        clients_count=clients_count,
         matters_active=matters_active,
         hearings_upcoming=hearings_upcoming,
         unpaid_invoices=unpaid_invoices,
@@ -214,7 +206,6 @@ def get_cabinet_overview(cabinet: Cabinet) -> CabinetOverview:
     return CabinetOverview(
         cabinet=cabinet,
         members_count=Membership.objects.filter(cabinet=cabinet, is_active=True).count(),
-        clients_count=Client.unscoped.filter(cabinet=cabinet).count(),
         matters_active=Matter.unscoped.filter(
             cabinet=cabinet,
             is_archived=False,
@@ -243,7 +234,7 @@ def recent_platform_activity(*, limit: int = 10) -> list[Matter]:
     """Derniers dossiers mis à jour, tous cabinets confondus."""
     return list(
         Matter.unscoped.filter(is_archived=False)
-        .select_related("cabinet", "client")
+        .select_related("cabinet", "responsible_lawyer")
         .order_by("-updated_at")[:limit]
     )
 
@@ -256,7 +247,7 @@ def upcoming_platform_hearings(*, limit: int = 10) -> list[Event]:
             starts_at__gte=timezone.now(),
             hearing_status__in=(HearingStatus.SCHEDULED, ""),
         )
-        .select_related("cabinet", "matter", "matter__client")
+        .select_related("cabinet", "matter")
         .order_by("starts_at")[:limit]
     )
 

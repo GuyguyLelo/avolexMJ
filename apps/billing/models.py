@@ -158,7 +158,7 @@ class InvoiceSequence(TenantOwnedModel):
 
 
 class Invoice(TenantOwnedModel):
-    """Facture client (brouillon → émise → payée / annulée)."""
+    """Facture dossier (brouillon → émise → payée / annulée)."""
 
     number = models.CharField(
         _("numéro"),
@@ -166,12 +166,6 @@ class Invoice(TenantOwnedModel):
         blank=True,
         db_index=True,
         help_text=_("Attribué à l'émission (FAC-YYYY-NNNNN)."),
-    )
-    client = models.ForeignKey(
-        "clients.Client",
-        verbose_name=_("client"),
-        on_delete=models.PROTECT,
-        related_name="invoices",
     )
     matter = models.ForeignKey(
         "matters.Matter",
@@ -238,7 +232,6 @@ class Invoice(TenantOwnedModel):
         ]
         indexes = [
             models.Index(fields=["cabinet", "status"], name="billing_inv_cab_status"),
-            models.Index(fields=["cabinet", "client"], name="billing_inv_cab_client"),
         ]
 
     def __str__(self) -> str:

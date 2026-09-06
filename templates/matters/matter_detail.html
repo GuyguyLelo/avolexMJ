@@ -32,7 +32,7 @@
       <a class="btn btn-secondary btn-sm" href="{% url 'hearings:create' %}?matter={{ matter.pk }}">{% translate "Audience" %}</a>
       <a class="btn btn-secondary btn-sm" href="{% url 'calendar:event_create' %}?matter={{ matter.pk }}">{% translate "Événement" %}</a>
       {% endif %}
-      {% if not is_platform_admin and not matter.is_archived %}
+      {% if not matter.is_archived %}
       <a class="btn btn-primary btn-sm" href="{% url 'matters:update' matter.pk %}">{% translate "Modifier" %}</a>
       {% endif %}
       {% if not is_platform_admin and can_archive_matter %}
@@ -74,12 +74,6 @@
   {% endif %}
 
   <section class="matter-facts" aria-label="{% translate 'Informations' %}">
-    <div class="matter-fact">
-      <dt>{% translate "Client" %}</dt>
-      <dd>
-        <a href="{% url 'clients:detail' matter.client_id %}">{{ matter.client.display_name }}</a>
-      </dd>
-    </div>
     <div class="matter-fact">
       <dt>{% translate "Type d'affaire" %}</dt>
       <dd>
@@ -152,10 +146,10 @@
           <span class="party-name">{{ party.name }}</span>
           <span class="party-role">
             {% if party.role == 'plaintiff' %}{% translate "Plaignant / Accusateur" %}{% elif party.role == 'defendant' %}{% translate "Défendeur / Accusé" %}{% elif party.role == 'witness' %}{% translate "Témoin" %}{% else %}{% translate "Tiers" %}{% endif %}
+            {% if party.is_state_entity %}
+            <span class="badge badge-gold">{% translate "Entité étatique" %}</span>
+            {% endif %}
           </span>
-          {% if party.is_state_entity %}
-          <span class="badge badge-gold">{% translate "Entité étatique" %}</span>
-          {% endif %}
         </div>
         {% if party.notes %}
         <p class="party-notes">{{ party.notes }}</p>

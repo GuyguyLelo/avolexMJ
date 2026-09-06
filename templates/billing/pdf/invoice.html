@@ -44,16 +44,17 @@
 
   <div class="grid">
     <div class="col">
-      <p class="muted">Facturé à</p>
-      <p><strong>{{ client.display_name }}</strong></p>
-      {% if client.address_line1 %}<p>{{ client.address_line1 }}</p>{% endif %}
-      <p>{% if client.postal_code %}{{ client.postal_code }} {% endif %}{{ client.city }}</p>
-    </div>
-    <div class="col right">
       {% if invoice.matter %}
       <p class="muted">Dossier</p>
-      <p>{{ invoice.matter.reference }} — {{ invoice.matter.title }}</p>
+      <p><strong>{{ invoice.matter.reference }} — {{ invoice.matter.title }}</strong></p>
+      {% else %}
+      <p class="muted">Dossier non spécifié</p>
       {% endif %}
+    </div>
+    <div class="col right">
+      <h1>Facture <span class="gold">{{ invoice.number|default:"PROFORMA" }}</span></h1>
+      <p>Émise le {{ invoice.issued_at|date:"d/m/Y"|default:"—" }}</p>
+      {% if invoice.due_at %}<p>Échéance {{ invoice.due_at|date:"d/m/Y" }}</p>{% endif %}
     </div>
   </div>
 

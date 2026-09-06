@@ -18,7 +18,7 @@
   <div class="form-field">
     <label class="sr-only" for="q">{% translate "Recherche" %}</label>
     <input class="form-input" id="q" type="search" name="q" value="{{ filter_q }}"
-           placeholder="{% translate 'Référence, titre, client…' %}">
+           placeholder="{% translate 'Référence, titre…' %}">
   </div>
   <div class="form-field">
     <label class="sr-only" for="scale">{% translate "Échelle" %}</label>
@@ -46,15 +46,6 @@
       <option value="all" {% if filter_archived == "all" %}selected{% endif %}>{% translate "Tous" %}</option>
     </select>
   </div>
-  <div class="form-field">
-    <label class="sr-only" for="client">{% translate "Client" %}</label>
-    <select class="form-input" id="client" name="client">
-      <option value="">{% translate "Tous les clients" %}</option>
-      {% for c in clients %}
-      <option value="{{ c.pk }}" {% if filter_client == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.display_name }}</option>
-      {% endfor %}
-    </select>
-  </div>
   <button class="btn btn-secondary" type="submit">{% translate "Filtrer" %}</button>
 </form>
 
@@ -64,7 +55,6 @@
     <thead>
       <tr>
         <th>{% translate "Dossier" %}</th>
-        <th>{% translate "Client" %}</th>
         <th>{% translate "Matière" %}</th>
         <th>{% translate "Échelle" %}</th>
         <th>{% translate "Statut" %}</th>
@@ -82,9 +72,6 @@
               <span class="list-entity-meta list-ref">{{ m.reference }}</span>
             </span>
           </a>
-        </td>
-        <td>
-          <a href="{% url 'clients:detail' m.client_id %}">{{ m.client.display_name }}</a>
         </td>
         <td>{{ m.practice_area|default:"—" }}</td>
         <td>
@@ -111,7 +98,7 @@
 <section class="empty-state">
   <h2>{% translate "Aucun dossier" %}</h2>
   {% if is_platform_admin %}
-  <p>{% translate "Ouvrez un dossier et rattachez-le à un client." %}</p>
+  <p>{% translate "Ouvrez un nouveau dossier." %}</p>
   <a class="btn btn-primary" href="{% url 'matters:create' %}">{% translate "Nouveau dossier" %}</a>
   {% else %}
   <p>{% translate "Aucun dossier n'est encore couvert par une procuration ministérielle." %}</p>

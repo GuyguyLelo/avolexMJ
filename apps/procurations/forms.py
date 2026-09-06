@@ -26,42 +26,12 @@ class ProcurationForm(forms.ModelForm):
         widget=forms.Select(attrs={"class": "form-input", "data-procuration-cabinet": "1"}),
         help_text=_("Cabinet destinataire de la procuration."),
     )
-    ministry_reference = forms.CharField(
-        label=_("Référence ministérielle"),
-        max_length=64,
-        required=False,
-        widget=forms.TextInput(attrs={"class": "form-input"}),
-        help_text=_("Numéro porté sur l'acte du Ministère de la Justice."),
-    )
-    valid_from = forms.DateField(
-        label=_("Valide à compter du"),
-        required=False,
-        widget=forms.DateInput(attrs={"class": "form-input", "type": "date"}),
-    )
-    expires_at = forms.DateField(
-        label=_("Expire le"),
-        required=False,
-        widget=forms.DateInput(attrs={"class": "form-input", "type": "date"}),
-    )
 
     class Meta:
         model = Procuration
-        fields = ("matter", "reference", "purpose", "notes", "instrument")
+        fields = ("matter", "notes", "instrument")
         widgets = {
             "matter": forms.Select(attrs={"class": "form-input"}),
-            "reference": forms.TextInput(
-                attrs={
-                    "class": "form-input",
-                    "placeholder": _("Ex. PROC-2026-00012"),
-                    "autocomplete": "off",
-                }
-            ),
-            "purpose": forms.TextInput(
-                attrs={
-                    "class": "form-input",
-                    "placeholder": _("Représentation du client et actes de procédure"),
-                }
-            ),
             "notes": forms.Textarea(
                 attrs={
                     "class": "form-input",
@@ -106,15 +76,6 @@ class ProcurationForm(forms.ModelForm):
             self.fields["matter"].help_text = _(
                 "Dossier déjà ouvert par le cabinet. La procuration l'autorise à y agir."
             )
-        self.fields["purpose"].help_text = _(
-            "Objet de la procuration (représentation, actes de procédure…)."
-        )
-        self.fields["reference"].required = False
-        self.fields["reference"].label = _("Référence de la procuration")
-        self.fields["reference"].help_text = _(
-            "Numéro de la procuration. Laissez vide pour une attribution automatique "
-            "(PROC-AAAA-NNNNN)."
-        )
 
     def clean(self) -> dict[str, object]:
         cleaned = super().clean()
@@ -131,12 +92,6 @@ class ProcurationForm(forms.ModelForm):
             )
         return cleaned
 
-    def clean_purpose(self) -> str:
-        purpose = (self.cleaned_data.get("purpose") or "").strip()
-        if not purpose:
-            raise forms.ValidationError(_("L'objet de la procuration est obligatoire."))
-        return purpose
-
     def clean_reference(self) -> str:
         return (self.cleaned_data.get("reference") or "").strip()
 
@@ -144,12 +99,6 @@ class ProcurationForm(forms.ModelForm):
 class ProcurationGrantForm(forms.Form):
     """Octroi ministériel."""
 
-    ministry_reference = forms.CharField(
-        label=_("Référence ministérielle"),
-        max_length=64,
-        required=False,
-        widget=forms.TextInput(attrs={"class": "form-input"}),
-    )
     valid_from = forms.DateField(
         label=_("Valide à compter du"),
         required=False,

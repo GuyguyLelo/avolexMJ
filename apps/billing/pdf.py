@@ -16,7 +16,6 @@ from apps.core.money import format_money
 
 if TYPE_CHECKING:
     from apps.billing.models import Invoice, InvoiceLine
-    from apps.clients.models import Client
     from apps.tenants.models import Cabinet
 
 logger = logging.getLogger(__name__)
@@ -49,7 +48,7 @@ def build_invoice_pdf(invoice: Invoice) -> bytes:
 
     invoice = (
         type(invoice)
-        .objects.select_related("cabinet", "client", "matter")
+        .objects.select_related("cabinet", "matter")
         .prefetch_related("lines")
         .get(pk=invoice.pk)
     )
@@ -74,7 +73,6 @@ def _try_weasyprint(invoice: Invoice) -> bytes | None:
         {
             "invoice": invoice,
             "cabinet": invoice.cabinet,
-            "client": invoice.client,
             "lines": invoice.lines.all(),
         },
     )
@@ -139,7 +137,6 @@ def _build_with_fpdf(invoice: Invoice) -> bytes:
     from fpdf import FPDF
 
     cabinet: Cabinet = invoice.cabinet
-    client: Client = invoice.client
     lines: list[InvoiceLine] = list(invoice.lines.all())
     is_draft = invoice.status == "draft" or not invoice.number
     title = invoice.number or "PROFORMA"
@@ -205,44 +202,25 @@ def _build_with_fpdf(invoice: Invoice) -> bytes:
     pdf.set_text_color(*SLATE)
     pdf.set_font(font_name, "B", 8)
     pdf.set_xy(16, y)
-    pdf.cell(90, 5, "FACTURÉ À")
-    pdf.set_xy(110, y)
-    pdf.cell(84, 5, "DOSSIER" if invoice.matter_id else "")
-
+    pdf.cell(178, 5, "DOSSIER" if invoice.matter_id else "")
     y += 6
     pdf.set_text_color(*INK)
     pdf.set_font(font_name, "B", 12)
-    pdf.set_xy(16, y)
-    pdf.cell(90, 6, client.display_name)
     if invoice.matter_id:
-        pdf.set_xy(110, y)
-        pdf.cell(84, 6, invoice.matter.reference)
+        pdf.set_xy(16, y)
+        pdf.cell(178, 6, invoice.matter.reference)
+        y += 7
+        pdf.set_font(font_name, "", 9)
+        pdf.set_text_color(58, 69, 84)
+        pdf.set_xy(16, y)
+        pdf.multi_cell(178, 4.5, invoice.matter.title)
+    else:
+        pdf.set_text_color(*SLATE)
+        pdf.set_font(font_name, "", 9)
+        pdf.set_xy(16, y)
+        pdf.cell(178, 5, "Dossier non spécifié")
 
-    y += 7
-    pdf.set_font(font_name, "", 9)
-    pdf.set_text_color(58, 69, 84)
-    pdf.set_xy(16, y)
-    client_city = f"{client.postal_code} {client.city}".strip()
-    pdf.multi_cell(
-        90,
-        4.5,
-        "\n".join(
-            p
-            for p in (
-                client.address_line1,
-                client.address_line2,
-                client_city,
-                client.email,
-            )
-            if p
-        ),
-    )
-    client_block_bottom = pdf.get_y()
-    if invoice.matter_id:
-        pdf.set_xy(110, y)
-        pdf.multi_cell(84, 4.5, invoice.matter.title)
-
-    y = max(client_block_bottom, pdf.get_y()) + 6
+    y = pdf.get_y() + 6
 
     extras = []
     if cabinet.siret:

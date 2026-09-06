@@ -31,7 +31,6 @@ from apps.tenants.services import require_cabinet_perm
 
 if TYPE_CHECKING:
     from apps.accounts.models import User
-    from apps.clients.models import Client
     from apps.matters.models import Matter
     from apps.tenants.models import Cabinet
 
@@ -214,8 +213,7 @@ def create_draft_invoice(
     *,
     cabinet: Cabinet,
     user: User,
-    client: Client,
-    matter: Matter | None,
+    matter: Matter,
     time_entry_ids: list[str] | None = None,
     expense_ids: list[str] | None = None,
     tax_rate: Decimal | None = None,
@@ -228,19 +226,13 @@ def create_draft_invoice(
     Les lignes sont créées immédiatement (modifiables tant que brouillon).
     """
     require_cabinet_perm(user=user, cabinet=cabinet, perm=PERM_ADD)
-    if client.cabinet_id != cabinet.pk:
-        raise PermissionDenied(_("Client inaccessible."))
-    if matter is not None:
-        assert_matter_cabinet(matter=matter, cabinet=cabinet)
-        if matter.client_id != client.pk:
-            raise ValidationError(_("Le dossier n'appartient pas à ce client."))
-        from apps.procurations.services import require_matter_activity_allowed
+    assert_matter_cabinet(matter=matter, cabinet=cabinet)
+    from apps.procurations.services import require_matter_activity_allowed
 
-        require_matter_activity_allowed(matter)
+    require_matter_activity_allowed(matter)
 
     invoice = Invoice.objects.create(
         cabinet=cabinet,
-        client=client,
         matter=matter,
         status=InvoiceStatus.DRAFT,
         tax_rate=tax_rate if tax_rate is not None else default_tax_rate(),
@@ -464,7 +456,6 @@ def export_invoices_csv(*, cabinet: Cabinet, user: User) -> BinaryIO:
         [
             "number",
             "status",
-            "client",
             "matter",
             "issued_at",
             "due_at",
@@ -477,7 +468,7 @@ def export_invoices_csv(*, cabinet: Cabinet, user: User) -> BinaryIO:
     )
     qs = (
         Invoice.objects.filter(cabinet=cabinet)
-        .select_related("client", "matter")
+        .select_related("matter")
         .order_by("-issued_at", "-created_at")
     )
     for inv in qs:
@@ -485,7 +476,6 @@ def export_invoices_csv(*, cabinet: Cabinet, user: User) -> BinaryIO:
             [
                 inv.number,
                 inv.status,
-                inv.client.display_name,
                 inv.matter.reference if inv.matter else "",
                 inv.issued_at.isoformat() if inv.issued_at else "",
                 inv.due_at.isoformat() if inv.due_at else "",

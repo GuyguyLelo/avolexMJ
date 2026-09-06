@@ -16,7 +16,6 @@ from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from apps.calendar_app.models import EventType, HearingStatus
-from apps.clients.models import Client
 from apps.core.mixins import BreadcrumbMixin
 from apps.matters.forms import MatterForm, MatterPartyFormSet
 from apps.matters.models import Matter, MatterScale, MatterStatus
@@ -39,7 +38,7 @@ from apps.tenants.services import (
 
 def _visible_matters(request: Any) -> QuerySet[Matter]:
     """Dossiers accessibles : tous pour le ministère, procuration valide pour le cabinet."""
-    qs = Matter.objects.select_related("client", "responsible_lawyer")
+    qs = Matter.objects.select_related("responsible_lawyer")
     cabinet = getattr(request, "cabinet", None)
     if cabinet is not None and not is_platform_admin(request.user):
         from apps.procurations.services import authorized_matter_ids_for_cabinet
@@ -65,7 +64,6 @@ class MatterListView(CabinetPermissionMixin, BreadcrumbMixin, ListView):
             user=self.request.user,  # type: ignore[arg-type]
             q=self.request.GET.get("q", ""),
             status=self.request.GET.get("status", ""),
-            client_id=self.request.GET.get("client", ""),
             archived=self.request.GET.get("archived", ""),
             scale=self.request.GET.get("scale", ""),
         )
@@ -74,12 +72,10 @@ class MatterListView(CabinetPermissionMixin, BreadcrumbMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         ctx["filter_q"] = self.request.GET.get("q", "")
         ctx["filter_status"] = self.request.GET.get("status", "")
-        ctx["filter_client"] = self.request.GET.get("client", "")
         ctx["filter_archived"] = self.request.GET.get("archived", "")
         ctx["filter_scale"] = self.request.GET.get("scale", "")
         ctx["status_choices"] = MatterStatus.choices
         ctx["scale_choices"] = MatterScale.choices
-        ctx["clients"] = Client.objects.order_by("last_name", "company_name")
         return ctx
 
 
@@ -141,12 +137,6 @@ def _lawyer_queryset(cabinet: Any) -> QuerySet[Any]:
     return get_user_model().objects.filter(pk__in=user_ids).order_by("last_name", "email")
 
 
-def _client_queryset(cabinet: Any) -> QuerySet[Client]:
-    if cabinet is None:
-        return Client.objects.none()
-    return Client.objects.for_cabinet(cabinet).order_by("last_name", "company_name")
-
-
 def _resolve_target_cabinet(request: Any, *, use_current: bool = False) -> Any:
     raw = request.POST.get("target_cabinet") or request.GET.get("cabinet")
     if raw:
@@ -181,9 +171,6 @@ class MatterCreateView(CabinetPermissionMixin, BreadcrumbMixin, CreateView):
 
     def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()
-        cabinet = _resolve_target_cabinet(self.request)
-        kwargs["client_queryset"] = _client_queryset(cabinet)
-        kwargs["lawyer_queryset"] = _lawyer_queryset(cabinet)
         kwargs["include_cabinet"] = True
         kwargs["cabinets"] = Cabinet.objects.filter(is_active=True).order_by("name")
         return kwargs
@@ -196,16 +183,6 @@ class MatterCreateView(CabinetPermissionMixin, BreadcrumbMixin, CreateView):
         practice_area = self.request.GET.get("practice_area") or ""
         if practice_area:
             initial["practice_area"] = practice_area
-        client_id = self.request.GET.get("client")
-        if client_id:
-            initial["client"] = client_id
-        lawyers = _lawyer_queryset(cabinet)
-        if lawyers.filter(pk=self.request.user.pk).exists():
-            initial["responsible_lawyer"] = self.request.user.pk
-        else:
-            first_lawyer = lawyers.first()
-            if first_lawyer is not None:
-                initial["responsible_lawyer"] = first_lawyer.pk
         return initial
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
@@ -234,13 +211,12 @@ class MatterCreateView(CabinetPermissionMixin, BreadcrumbMixin, CreateView):
         
         data = form.cleaned_data
         cabinet = data["target_cabinet"]
+        
         try:
             matter = create_matter(
                 cabinet=cabinet,
                 user=self.request.user,  # type: ignore[arg-type]
-                client=data["client"],
                 title=data["title"],
-                responsible_lawyer=data["responsible_lawyer"],
                 description=data.get("description") or "",
                 practice_area=data.get("practice_area") or "",
                 jurisdiction=data.get("jurisdiction") or "",
@@ -276,15 +252,22 @@ class MatterCreateView(CabinetPermissionMixin, BreadcrumbMixin, CreateView):
         return redirect("matters:detail", pk=matter.pk)
 
 
-class MatterUpdateView(CabinetPermissionMixin, BreadcrumbMixin, UpdateView):
+class MatterUpdateView(BreadcrumbMixin, UpdateView):
     """Édition dossier."""
 
     template_name = "matters/matter_form.html"
     form_class = MatterForm
     context_object_name = "matter"
-    required_perm = PERM_CHANGE
+
+    def dispatch(self, request, *args, **kwargs):
+        """Permet au ministère de modifier les dossiers sans restriction de cabinet."""
+        if is_platform_admin(request.user):
+            return super().dispatch(request, *args, **kwargs)
+        return CabinetPermissionMixin.dispatch(self, request, *args, **kwargs)
 
     def get_queryset(self) -> QuerySet[Matter]:
+        if is_platform_admin(self.request.user):
+            return Matter.unscoped.all()
         return _visible_matters(self.request)
 
     def get_breadcrumb(self) -> list[dict[str, str]]:
@@ -299,9 +282,8 @@ class MatterUpdateView(CabinetPermissionMixin, BreadcrumbMixin, UpdateView):
 
     def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()
-        cabinet = self.request.cabinet  # type: ignore[attr-defined]
-        kwargs["client_queryset"] = _client_queryset(cabinet)
-        kwargs["lawyer_queryset"] = _lawyer_queryset(cabinet)
+        # Utiliser le cabinet du dossier pour les avocats (si nécessaire à l'avenir)
+        cabinet = self.object.cabinet
         return kwargs
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
@@ -328,11 +310,16 @@ class MatterUpdateView(CabinetPermissionMixin, BreadcrumbMixin, UpdateView):
             messages.error(self.request, _g("Erreur dans les parties du dossier."))
             return self.form_invalid(form)
         
+        # Nettoyer les données avant de passer au service
+        cleaned_data = form.cleaned_data.copy()
+        # Retirer le champ responsible_lawyer s'il est présent
+        cleaned_data.pop('responsible_lawyer', None)
+        
         try:
             update_matter(
                 matter=self.object,
                 user=self.request.user,  # type: ignore[arg-type]
-                **form.cleaned_data,
+                **cleaned_data,
             )
             # Update parties - delete existing and recreate
             from apps.matters.models import MatterParty
@@ -401,10 +388,6 @@ class MatterCreateContextView(CabinetPermissionMixin, View):
             raise PermissionDenied(_g("Seul le Ministère de la Justice peut ouvrir un dossier."))
         cabinet = _resolve_target_cabinet(request)
         practice_area = request.GET.get("practice_area") or ""
-        clients = [
-            {"id": str(item.pk), "label": item.display_name}
-            for item in _client_queryset(cabinet)[:200]
-        ]
         lawyers = [
             {"id": str(item.pk), "label": item.full_name or item.email}
             for item in _lawyer_queryset(cabinet)
@@ -421,7 +404,6 @@ class MatterCreateContextView(CabinetPermissionMixin, View):
         return JsonResponse(
             {
                 "cabinet_id": str(cabinet.pk) if cabinet is not None else "",
-                "clients": clients,
                 "lawyers": lawyers,
                 "suggested_cabinets": suggested,
             }
