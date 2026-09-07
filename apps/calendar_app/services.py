@@ -70,7 +70,7 @@ def hearings_queryset(
     """Audiences judiciaires filtrées."""
     qs = (
         Event.objects.filter(cabinet=cabinet, event_type=EventType.HEARING)
-        .select_related("matter", "matter__client", "assigned_to")
+        .select_related("matter", "assigned_to", "matter__responsible_lawyer", "matter__cabinet")
     )
     if from_dt:
         qs = qs.filter(starts_at__gte=from_dt)

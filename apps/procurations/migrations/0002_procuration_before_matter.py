@@ -6,7 +6,7 @@ from django.db import migrations, models
 
 def fill_case_fields_from_matter(apps, schema_editor) -> None:
     Procuration = apps.get_model("procurations", "Procuration")
-    for procuration in Procuration.objects.select_related("matter", "matter__client").iterator():
+    for procuration in Procuration.objects.select_related("matter", "matter__responsible_lawyer", "matter__cabinet").iterator():
         matter = procuration.matter
         if matter is None:
             continue

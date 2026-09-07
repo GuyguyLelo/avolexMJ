@@ -87,7 +87,7 @@ class DocumentUploadView(CabinetPermissionMixin, BreadcrumbMixin, FormView):
     def get_form_kwargs(self) -> dict[str, Any]:
         """Passe le queryset des dossiers du cabinet."""
         kwargs = super().get_form_kwargs()
-        kwargs["matter_queryset"] = Matter.objects.select_related("client").order_by("reference")
+        kwargs["matter_queryset"] = Matter.objects.select_related("responsible_lawyer", "cabinet").order_by("reference")
         return kwargs
 
     def get_initial(self) -> dict[str, Any]:

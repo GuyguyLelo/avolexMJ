@@ -449,7 +449,7 @@ class InvoicePdfDownloadView(CabinetPermissionMixin, View):
 
     def get(self, request: HttpRequest, pk: str) -> HttpResponse:
         invoice = get_object_or_404(
-            Invoice.objects.select_related("cabinet", "client", "matter"),
+            Invoice.objects.select_related("cabinet", "matter", "created_by"),
             pk=pk,
         )
         from apps.billing.services import (
