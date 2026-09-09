@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from django.contrib import admin
 
-from apps.matters.models import Matter, MatterAction, MatterSequence
+from apps.matters.models import Matter, MatterAction, MatterLawyer, MatterSequence
 
 
 @admin.register(Matter)
@@ -15,6 +15,15 @@ class MatterAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
     list_filter = ("scale", "status")
     search_fields = ("reference", "title", "opposing_party")
     raw_id_fields = ("cabinet", "responsible_lawyer", "created_by")
+
+
+@admin.register(MatterLawyer)
+class MatterLawyerAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
+    """Affectations avocats / dossiers."""
+
+    list_display = ("matter", "lawyer", "is_lead", "assigned_at")
+    list_filter = ("is_lead",)
+    raw_id_fields = ("matter", "lawyer", "assigned_by")
 
 
 @admin.register(MatterSequence)

@@ -136,7 +136,7 @@
               <span class="badge badge-warning">{% translate "Archivé" %}</span>
               {% endif %}
             </td>
-            <td class="clients-cell-muted">{{ m.responsible_lawyer.get_full_name|default:m.responsible_lawyer.email }}</td>
+            <td class="clients-cell-muted">{% if m.responsible_lawyer %}{{ m.responsible_lawyer.get_full_name|default:m.responsible_lawyer.email }}{% else %}—{% endif %}</td>
             <td class="clients-cell-muted">{{ m.opened_at|date:"d/m/Y"|default:"—" }}</td>
           </tr>
           {% endfor %}

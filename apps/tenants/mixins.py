@@ -10,11 +10,25 @@ from django.http import HttpRequest, HttpResponse
 from django.utils.translation import gettext_lazy as _
 
 from apps.tenants.roles import PERM_VIEW, role_has_perm
-from apps.tenants.services import get_membership, is_platform_admin, user_has_cabinet_perm
+from apps.tenants.services import (
+    get_membership,
+    is_platform_admin,
+    is_super_admin,
+    user_has_cabinet_perm,
+)
+
+
+class SuperAdminRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
+    """Réservé au SuperAdmin."""
+
+    cabinet_required: ClassVar[bool] = False
+
+    def test_func(self) -> bool:
+        return is_super_admin(self.request.user)  # type: ignore[arg-type]
 
 
 class PlatformAdminRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
-    """Réservé aux administrateurs plateforme (supervision)."""
+    """Réservé aux administrateurs ministère et SuperAdmin."""
 
     cabinet_required: ClassVar[bool] = False
 

@@ -178,7 +178,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "core:home"
-LOGOUT_REDIRECT_URL = "core:landing"
+LOGOUT_REDIRECT_URL = "accounts:login"
 
 EMAIL_BACKEND = env(
     "EMAIL_BACKEND",
@@ -268,7 +268,7 @@ SITE_COUNTRY = "République Démocratique du Congo"
 SITE_INSTITUTION = "Ministère de la Justice et Garde des Sceaux"
 SITE_AUTHORITY = "Le Gouvernement"
 # Invalide le cache navigateur des CSS/JS (changer à chaque charte visuelle)
-STATIC_VERSION = "app-css-v43"
+STATIC_VERSION = "app-css-v54"
 
 
 def require_setting(name: str) -> str:

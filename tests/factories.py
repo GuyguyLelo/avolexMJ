@@ -128,10 +128,9 @@ class MatterFactory(DjangoModelFactory):
     class Meta:
         model = Matter
 
-    cabinet = factory.SubFactory(CabinetFactory)
-    client = factory.SubFactory(ClientFactory, cabinet=factory.SelfAttribute("..cabinet"))
-    responsible_lawyer = factory.SubFactory(UserFactory)
-    reference = factory.Sequence(lambda n: f"DOS-2026-{n:04d}")
+    cabinet = None
+    responsible_lawyer = None
+    reference = factory.Sequence(lambda n: f"DOS-TEST-{n:04d}")
     title = factory.Sequence(lambda n: f"Affaire {n}")
     scale = MatterScale.NATIONAL
     status = MatterStatus.OPEN
@@ -139,12 +138,18 @@ class MatterFactory(DjangoModelFactory):
 
     @factory.post_generation
     def with_procuration(self, create: bool, extracted: object, **kwargs: object) -> None:
-        """Accorde une procuration par défaut (désactiver avec with_procuration=False)."""
+        """Accorde une procuration (cabinet créé si besoin)."""
         if not create or extracted is False:
             return
         from apps.procurations.services import stamp_granted_procuration
 
-        stamp_granted_procuration(matter=self, actor=self.responsible_lawyer)
+        cabinet = self.cabinet
+        if cabinet is None:
+            cabinet = CabinetFactory()
+        actor = UserFactory(is_platform_admin=True)
+        MembershipFactory(user=actor, cabinet=cabinet, role=Role.CAIMAN)
+        stamp_granted_procuration(matter=self, cabinet=cabinet, actor=actor)
+        self.refresh_from_db()
 
 
 def granted_procuration(

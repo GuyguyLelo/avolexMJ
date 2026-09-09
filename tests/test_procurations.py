@@ -54,7 +54,7 @@ def test_matter_activity_blocked_without_procuration() -> None:
                 event_type=EventType.HEARING,
                 matter=matter,
             )
-        with pytest.raises(ValidationError, match="procuration"):
+        with pytest.raises(PermissionDenied):
             update_matter(matter=matter, user=user, status=MatterStatus.IN_PROGRESS)
 
 
@@ -73,11 +73,8 @@ def test_grant_unlocks_matter_activity() -> None:
             last_name="Ilunga",
         )
         matter = create_matter(
-            cabinet=cabinet,
             user=admin,
-            client=client,
             title="Affaire civile",
-            responsible_lawyer=owner,
         )
         procuration = create_procuration(
             cabinet=cabinet,
@@ -88,6 +85,8 @@ def test_grant_unlocks_matter_activity() -> None:
         )
         assert procuration.status == ProcurationStatus.GRANTED
         assert procuration.is_currently_valid is True
+        matter.refresh_from_db()
+        assert matter.cabinet_id == cabinet.pk
         event = create_event(
             cabinet=cabinet,
             user=owner,
@@ -151,8 +150,7 @@ def test_procuration_list_http(client) -> None:  # type: ignore[no-untyped-def]
     admin = UserFactory(is_platform_admin=True)
     cabinet = CabinetFactory()
     MembershipFactory(user=user, cabinet=cabinet, role=Role.LAWYER)
-    matter = MatterFactory(cabinet=cabinet, with_procuration=False)
-    MembershipFactory(user=matter.responsible_lawyer, cabinet=cabinet, role=Role.LAWYER)
+    matter = MatterFactory(cabinet=cabinet, with_procuration=False, responsible_lawyer=user)
     with cabinet_context(cabinet):
         create_procuration(
             cabinet=cabinet,
@@ -223,22 +221,19 @@ def test_ministry_issues_procuration_http(client) -> None:  # type: ignore[no-un
         {
             "cabinet": str(cabinet.pk),
             "matter": str(matter.pk),
-            "purpose": "Représentation en justice",
-            "ministry_reference": "MJ/GS/2026/100",
+            "notes": "Représentation en justice",
         },
     )
-    assert create_resp.status_code == 302
+    assert create_resp.status_code == 302, create_resp.content.decode()[:500]
     with cabinet_context(cabinet):
-        procuration = Procuration.objects.get(purpose="Représentation en justice")
+        procuration = Procuration.objects.get(matter=matter)
         assert procuration.status == ProcurationStatus.GRANTED
         assert procuration.matter_id == matter.pk
-        assert procuration.ministry_reference == "MJ/GS/2026/100"
         assert procuration.granted_by_id == admin.pk
         pk = procuration.pk
 
     detail = client.get(reverse("procurations:detail", args=[pk]))
     assert detail.status_code == 200
-    assert "Représentation en justice" in detail.content.decode()
     assert matter_has_valid_procuration(matter) is True
 
 
@@ -315,13 +310,14 @@ def test_new_procuration_starts_with_cabinet(client) -> None:  # type: ignore[no
         {
             "cabinet": str(cabinet.pk),
             "matter": str(matter.pk),
-            "purpose": "Mandat ministériel",
+            "notes": "Mandat ministériel",
         },
     )
-    assert created.status_code == 302
+    assert created.status_code == 302, created.content.decode()[:500]
     with cabinet_context(cabinet):
-        procuration = Procuration.objects.get(purpose="Mandat ministériel", matter=matter)
+        procuration = Procuration.objects.get(matter=matter)
         assert procuration.status == ProcurationStatus.GRANTED
+        assert "Mandat ministériel" in (procuration.notes or "")
 
 
 @pytest.mark.django_db

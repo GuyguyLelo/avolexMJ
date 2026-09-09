@@ -1,0 +1,90 @@
+{% extends "layouts/app.html" %}
+{% load i18n %}
+
+{% block title %}{{ account_user.full_name }} — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<article class="detail-sheet detail-sheet--compact">
+  <header class="detail-sheet-header">
+    <div class="detail-sheet-identity">
+      <span class="detail-sheet-avatar" aria-hidden="true">{{ account_user.full_name.0|upper }}</span>
+      <div class="detail-sheet-title">
+        <p class="detail-sheet-kicker">{% translate "Utilisateur" %}</p>
+        <h1>{{ account_user.full_name }}</h1>
+        <p class="detail-sheet-lede">
+          <span>{{ account_user.email }}</span>
+          {% if account_user.is_super_admin %}
+          <span class="badge badge-gold">{% translate "SuperAdmin" %}</span>
+          {% elif account_user.is_platform_admin %}
+          <span class="badge badge-info">{% translate "Administrateur" %}</span>
+          {% else %}
+          <span class="badge">{% translate "Compte cabinet" %}</span>
+          {% endif %}
+          {% if account_user.is_active %}
+          <span class="badge badge-success">{% translate "Actif" %}</span>
+          {% else %}
+          <span class="badge badge-warning">{% translate "Inactif" %}</span>
+          {% endif %}
+        </p>
+      </div>
+    </div>
+    <div class="detail-sheet-actions">
+      <a class="btn btn-primary btn-sm" href="{% url 'accounts:user_update' account_user.pk %}">{% translate "Modifier" %}</a>
+      {% if account_user.is_active %}
+      <form method="post" action="{% url 'accounts:user_deactivate' account_user.pk %}" onsubmit="return confirm('{% translate "Désactiver ce compte ?" %}');">
+        {% csrf_token %}
+        <button class="btn btn-ghost btn-sm" type="submit">{% translate "Désactiver" %}</button>
+      </form>
+      {% endif %}
+      <a class="btn btn-secondary btn-sm" href="{% url 'accounts:user_list' %}">{% translate "Retour" %}</a>
+    </div>
+  </header>
+
+  <section class="matter-facts" aria-label="{% translate 'Identité' %}">
+    <div class="matter-fact">
+      <dt>{% translate "E-mail" %}</dt>
+      <dd>{{ account_user.email }}</dd>
+    </div>
+    <div class="matter-fact">
+      <dt>{% translate "Téléphone" %}</dt>
+      <dd>{% if account_user.phone %}{{ account_user.phone }}{% else %}<span class="matter-fact-empty">—</span>{% endif %}</dd>
+    </div>
+    <div class="matter-fact">
+      <dt>{% translate "Inscription" %}</dt>
+      <dd>{{ account_user.date_joined|date:"d/m/Y H:i" }}</dd>
+    </div>
+  </section>
+
+  <section class="detail-sheet-block">
+    <header class="detail-sheet-block-head">
+      <h2>{% translate "Cabinets" %}</h2>
+    </header>
+    {% if memberships %}
+    <div class="table-wrap">
+      <table class="table table-compact">
+        <thead>
+          <tr>
+            <th>{% translate "Cabinet" %}</th>
+            <th>{% translate "Rôle" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in memberships %}
+          <tr>
+            <td>
+              <a href="{% url 'tenants:cabinet_detail' m.cabinet_id %}">{{ m.cabinet.name }}</a>
+            </td>
+            <td><span class="badge">{{ m.get_role_display }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% elif account_user.is_super_admin or account_user.is_platform_admin %}
+    <p class="text-muted empty-state-compact">{% translate "Compte ministère : non lié à un cabinet d'avocats." %}</p>
+    {% else %}
+    <p class="text-muted empty-state-compact">{% translate "Aucun rattachement à un cabinet." %}</p>
+    {% endif %}
+  </section>
+</article>
+{% endblock %}

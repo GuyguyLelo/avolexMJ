@@ -54,19 +54,85 @@ CABINET_EDITABLE_FIELDS = frozenset(
 )
 
 
-def is_platform_admin(user: User | None) -> bool:
-    """Indique si l'utilisateur est administrateur plateforme (supervision)."""
+def is_super_admin(user: User | None) -> bool:
+    """Indique si l'utilisateur est SuperAdmin."""
     return bool(
         user
         and getattr(user, "is_authenticated", False)
-        and getattr(user, "is_platform_admin", False)
+        and getattr(user, "is_super_admin", False)
     )
 
 
+def is_platform_admin(user: User | None) -> bool:
+    """Administrateur ministère ou SuperAdmin (accès opérationnel plateforme)."""
+    return bool(
+        user
+        and getattr(user, "is_authenticated", False)
+        and (
+            getattr(user, "is_super_admin", False)
+            or getattr(user, "is_platform_admin", False)
+        )
+    )
+
+
+def can_manage_users(user: User | None) -> bool:
+    """Seul le SuperAdmin gère les comptes (admins et cabinets)."""
+    return is_super_admin(user)
+
+
 def require_platform_admin(user: User) -> None:
-    """Lève PermissionDenied si l'utilisateur n'est pas administrateur plateforme."""
+    """Lève PermissionDenied si l'utilisateur n'est pas admin ministère / SuperAdmin."""
     if not is_platform_admin(user):
-        raise PermissionDenied(_("Réservé à l'administrateur plateforme."))
+        raise PermissionDenied(_("Réservé à l'administrateur du Ministère de la Justice."))
+
+
+def require_super_admin(user: User) -> None:
+    """Lève PermissionDenied si l'utilisateur n'est pas SuperAdmin."""
+    if not is_super_admin(user):
+        raise PermissionDenied(_("Réservé au SuperAdmin."))
+
+
+def ensure_user_can_join_cabinet(user: User) -> None:
+    """SuperAdmin et Administrateur ministère ne peuvent pas être rattachés à un cabinet."""
+    if is_platform_admin(user):
+        raise ValidationError(
+            _(
+                "Un SuperAdmin ou un Administrateur n'est pas lié à un cabinet d'avocats."
+            )
+        )
+
+
+def detach_user_from_all_cabinets(user: User) -> int:
+    """
+    Retire toutes les adhésions actives (ex. promotion SuperAdmin / Admin).
+
+    Raises:
+        ValidationError: si l'utilisateur est le dernier Caïman d'un cabinet.
+    """
+    memberships = list(
+        Membership.objects.filter(user=user, is_active=True, is_deleted=False).select_related(
+            "cabinet"
+        )
+    )
+    for membership in memberships:
+        if (
+            membership.role == Role.CAIMAN
+            and _active_owner_count(membership.cabinet, exclude_pk=membership.pk) == 0
+        ):
+            raise ValidationError(
+                _(
+                    "Impossible : %(user)s est le dernier Caïman de « %(cabinet)s ». "
+                    "Désignez un autre Caïman avant de retirer le rattachement."
+                )
+                % {"user": user.email, "cabinet": membership.cabinet.name}
+            )
+    for membership in memberships:
+        membership.is_active = False
+        membership.soft_delete(save=False)
+        membership.save(
+            update_fields=["is_active", "is_deleted", "deleted_at", "updated_at"]
+        )
+    return len(memberships)
 
 
 def get_membership(*, user: User, cabinet: Cabinet) -> Membership | None:
@@ -133,6 +199,7 @@ def create_cabinet_with_owner(
     Returns:
         Couple (cabinet, membership).
     """
+    ensure_user_can_join_cabinet(owner)
     cabinet = Cabinet(name=name, created_by=owner, **extra_fields)  # type: ignore[arg-type]
     cabinet.save()
     membership = Membership.objects.create(
@@ -261,6 +328,7 @@ def create_cabinet_as_platform_admin(
             last_name=owner_last_name.strip(),
         )
     else:
+        ensure_user_can_join_cabinet(user)  # type: ignore[arg-type]
         changed: list[str] = []
         if owner_first_name.strip() and not user.first_name:
             user.first_name = owner_first_name.strip()
@@ -349,17 +417,20 @@ def clear_session_cabinet(request: HttpRequest) -> None:
 
 def switch_cabinet(*, request: HttpRequest, user: User, cabinet_id: str) -> Cabinet:
     """
-    Change le cabinet courant si l'utilisateur y a une adhésion active
-    (ou s'il est administrateur plateforme).
+    Change le cabinet courant si l'utilisateur y a une adhésion active.
+
+    Les comptes ministère ne sont pas rattachés à un cabinet : le basculement
+    est refusé (ils gèrent les cabinets via la supervision / liste).
 
     Raises:
-        PermissionDenied: si aucune adhésion active.
+        PermissionDenied: si aucune adhésion active ou compte ministère.
         Cabinet.DoesNotExist: si le cabinet est introuvable.
     """
     cabinet = Cabinet.objects.get(pk=cabinet_id, is_active=True)
     if is_platform_admin(user):
-        set_session_cabinet(request, cabinet)
-        return cabinet
+        raise PermissionDenied(
+            _("Un compte ministère n'est pas lié à un cabinet d'avocats.")
+        )
     membership = get_membership(user=user, cabinet=cabinet)
     if membership is None:
         raise PermissionDenied(_("Vous n'appartenez pas à ce cabinet."))
@@ -383,8 +454,10 @@ def invite_member(
 
     email_norm = email.strip().lower()
     existing_user = UserModel.objects.filter(email__iexact=email_norm).first()
-    if existing_user and get_membership(user=existing_user, cabinet=cabinet):
-        raise ValidationError(_("Cet utilisateur est déjà membre du cabinet."))
+    if existing_user is not None:
+        ensure_user_can_join_cabinet(existing_user)  # type: ignore[arg-type]
+        if get_membership(user=existing_user, cabinet=cabinet):
+            raise ValidationError(_("Cet utilisateur est déjà membre du cabinet."))
 
     Invitation.objects.filter(
         cabinet=cabinet,
@@ -478,10 +551,18 @@ def resolve_cabinet_for_request(request: HttpRequest) -> Cabinet | None:
     """
     Résout le cabinet courant depuis la session.
 
-    Si aucun cabinet en session, prend le premier cabinet de l'utilisateur.
+    Les comptes ministère (Admin / SuperAdmin) ne sont jamais rattachés à un cabinet :
+    pas de cabinet courant automatique.
+    Pour un compte cabinet, si aucun cabinet en session, prend le premier.
     """
     user = request.user
     if not user.is_authenticated:
+        return None
+
+    if is_platform_admin(user):  # type: ignore[arg-type]
+        # Compte ministère : pas de rattachement à un cabinet d'avocats.
+        if SESSION_CABINET_KEY in request.session:
+            del request.session[SESSION_CABINET_KEY]
         return None
 
     cabinets = list_user_cabinets(user)  # type: ignore[arg-type]
@@ -576,6 +657,7 @@ def add_cabinet_member(
             phone=phone.strip(),
         )
     else:
+        ensure_user_can_join_cabinet(user)  # type: ignore[arg-type]
         changed: list[str] = []
         if first_name.strip() and not user.first_name:
             user.first_name = first_name.strip()

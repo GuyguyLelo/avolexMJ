@@ -1,0 +1,73 @@
+{% extends "layouts/app.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Modifier mon profil" %} — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<header class="page-header page-header-compact">
+  <div>
+    <p class="page-kicker">{% translate "Compte" %}</p>
+    <h1>{% translate "Modifier mon profil" %}</h1>
+    <p class="page-lede">{% translate "Identifiant" %} : {{ user.email }}</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-secondary btn-sm" href="{% url 'accounts:profile' %}">{% translate "Retour" %}</a>
+  </div>
+</header>
+
+<section class="card compact-form" style="max-width: 36rem;">
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="form-grid">
+      <div class="form-field">
+        <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }}</label>
+        {{ form.first_name }}
+        {% if form.first_name.errors %}<div class="form-error">{{ form.first_name.errors }}</div>{% endif %}
+      </div>
+      <div class="form-field">
+        <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }}</label>
+        {{ form.last_name }}
+        {% if form.last_name.errors %}<div class="form-error">{{ form.last_name.errors }}</div>{% endif %}
+      </div>
+      <div class="form-field form-field-span">
+        <label for="{{ form.phone.id_for_label }}">{{ form.phone.label }}</label>
+        {{ form.phone }}
+        {% if form.phone.errors %}<div class="form-error">{{ form.phone.errors }}</div>{% endif %}
+      </div>
+    </div>
+
+    <div class="form-panel" style="margin-top: 1.25rem;">
+      <div class="form-panel-head">
+        <h2>{% translate "Changer le mot de passe" %}</h2>
+        <p>{% translate "Optionnel. Laissez vide pour conserver le mot de passe actuel." %}</p>
+      </div>
+      <div class="form-field">
+        <label for="{{ form.current_password.id_for_label }}">{{ form.current_password.label }}</label>
+        {{ form.current_password }}
+        {% if form.current_password.help_text %}<p class="form-help">{{ form.current_password.help_text }}</p>{% endif %}
+        {% if form.current_password.errors %}<div class="form-error">{{ form.current_password.errors }}</div>{% endif %}
+      </div>
+      <div class="form-field">
+        <label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+        {{ form.password }}
+        {% if form.password.help_text %}<p class="form-help">{{ form.password.help_text }}</p>{% endif %}
+        {% if form.password.errors %}<div class="form-error">{{ form.password.errors }}</div>{% endif %}
+      </div>
+      <div class="form-field">
+        <label for="{{ form.password_confirm.id_for_label }}">{{ form.password_confirm.label }}</label>
+        {{ form.password_confirm }}
+        {% if form.password_confirm.errors %}<div class="form-error">{{ form.password_confirm.errors }}</div>{% endif %}
+      </div>
+    </div>
+
+    <div class="cluster" style="margin-top: 1.25rem;">
+      <button class="btn btn-primary" type="submit">{% translate "Enregistrer" %}</button>
+      <a class="btn btn-ghost" href="{% url 'accounts:profile' %}">{% translate "Annuler" %}</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

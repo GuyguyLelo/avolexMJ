@@ -37,6 +37,24 @@ def test_platform_admin_sees_all_cabinets() -> None:
 
 
 @pytest.mark.django_db
+def test_platform_admin_has_no_current_cabinet() -> None:
+    """Un compte ministère n'est jamais rattaché à un cabinet courant."""
+    from django.core.exceptions import PermissionDenied
+    from django.test import RequestFactory
+
+    from apps.tenants.services import resolve_cabinet_for_request, switch_cabinet
+
+    admin = UserFactory(is_platform_admin=True)
+    CabinetFactory(name="Alpha Law")
+    request = RequestFactory().get("/")
+    request.user = admin
+    request.session = {}
+    assert resolve_cabinet_for_request(request) is None
+    with pytest.raises(PermissionDenied):
+        switch_cabinet(request=request, user=admin, cabinet_id=str(CabinetFactory().pk))
+
+
+@pytest.mark.django_db
 def test_platform_admin_read_only_perms() -> None:
     admin = UserFactory(is_platform_admin=True)
     cabinet = CabinetFactory()
@@ -59,15 +77,12 @@ def test_supervision_page(client) -> None:  # type: ignore[no-untyped-def]
             last_name="Kabasele",
         )
         matter = create_matter(
-            cabinet=cabinet,
             user=admin,
-            client=cl,
             title="Affaire commerciale",
-            responsible_lawyer=owner,
         )
         from apps.procurations.services import stamp_granted_procuration
 
-        stamp_granted_procuration(matter=matter, actor=owner)
+        stamp_granted_procuration(matter=matter, cabinet=cabinet, actor=admin)
         create_event(
             cabinet=cabinet,
             user=owner,
@@ -85,6 +100,8 @@ def test_supervision_page(client) -> None:  # type: ignore[no-untyped-def]
     assert b"Supervision nationale" in resp.content
     assert b"Audience TGI Gombe" in resp.content
     assert b"page-header-dash--ministry" in resp.content
+    assert b"app-cabinet-banner" in resp.content
+    assert b"app-cabinet-banner--ministry" in resp.content
     assert b"matters_by_cabinet" in resp.content
     assert b"supervision-charts-data" in resp.content
     assert b"Dossiers actifs par cabinet" in resp.content
@@ -105,15 +122,12 @@ def test_build_platform_charts_includes_cabinet_series() -> None:
             last_name="Kabasele",
         )
         matter = create_matter(
-            cabinet=cabinet,
             user=admin,
-            client=cl,
             title="Affaire commerciale",
-            responsible_lawyer=owner,
         )
         from apps.procurations.services import stamp_granted_procuration
 
-        stamp_granted_procuration(matter=matter, actor=owner)
+        stamp_granted_procuration(matter=matter, cabinet=cabinet, actor=admin)
 
     charts = build_platform_charts()
     labels = {row["label"] for row in charts["matters_by_cabinet"]}
@@ -137,12 +151,13 @@ def test_build_cabinet_charts_includes_status_series() -> None:
             last_name="Kabasele",
         )
         create_matter(
-            cabinet=cabinet,
             user=admin,
-            client=cl,
             title="Affaire commerciale",
-            responsible_lawyer=owner,
         )
+        from apps.procurations.services import stamp_granted_procuration
+
+        matter = Matter.unscoped.get(title="Affaire commerciale")
+        stamp_granted_procuration(matter=matter, cabinet=cabinet, actor=admin)
         charts = build_cabinet_charts(cabinet=cabinet)
 
     keys = {row["key"] for row in charts["matters_by_status"]}
@@ -191,21 +206,22 @@ def test_platform_admin_can_create_matter(client) -> None:  # type: ignore[no-un
     created = client.post(
         reverse("matters:create"),
         {
-            "target_cabinet": str(cabinet.pk),
-            "client": str(person.pk),
             "title": "Affaire ouverte par le ministère",
             "scale": MatterScale.NATIONAL,
+            "jurisdiction": "Tribunal de grande instance de Kinshasa/Gombe",
             "status": MatterStatus.OPEN,
-            "responsible_lawyer": str(owner.pk),
+            "form-TOTAL_FORMS": "0",
+            "form-INITIAL_FORMS": "0",
+            "form-MIN_NUM_FORMS": "0",
+            "form-MAX_NUM_FORMS": "1000",
         },
     )
     assert created.status_code == 302
-    with cabinet_context(cabinet):
-        matter = Matter.objects.get(title="Affaire ouverte par le ministère")
-        assert matter.cabinet_id == cabinet.pk
-        pk = matter.pk
+    matter = Matter.unscoped.get(title="Affaire ouverte par le ministère")
+    assert matter.cabinet_id is None
+    pk = matter.pk
 
-    assert client.get(reverse("matters:update", args=[pk])).status_code == 403
+    assert client.get(reverse("matters:update", args=[pk])).status_code == 200
 
 
 @pytest.mark.django_db

@@ -30,6 +30,29 @@
         <h2 class="card-title">{% translate "Mandat ministériel" %}</h2>
       </header>
       <div class="form-grid" style="padding: var(--space-5);">
+        <div class="form-field form-field-span">
+          <label for="{{ form.matter.id_for_label }}">{{ form.matter.label }}</label>
+          {{ form.matter }}
+          {% if form.matter.help_text %}<p class="form-help">{{ form.matter.help_text }}</p>{% endif %}
+          {% if form.matter.errors %}<div class="form-error">{{ form.matter.errors }}</div>{% endif %}
+        </div>
+        {% if suggested_cabinets %}
+        <div class="suggest-cabinets" style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
+          <p class="suggest-cabinets-title" style="margin: 0 0 0.5rem 0; font-weight: 600;">{% translate "Cabinets spécialisés dans cette matière" %}</p>
+          <p class="form-help" style="margin: 0 0 1rem 0;">{% translate "Sélectionnez un cabinet spécialisé pour délivrer la procuration." %}</p>
+          <ul class="suggest-cabinets-list" style="list-style: none; padding: 0; margin: 0;">
+            {% for cab in suggested_cabinets %}
+            <li style="margin-bottom: 0.5rem;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="selectCabinet('{{ cab.pk }}')">
+                {{ cab.name }}
+                {% if cab.city %}({{ cab.city }}){% endif %}
+                {% if cab.bar_association %}· {{ cab.bar_association }}{% endif %}
+              </button>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
         {% if form.cabinet %}
         <div class="form-field form-field-span">
           <label for="{{ form.cabinet.id_for_label }}">{{ form.cabinet.label }}</label>
@@ -38,12 +61,6 @@
           {% if form.cabinet.errors %}<div class="form-error">{{ form.cabinet.errors }}</div>{% endif %}
         </div>
         {% endif %}
-        <div class="form-field form-field-span">
-          <label for="{{ form.matter.id_for_label }}">{{ form.matter.label }}</label>
-          {{ form.matter }}
-          {% if form.matter.help_text %}<p class="form-help">{{ form.matter.help_text }}</p>{% endif %}
-          {% if form.matter.errors %}<div class="form-error">{{ form.matter.errors }}</div>{% endif %}
-        </div>
         {% if form.valid_from %}
         <div class="form-field">
           <label for="{{ form.valid_from.id_for_label }}">{{ form.valid_from.label }}</label>
@@ -92,5 +109,24 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/procurations.js' %}?v={{ STATIC_VERSION }}"></script>
+<script>
+function selectCabinet(cabinetId) {
+  const cabinetSelect = document.querySelector('[name=cabinet]');
+  if (cabinetSelect) {
+    cabinetSelect.value = cabinetId;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const matterSelect = document.querySelector('[name=matter]');
+  if (matterSelect) {
+    matterSelect.addEventListener('change', function() {
+      const matterId = this.value;
+      if (matterId) {
+        window.location.href = window.location.pathname + '?matter=' + matterId;
+      }
+    });
+  }
+});
+</script>
 {% endblock %}

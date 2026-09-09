@@ -12,7 +12,7 @@ from django.db.models import QuerySet
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from apps.calendar_app.models import Event, EventType, HearingStatus
+from apps.calendar_app.models import Event, EventType, HearingAttachment, HearingStatus
 from apps.documents.services import get_max_upload_bytes
 from apps.tenants.roles import PERM_ADD, PERM_CHANGE, PERM_DELETE
 from apps.tenants.services import require_cabinet_perm
@@ -121,14 +121,20 @@ def validate_hearing_report_file(uploaded: File) -> None:
         )
 
 
-def _attach_hearing_report(*, event: Event, uploaded: File) -> None:
+def _attach_hearing_report(*, event: Event, uploaded: File, user: User | None = None) -> HearingAttachment:
+    """Ajoute une pièce jointe (n'écrase pas les fichiers existants)."""
     validate_hearing_report_file(uploaded)
-    if event.hearing_report_file:
-        event.hearing_report_file.delete(save=False)
     name = getattr(uploaded, "name", "rapport.pdf") or "rapport.pdf"
-    event.hearing_report_file = uploaded
-    event.hearing_report_filename = str(name)[:255]
+    attachment = HearingAttachment(
+        event=event,
+        original_filename=str(name)[:255],
+        uploaded_by=user,
+    )
+    attachment.file = uploaded
+    attachment.save()
     event.hearing_report = ""
+    event.save(update_fields=["hearing_report", "updated_at"])
+    return attachment
 
 
 @transaction.atomic
@@ -163,6 +169,8 @@ def create_event(
         raise ValidationError({"title": _("Le titre est obligatoire.")})
     hearing_data: dict[str, Any] = {}
     if event_type == EventType.HEARING:
+        if matter is not None:
+            court = (matter.jurisdiction or "").strip() or court
         hearing_data = {
             "court": court,
             "chamber": chamber,
@@ -199,9 +207,19 @@ def update_event(*, event: Event, user: User, **fields: Any) -> Event:
     if event_type != EventType.HEARING:
         if event.hearing_report_file:
             event.hearing_report_file.delete(save=False)
+        for attachment in list(event.attachments.all()):
+            if attachment.file:
+                attachment.file.delete(save=False)
+            attachment.delete()
         fields = {**fields, **_clear_hearing_fields()}
-    elif not fields.get("hearing_status") and not event.hearing_status:
-        fields["hearing_status"] = HearingStatus.SCHEDULED
+    else:
+        if not fields.get("hearing_status") and not event.hearing_status:
+            fields["hearing_status"] = HearingStatus.SCHEDULED
+        linked_matter = fields.get("matter", event.matter)
+        if linked_matter is not None:
+            fields["court"] = (getattr(linked_matter, "jurisdiction", None) or "").strip()
+        elif "matter" in fields and fields["matter"] is None:
+            fields["court"] = ""
     fields.pop("report_file", None)
     for key, value in fields.items():
         setattr(event, key, value)
@@ -242,9 +260,10 @@ def save_hearing_report(
     event: Event,
     user: User,
     uploaded: File | None = None,
+    uploads: list[File] | None = None,
     mark_held: bool = False,
 ) -> Event:
-    """Joint un rapport Word/PDF, éventuellement en marquant l'audience tenue."""
+    """Joint un ou plusieurs fichiers Word/PDF à l'audience."""
     require_cabinet_perm(user=user, cabinet=event.cabinet, perm=PERM_CHANGE)
     if event.event_type != EventType.HEARING:
         raise ValidationError(_("Cet événement n'est pas une audience."))
@@ -252,24 +271,28 @@ def save_hearing_report(
         from apps.procurations.services import require_matter_activity_allowed
 
         require_matter_activity_allowed(event.matter)
-    if uploaded:
-        _attach_hearing_report(event=event, uploaded=uploaded)
-    elif not event.hearing_report_file:
-        raise ValidationError(_("Joignez un rapport Word ou PDF."))
+    files: list[File] = list(uploads or [])
+    if uploaded is not None:
+        files.append(uploaded)
+    if not files and not event.attachments.exists() and not event.hearing_report_file:
+        raise ValidationError(_("Joignez au moins un fichier Word ou PDF."))
+    for item in files:
+        _attach_hearing_report(event=event, uploaded=item, user=user)
     if mark_held:
         event.hearing_status = HearingStatus.HELD
         event.is_done = True
-    event.save(
-        update_fields=[
-            "hearing_report",
-            "hearing_report_file",
-            "hearing_report_filename",
-            "hearing_status",
-            "is_done",
-            "updated_at",
-        ]
-    )
+        event.save(update_fields=["hearing_status", "is_done", "updated_at"])
     return event
+
+
+@transaction.atomic
+def delete_hearing_attachment(*, attachment: HearingAttachment, user: User) -> None:
+    """Supprime une pièce jointe d'audience."""
+    event = attachment.event
+    require_cabinet_perm(user=user, cabinet=event.cabinet, perm=PERM_CHANGE)
+    if attachment.file:
+        attachment.file.delete(save=False)
+    attachment.delete()
 
 
 @transaction.atomic

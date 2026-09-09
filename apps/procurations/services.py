@@ -52,12 +52,11 @@ def valid_procurations_q(*, today: date | None = None) -> Q:
 
 
 def _valid_procurations_for_matter(matter: Matter) -> QuerySet[Procuration]:
-    """Procurations valides du dossier, indépendamment du cabinet en session."""
-    return (
-        Procuration.unscoped.filter(matter=matter, cabinet_id=matter.cabinet_id)
-        .filter(valid_procurations_q())
-        .select_related("granted_by")
-    )
+    """Procurations valides du dossier."""
+    qs = Procuration.unscoped.filter(matter=matter).filter(valid_procurations_q())
+    if matter.cabinet_id:
+        qs = qs.filter(cabinet_id=matter.cabinet_id)
+    return qs.select_related("granted_by")
 
 
 def matter_has_valid_procuration(matter: Matter) -> bool:
@@ -113,10 +112,15 @@ def stamp_granted_procuration(
     from apps.tenants.context import cabinet_context
 
     if matter is not None:
-        cabinet = matter.cabinet
-        existing = None
-        with cabinet_context(cabinet):
-            existing = get_valid_procuration(matter)
+        cabinet = cabinet or matter.cabinet
+        if cabinet is None:
+            raise ValidationError(_("Un cabinet est obligatoire pour créer une procuration."))
+        if matter.cabinet_id is None:
+            from apps.matters.services import assign_matter_cabinet
+
+            assign_matter_cabinet(matter=matter, cabinet=cabinet, actor=actor)
+            matter.refresh_from_db()
+        existing = get_valid_procuration(matter)
         if existing is not None:
             return existing
         subject = subject or matter.title
@@ -229,6 +233,9 @@ def _resolve_reference(*, cabinet: Cabinet, reference: str = "") -> str:
 
 
 def _assert_matter_in_cabinet(*, matter: Matter, cabinet: Cabinet) -> None:
+    """Autorise un dossier sans cabinet (avant procuration) ou déjà rattaché au même cabinet."""
+    if matter.cabinet_id is None:
+        return
     if matter.cabinet_id != cabinet.pk:
         raise PermissionDenied(_("Dossier inaccessible."))
 
@@ -271,15 +278,19 @@ def create_procuration(
     matter: Matter,
     notes: str = "",
     instrument: File | BinaryIO | None = None,
+    purpose: str = "Représentation et actes de procédure",
+    ministry_reference: str = "",
+    **_ignored: object,
 ) -> Procuration:
     """Le ministère délivre une procuration accordée à un cabinet pour un dossier."""
     return issue_granted_procuration(
         cabinet=cabinet,
         actor=user,
         matter=matter,
-        purpose="Représentation et actes de procédure",
+        purpose=purpose or "Représentation et actes de procédure",
         notes=notes,
         instrument=instrument,
+        ministry_reference=ministry_reference,
     )
 
 
@@ -428,6 +439,12 @@ def issue_granted_procuration(
     subject = subject or matter.title
     scale = scale or matter.scale
     today = timezone.localdate()
+
+    from apps.matters.services import assign_matter_cabinet
+
+    assign_matter_cabinet(matter=matter, cabinet=cabinet, actor=actor)
+    matter.refresh_from_db()
+
     with cabinet_context(cabinet):
         procuration = Procuration(
             cabinet=cabinet,

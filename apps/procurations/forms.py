@@ -21,7 +21,7 @@ class ProcurationForm(forms.ModelForm):
     cabinet = forms.ModelChoiceField(
         label=_("Cabinet avocat"),
         queryset=Cabinet.objects.none(),
-        required=False,
+        required=True,
         empty_label=_("— Sélectionner un cabinet —"),
         widget=forms.Select(attrs={"class": "form-input", "data-procuration-cabinet": "1"}),
         help_text=_("Cabinet destinataire de la procuration."),
@@ -29,9 +29,9 @@ class ProcurationForm(forms.ModelForm):
 
     class Meta:
         model = Procuration
-        fields = ("matter", "notes", "instrument")
+        fields = ("matter", "cabinet", "notes", "instrument")
         widgets = {
-            "matter": forms.Select(attrs={"class": "form-input"}),
+            "matter": forms.Select(attrs={"class": "form-input", "data-procuration-matter": "1"}),
             "notes": forms.Textarea(
                 attrs={
                     "class": "form-input",
@@ -47,15 +47,15 @@ class ProcurationForm(forms.ModelForm):
         *args: object,
         matter_queryset: object = None,
         cabinet_queryset: object = None,
-        include_cabinet: bool = False,
+        include_cabinet: bool = True,
         **kwargs: object,
     ) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
-        if include_cabinet:
-            self.fields["cabinet"].queryset = cabinet_queryset or Cabinet.objects.none()
-            self.fields["cabinet"].required = True
-        else:
-            self.fields.pop("cabinet")
+        # Toujours inclure le champ cabinet
+        self.fields["cabinet"].queryset = cabinet_queryset or Cabinet.objects.none()
+        self.fields["cabinet"].required = True
+        
+        # Configurer le champ matter pour n'afficher que les dossiers sans procuration
         self.fields["matter"].required = True
         self.fields["matter"].empty_label = _("— Sélectionner un dossier —")
         if matter_queryset is not None:
@@ -63,18 +63,16 @@ class ProcurationForm(forms.ModelForm):
         self.fields["matter"].label_from_instance = _matter_label  # type: ignore[method-assign]
         if self.instance and not self.instance._state.adding:
             self.fields["matter"].disabled = True
-        if include_cabinet and not (matter_queryset and matter_queryset.exists()):  # type: ignore[union-attr]
-            has_cabinet = bool(
-                self.data.get("cabinet") if self.is_bound else self.initial.get("cabinet")
-            )
-            self.fields["matter"].help_text = (
-                _("Aucun dossier ouvert pour ce cabinet.")
-                if has_cabinet
-                else _("Sélectionnez un cabinet pour afficher ses dossiers.")
+            self.fields["cabinet"].disabled = True
+        
+        # Aide contextuelle
+        if not (matter_queryset and matter_queryset.exists()):  # type: ignore[union-attr]
+            self.fields["matter"].help_text = _(
+                "Aucun dossier sans procuration disponible."
             )
         else:
             self.fields["matter"].help_text = _(
-                "Dossier déjà ouvert par le cabinet. La procuration l'autorise à y agir."
+                "Sélectionnez un dossier pour afficher les cabinets spécialisés dans sa matière."
             )
 
     def clean(self) -> dict[str, object]:
@@ -84,11 +82,12 @@ class ProcurationForm(forms.ModelForm):
         if (
             cabinet
             and matter
+            and getattr(matter, "cabinet_id", None)
             and getattr(matter, "cabinet_id", None) != getattr(cabinet, "pk", None)
         ):
             self.add_error(
                 "matter",
-                _("Ce dossier n'appartient pas au cabinet sélectionné."),
+                _("Ce dossier est déjà rattaché à un autre cabinet d'avocats."),
             )
         return cleaned
 

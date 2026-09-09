@@ -3,16 +3,24 @@
 
 {% block title %}{{ event.title }} — {{ SITE_NAME }}{% endblock %}
 
-
 {% block content %}
-<article class="detail-sheet">
+<article class="detail-sheet detail-sheet--compact">
   <header class="detail-sheet-header">
     <div class="detail-sheet-identity">
-      <span class="detail-sheet-avatar{% if event.event_type == 'hearing' %} is-gold{% endif %}" aria-hidden="true">{{ event.title|slice:":1"|upper }}</span>
+      <span class="detail-sheet-avatar{% if event.event_type == 'hearing' %} is-gold{% endif %}" aria-hidden="true">
+        {% if event.event_type == 'hearing' %}AU{% else %}{{ event.title|slice:":1"|upper }}{% endif %}
+      </span>
       <div class="detail-sheet-title">
-        <p class="detail-sheet-kicker">{{ event.starts_at|date:"l j F Y"|capfirst }}</p>
+        <p class="detail-sheet-kicker">
+          {% if event.event_type == 'hearing' %}{% translate "Audience" %}{% else %}{% translate "Événement" %}{% endif %}
+        </p>
         <h1>{{ event.title }}</h1>
         <p class="detail-sheet-lede">
+          {% if event.matter %}
+          <a href="{% url 'matters:detail' event.matter.pk %}">{{ event.matter.reference }}</a>
+          <span>{{ event.matter.title }}</span>
+          {% endif %}
+          <span>{{ event.starts_at|date:"d/m/Y"|default:"" }}{% if not event.all_day %} · {{ event.starts_at|date:"H:i" }}{% endif %}</span>
           <span class="badge {% if event.event_type == 'hearing' %}badge-danger{% elif event.event_type == 'deadline' %}badge-warning{% elif event.event_type == 'appointment' %}badge-info{% elif event.event_type == 'task' %}badge-gold{% else %}badge-gold{% endif %}">
             {{ event.get_event_type_display }}
           </span>
@@ -29,7 +37,7 @@
     </div>
     <div class="detail-sheet-actions">
       {% if event.event_type == 'hearing' %}
-      <a class="btn btn-primary btn-sm" href="#rapport">{% if event.has_hearing_report %}{% translate "Rapport" %}{% else %}{% translate "Joindre le rapport" %}{% endif %}</a>
+      <a class="btn btn-primary btn-sm" href="#rapport">{% if event.has_hearing_report %}{% translate "Pièces jointes" %}{% else %}{% translate "Joindre des fichiers" %}{% endif %}</a>
       <a class="btn btn-secondary btn-sm" href="{% url 'hearings:update' event.pk %}">{% translate "Modifier" %}</a>
       {% else %}
       <a class="btn btn-secondary btn-sm" href="{% url 'calendar:event_update' event.pk %}">{% translate "Modifier" %}</a>
@@ -41,210 +49,189 @@
     </div>
   </header>
 
-<section class="card event-info">
-  <dl class="event-facts">
-    <div class="event-fact">
+  <section class="matter-facts" aria-label="{% translate 'Informations' %}">
+    <div class="matter-fact">
       <dt>{% translate "Début" %}</dt>
-      <dd class="event-datetime">
+      <dd>
         {% if event.all_day %}
-        <span class="event-fact-value">{{ event.starts_at|date:"d/m/Y" }}</span>
-        <span class="event-fact-empty">{% translate "Journée entière" %}</span>
+        <span class="matter-fact-value">{{ event.starts_at|date:"d/m/Y" }}</span>
+        <span class="matter-fact-sub">{% translate "Journée entière" %}</span>
         {% else %}
-        <span class="event-fact-value">{{ event.starts_at|date:"d/m/Y" }}</span>
-        <span class="event-fact-value">{{ event.starts_at|date:"H:i" }}</span>
+        <span class="matter-fact-value">{{ event.starts_at|date:"d/m/Y H:i" }}</span>
         {% endif %}
       </dd>
     </div>
-    <div class="event-fact">
+    <div class="matter-fact">
       <dt>{% translate "Fin" %}</dt>
       <dd>
         {% if event.ends_at %}
-        {% if event.all_day %}
-        <span class="event-fact-value">{{ event.ends_at|date:"d/m/Y" }}</span>
+        <span class="matter-fact-value">{% if event.all_day %}{{ event.ends_at|date:"d/m/Y" }}{% else %}{{ event.ends_at|date:"d/m/Y H:i" }}{% endif %}</span>
         {% else %}
-        <span class="event-fact-value">{{ event.ends_at|date:"d/m/Y H:i" }}</span>
-        {% endif %}
-        {% else %}
-        <span class="event-fact-empty">—</span>
+        <span class="matter-fact-empty">—</span>
         {% endif %}
       </dd>
     </div>
-    <div class="event-fact">
+    <div class="matter-fact">
       <dt>{% translate "Lieu" %}</dt>
-      <dd>
-        {% if event.location %}
-        <span>{{ event.location }}</span>
-        {% else %}
-        <span class="event-fact-empty">—</span>
-        {% endif %}
-      </dd>
+      <dd>{% if event.location %}{{ event.location }}{% else %}<span class="matter-fact-empty">—</span>{% endif %}</dd>
     </div>
     {% if event.event_type == 'hearing' %}
-    <div class="event-fact">
-      <dt>{% translate "Tribunal" %}</dt>
+    <div class="matter-fact">
+      <dt>{% translate "Juridiction" %}</dt>
       <dd>
-        {% if event.court %}
-        <span>{{ event.court }}</span>
+        {% if event.matter and event.matter.jurisdiction %}
+        {{ event.matter.jurisdiction }}
+        {% elif event.court %}
+        {{ event.court }}
         {% else %}
-        <span class="event-fact-empty">—</span>
+        <span class="matter-fact-empty">—</span>
         {% endif %}
       </dd>
     </div>
-    <div class="event-fact">
+    <div class="matter-fact">
       <dt>{% translate "Chambre" %}</dt>
-      <dd>
-        {% if event.chamber %}
-        <span>{{ event.chamber }}</span>
-        {% else %}
-        <span class="event-fact-empty">—</span>
-        {% endif %}
-      </dd>
+      <dd>{% if event.chamber %}{{ event.chamber }}{% else %}<span class="matter-fact-empty">—</span>{% endif %}</dd>
     </div>
     {% endif %}
-    <div class="event-fact">
+    <div class="matter-fact">
       <dt>{% translate "Dossier" %}</dt>
       <dd>
         {% if event.matter %}
-        <a class="list-entity" href="{% url 'matters:detail' event.matter.pk %}">
-          <span class="avatar" aria-hidden="true">{{ event.matter.reference|slice:"-2:" }}</span>
-          <span class="list-entity-text">
-            <span class="list-entity-title list-ref">{{ event.matter.reference }}</span>
-            <span class="list-entity-meta">{{ event.matter.title }}</span>
-          </span>
-        </a>
+        <a href="{% url 'matters:detail' event.matter.pk %}">{{ event.matter.reference }}</a>
+        <span class="matter-fact-sub">{{ event.matter.title }}</span>
         {% else %}
-        <span class="event-fact-empty">—</span>
+        <span class="matter-fact-empty">—</span>
         {% endif %}
       </dd>
     </div>
-    <div class="event-fact">
+    <div class="matter-fact">
       <dt>{% translate "Assigné à" %}</dt>
       <dd>
         {% if event.assigned_to %}
-        <span class="list-entity">
-          <span class="avatar" aria-hidden="true">{{ event.assigned_to.get_full_name|default:event.assigned_to.email|slice:":1" }}</span>
-          <span class="list-entity-text">
-            <span class="list-entity-title">{{ event.assigned_to.get_full_name|default:event.assigned_to.email }}</span>
-            {% if event.assigned_to.get_full_name %}
-            <span class="list-entity-meta">{{ event.assigned_to.email }}</span>
-            {% endif %}
-          </span>
-        </span>
+        <span class="matter-fact-value">{{ event.assigned_to.get_full_name|default:event.assigned_to.email }}</span>
+        {% if event.assigned_to.get_full_name %}<span class="matter-fact-sub">{{ event.assigned_to.email }}</span>{% endif %}
         {% else %}
-        <span class="event-fact-empty">—</span>
+        <span class="matter-fact-empty">—</span>
         {% endif %}
       </dd>
     </div>
-    <div class="event-fact">
+    <div class="matter-fact">
       <dt>{% translate "Rappel" %}</dt>
       <dd>
         {% if event.remind_at %}
-        <span class="event-fact-value">{{ event.remind_at|date:"d/m/Y H:i" }}</span>
-        {% if event.reminder_sent_at %}
-        <span class="list-entity-meta"> · {% translate "Envoyé le" %} {{ event.reminder_sent_at|date:"d/m/Y H:i" }}</span>
-        {% endif %}
+        <span class="matter-fact-value">{{ event.remind_at|date:"d/m/Y H:i" }}</span>
+        {% if event.reminder_sent_at %}<span class="matter-fact-sub">{% translate "Envoyé le" %} {{ event.reminder_sent_at|date:"d/m/Y H:i" }}</span>{% endif %}
         {% else %}
-        <span class="event-fact-empty">—</span>
+        <span class="matter-fact-empty">—</span>
         {% endif %}
       </dd>
     </div>
     {% if event.description %}
-    <div class="event-fact event-fact--wide">
+    <div class="matter-fact matter-fact--wide">
       <dt>{% translate "Description" %}</dt>
-      <dd class="event-desc">{{ event.description }}</dd>
+      <dd class="matter-desc">{{ event.description }}</dd>
     </div>
     {% endif %}
-  </dl>
-</section>
+  </section>
 
-{% if event.event_type == 'hearing' %}
-<section class="card hearing-report-panel" id="rapport">
-  <header class="card-header">
-    <h2 class="card-title">{% translate "Rapport d'audience" %}</h2>
-    {% if event.hearing_report_file %}
-    <div class="cluster">
-      {% if event.hearing_report_can_preview %}
-      <a class="btn btn-primary btn-sm" href="{% url 'hearings:report_preview' event.pk %}" target="_blank" rel="noopener">{% translate "Afficher" %}</a>
-      {% endif %}
-      <a class="btn btn-secondary btn-sm" href="{% url 'hearings:report_download' event.pk %}">{% translate "Télécharger" %}</a>
+  {% if event.event_type == 'hearing' and event.hearing_status != 'held' and event.hearing_status != 'cancelled' %}
+  <section class="detail-sheet-block">
+    <header class="detail-sheet-block-head">
+      <h2>{% translate "Suivi de l'audience" %}</h2>
+    </header>
+    <div class="hearing-status-actions">
+      <form method="post" action="{% url 'hearings:status' event.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="status" value="held">
+        <button class="btn btn-primary btn-sm" type="submit">{% translate "Audience tenue" %}</button>
+      </form>
+      <form method="post" action="{% url 'hearings:status' event.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="status" value="postponed">
+        <button class="btn btn-secondary btn-sm" type="submit">{% translate "Reportée" %}</button>
+      </form>
+      <form method="post" action="{% url 'hearings:status' event.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="status" value="cancelled">
+        <button class="btn btn-ghost btn-sm" type="submit">{% translate "Annulée" %}</button>
+      </form>
     </div>
-    {% endif %}
-  </header>
-  {% if event.hearing_report_file %}
-    {% if event.hearing_report_can_preview %}
-    <div class="doc-preview-frame hearing-report-preview">
-      <iframe
-        title="{% translate "Aperçu du rapport" %}"
-        src="{% url 'hearings:report_preview' event.pk %}"
-      ></iframe>
-    </div>
-    {% else %}
-    <p class="page-lede hearing-report-empty">
-      {{ event.hearing_report_filename }}
-      — {% translate "Ce fichier Word ne peut pas s'afficher dans le navigateur. Téléchargez-le pour le consulter." %}
-    </p>
-    {% endif %}
-  {% elif event.hearing_report %}
-  <div class="hearing-report-body">{{ event.hearing_report|linebreaksbr }}</div>
-  <p class="text-muted hearing-report-empty">{% translate "Joignez un fichier Word ou PDF pour remplacer ce compte-rendu texte." %}</p>
-  {% else %}
-  <p class="text-muted hearing-report-empty">{% translate "Aucun rapport n'a encore été joint." %}</p>
+  </section>
   {% endif %}
-  <form method="post" action="{% url 'hearings:report' event.pk %}" class="hearing-report-form" enctype="multipart/form-data">
-    {% csrf_token %}
-    <div class="form-field">
-      <label for="hearing-report-file">{% if event.hearing_report_file %}{% translate "Remplacer le fichier" %}{% else %}{% translate "Joindre un rapport Word ou PDF" %}{% endif %}</label>
-      <input
-        class="form-input"
-        type="file"
-        id="hearing-report-file"
-        name="report_file"
-        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        {% if not event.hearing_report_file %}required{% endif %}
-      >
-    </div>
-    <div class="hearing-report-actions">
-      <button class="btn btn-primary" type="submit">{% translate "Enregistrer le rapport" %}</button>
-      {% if event.hearing_status != 'held' %}
-      <button class="btn btn-secondary" type="submit" name="mark_held" value="1">{% translate "Enregistrer et marquer tenue" %}</button>
+
+  {% if event.event_type == 'hearing' %}
+  <section class="detail-sheet-block" id="rapport">
+    <header class="detail-sheet-block-head">
+      <h2>{% translate "Pièces jointes" %}</h2>
+    </header>
+
+    {% with attachments=event.attachments.all %}
+    {% if attachments %}
+    <ul class="hearing-attachment-list">
+      {% for file in attachments %}
+      <li class="hearing-attachment-item">
+        <span class="hearing-attachment-name">{{ file.original_filename }}</span>
+        <span class="cluster">
+          {% if file.can_preview %}
+          <a class="btn btn-ghost btn-sm" href="{% url 'hearings:attachment_preview' event.pk file.pk %}" target="_blank" rel="noopener">{% translate "Afficher" %}</a>
+          {% endif %}
+          <a class="btn btn-secondary btn-sm" href="{% url 'hearings:attachment_download' event.pk file.pk %}">{% translate "Télécharger" %}</a>
+          <form method="post" action="{% url 'hearings:attachment_delete' event.pk file.pk %}" onsubmit="return confirm('{% translate "Retirer ce fichier ?" %}');">
+            {% csrf_token %}
+            <button class="btn btn-ghost btn-sm" type="submit">{% translate "Retirer" %}</button>
+          </form>
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% elif event.hearing_report_file %}
+    <p class="hearing-report-current">
+      {{ event.hearing_report_filename|default:"Rapport joint" }}
+      ·
+      {% if event.hearing_report_can_preview %}
+      <a href="{% url 'hearings:report_preview' event.pk %}" target="_blank" rel="noopener">{% translate "Afficher" %}</a>
+      ·
       {% endif %}
-    </div>
-  </form>
-</section>
-{% endif %}
+      <a href="{% url 'hearings:report_download' event.pk %}">{% translate "Télécharger" %}</a>
+    </p>
+    {% elif event.hearing_report %}
+    <div class="hearing-report-body">{{ event.hearing_report|linebreaksbr }}</div>
+    {% else %}
+    <p class="text-muted empty-state-compact">{% translate "Aucun fichier n'a encore été joint." %}</p>
+    {% endif %}
+    {% endwith %}
 
-{% if event.event_type == 'hearing' and event.hearing_status != 'held' and event.hearing_status != 'cancelled' %}
-<section class="card hearing-status-panel">
-  <header class="card-header">
-    <h2 class="card-title">{% translate "Suivi de l'audience" %}</h2>
-  </header>
-  <div class="hearing-status-actions">
-    <form method="post" action="{% url 'hearings:status' event.pk %}">
+    <form method="post" action="{% url 'hearings:report' event.pk %}" class="hearing-report-form" enctype="multipart/form-data">
       {% csrf_token %}
-      <input type="hidden" name="status" value="held">
-      <button class="btn btn-primary btn-sm" type="submit">{% translate "Audience tenue" %}</button>
+      <div class="form-field">
+        <label for="hearing-report-files">{% translate "Joindre des fichiers Word ou PDF" %}</label>
+        <input
+          class="form-input"
+          type="file"
+          id="hearing-report-files"
+          name="report_files"
+          multiple
+          accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          {% if not event.has_hearing_report %}required{% endif %}
+        >
+      </div>
+      <div class="hearing-report-actions">
+        <button class="btn btn-primary btn-sm" type="submit">{% translate "Ajouter les fichiers" %}</button>
+        {% if event.hearing_status != 'held' %}
+        <button class="btn btn-secondary btn-sm" type="submit" name="mark_held" value="1">{% translate "Ajouter et marquer tenue" %}</button>
+        {% endif %}
+      </div>
     </form>
-    <form method="post" action="{% url 'hearings:status' event.pk %}">
-      {% csrf_token %}
-      <input type="hidden" name="status" value="postponed">
-      <button class="btn btn-secondary btn-sm" type="submit">{% translate "Reportée" %}</button>
-    </form>
-    <form method="post" action="{% url 'hearings:status' event.pk %}">
-      {% csrf_token %}
-      <input type="hidden" name="status" value="cancelled">
-      <button class="btn btn-ghost btn-sm" type="submit">{% translate "Annulée" %}</button>
-    </form>
-  </div>
-</section>
-{% endif %}
+  </section>
+  {% endif %}
 
-{% if event.event_type == 'task' and not event.is_done %}
-<section class="card">
-  <form method="post" action="{% url 'calendar:event_done' event.pk %}">
-    {% csrf_token %}
-    <button class="btn btn-secondary" type="submit">{% translate "Marquer la tâche terminée" %}</button>
-  </form>
-</section>
-{% endif %}
+  {% if event.event_type == 'task' and not event.is_done %}
+  <section class="detail-sheet-block">
+    <form method="post" action="{% url 'calendar:event_done' event.pk %}">
+      {% csrf_token %}
+      <button class="btn btn-secondary btn-sm" type="submit">{% translate "Marquer la tâche terminée" %}</button>
+    </form>
+  </section>
+  {% endif %}
 </article>
 {% endblock %}

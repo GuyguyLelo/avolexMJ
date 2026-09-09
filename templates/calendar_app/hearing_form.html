@@ -3,27 +3,62 @@
 
 {% block title %}{% if hearing %}{% translate "Modifier l'audience" %}{% else %}{% translate "Nouvelle audience" %}{% endif %} — {{ SITE_NAME }}{% endblock %}
 
-
 {% block content %}
 <div class="hearings-form-page">
   <header class="page-header page-header-compact hearings-page-header">
     <div>
       <p class="hearings-kicker">{% translate "Procédure" %}</p>
       <h1>{% if hearing %}{% translate "Modifier l'audience" %}{% else %}{% translate "Nouvelle audience" %}{% endif %}</h1>
-      <p class="page-lede">{% translate "Date, tribunal, dossier et rapport joint." %}</p>
+      {% if matter %}
+      <p class="page-lede">
+        <a href="{% url 'matters:detail' matter.pk %}">{{ matter.reference }}</a>
+        — {{ matter.title }}
+      </p>
+      {% else %}
+      <p class="page-lede">{% translate "Commencez par choisir le dossier concerné." %}</p>
+      {% endif %}
     </div>
     <a class="btn btn-ghost btn-sm" href="{% url 'hearings:list' %}">{% translate "Retour" %}</a>
   </header>
 
-  <form method="post" class="hearing-form" enctype="multipart/form-data" novalidate>
+  <form method="post" class="hearing-form" enctype="multipart/form-data" novalidate data-hearing-form>
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
 
     <div class="hearing-form-panels">
+      <section class="form-panel form-panel-full">
+        <header class="form-panel-head">
+          <h2>{% translate "1. Dossier concerné" %}</h2>
+          <p>{% translate "Sélectionnez d'abord le dossier pour lequel l'audience est planifiée." %}</p>
+        </header>
+        <div class="form-grid">
+          <div class="form-field form-field-span">
+            <label for="{{ form.matter.id_for_label }}">{{ form.matter.label }}</label>
+            {{ form.matter }}
+            {% if form.matter.errors %}<div class="form-error">{{ form.matter.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field form-field-span">
+            <label>{% translate "Juridiction" %}</label>
+            <p class="hearing-jurisdiction-readonly" data-jurisdiction-display>
+              {% if matter and matter.jurisdiction %}
+              {{ matter.jurisdiction }}
+              {% elif hearing and hearing.matter and hearing.matter.jurisdiction %}
+              {{ hearing.matter.jurisdiction }}
+              {% elif hearing and hearing.court %}
+              {{ hearing.court }}
+              {% else %}
+              <span class="matter-fact-empty">{% translate "Sélectionnez un dossier" %}</span>
+              {% endif %}
+            </p>
+            <p class="form-help">{% translate "Issue du dossier — non modifiable ici." %}</p>
+          </div>
+        </div>
+      </section>
+
       <section class="form-panel">
         <header class="form-panel-head">
-          <h2>{% translate "Audience" %}</h2>
-          <p>{% translate "Intitulé, date et dossier concerné." %}</p>
+          <h2>{% translate "2. Audience" %}</h2>
+          <p>{% translate "Intitulé, date et statut." %}</p>
         </header>
         <div class="form-grid">
           <div class="form-field form-field-span">
@@ -42,11 +77,6 @@
             {% if form.ends_at.errors %}<div class="form-error">{{ form.ends_at.errors }}</div>{% endif %}
           </div>
           <div class="form-field">
-            <label for="{{ form.matter.id_for_label }}">{{ form.matter.label }}</label>
-            {{ form.matter }}
-            {% if form.matter.errors %}<div class="form-error">{{ form.matter.errors }}</div>{% endif %}
-          </div>
-          <div class="form-field">
             <label for="{{ form.hearing_status.id_for_label }}">{{ form.hearing_status.label }}</label>
             {{ form.hearing_status }}
             {% if form.hearing_status.errors %}<div class="form-error">{{ form.hearing_status.errors }}</div>{% endif %}
@@ -61,15 +91,10 @@
 
       <section class="form-panel">
         <header class="form-panel-head">
-          <h2>{% translate "Juridiction" %}</h2>
-          <p>{% translate "Tribunal, chambre et salle." %}</p>
+          <h2>{% translate "3. Lieu" %}</h2>
+          <p>{% translate "Chambre, salle et rappel." %}</p>
         </header>
         <div class="form-grid">
-          <div class="form-field form-field-span">
-            <label for="{{ form.court.id_for_label }}">{{ form.court.label }}</label>
-            {{ form.court }}
-            {% if form.court.errors %}<div class="form-error">{{ form.court.errors }}</div>{% endif %}
-          </div>
           <div class="form-field">
             <label for="{{ form.chamber.id_for_label }}">{{ form.chamber.label }}</label>
             {{ form.chamber }}
@@ -91,10 +116,24 @@
       {% if hearing %}
       <section class="form-panel form-panel-full">
         <header class="form-panel-head">
-          <h2>{% translate "Rapport d'audience" %}</h2>
-          <p>{% translate "Joignez un fichier Word ou PDF (décisions, renvoi, observations)." %}</p>
+          <h2>{% translate "Pièces jointes" %}</h2>
+          <p>{% translate "Joignez un ou plusieurs fichiers Word ou PDF." %}</p>
         </header>
-        {% if hearing.hearing_report_file %}
+        {% if hearing.attachments.all %}
+        <ul class="hearing-attachment-list">
+          {% for file in hearing.attachments.all %}
+          <li class="hearing-attachment-item">
+            <span class="hearing-attachment-name">{{ file.original_filename }}</span>
+            <span class="cluster">
+              {% if file.can_preview %}
+              <a href="{% url 'hearings:attachment_preview' hearing.pk file.pk %}" target="_blank" rel="noopener">{% translate "Afficher" %}</a>
+              {% endif %}
+              <a href="{% url 'hearings:attachment_download' hearing.pk file.pk %}">{% translate "Télécharger" %}</a>
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% elif hearing.hearing_report_file %}
         <p class="hearing-report-current">
           {{ hearing.hearing_report_filename|default:"Rapport joint" }}
           ·
@@ -106,10 +145,16 @@
         </p>
         {% endif %}
         <div class="form-field" style="margin-bottom:0;">
-          <label for="{{ form.report_file.id_for_label }}">{{ form.report_file.label }}</label>
-          {{ form.report_file }}
-          {% if form.report_file.help_text %}<p class="form-help">{{ form.report_file.help_text }}</p>{% endif %}
-          {% if form.report_file.errors %}<div class="form-error">{{ form.report_file.errors }}</div>{% endif %}
+          <label for="id_report_files">{% translate "Fichiers (Word ou PDF)" %}</label>
+          <input
+            class="form-input"
+            type="file"
+            id="id_report_files"
+            name="report_files"
+            multiple
+            accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          >
+          <p class="form-help">{% translate "Vous pouvez sélectionner plusieurs fichiers PDF, DOC ou DOCX." %}</p>
         </div>
       </section>
       {% endif %}
@@ -121,4 +166,30 @@
     </footer>
   </form>
 </div>
+<script>
+(function () {
+  var form = document.querySelector("[data-hearing-form]");
+  if (!form) return;
+  var select = form.querySelector("#{{ form.matter.id_for_label }}");
+  var display = form.querySelector("[data-jurisdiction-display]");
+  if (!select || !display) return;
+  var jurisdictions = {
+    {% for m in form.matter.field.queryset %}
+    "{{ m.pk }}": "{{ m.jurisdiction|escapejs }}"{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  };
+  var emptyLabel = "{% translate "Sélectionnez un dossier" %}";
+
+  function sync() {
+    var value = jurisdictions[select.value] || "";
+    if (value) {
+      display.textContent = value;
+    } else {
+      display.innerHTML = '<span class="matter-fact-empty">' + emptyLabel + "</span>";
+    }
+  }
+  select.addEventListener("change", sync);
+  sync();
+})();
+</script>
 {% endblock %}

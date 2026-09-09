@@ -37,7 +37,7 @@
       {% endif %}
       
       <div class="official-form-group">
-        <label for="{{ form.username.id_for_label }}" class="official-label">{% translate "Adresse e-mail" %}</label>
+        <label for="{{ form.username.id_for_label }}" class="official-label">{% translate "Nom utilisateur" %}</label>
         {{ form.username }}
         {% if form.username.errors %}<div class="official-error">{{ form.username.errors }}</div>{% endif %}
       </div>

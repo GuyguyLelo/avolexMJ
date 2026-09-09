@@ -41,10 +41,11 @@ class MatterForm(forms.ModelForm):
     """Création / édition d'un dossier."""
 
     jurisdiction = forms.ChoiceField(
-        label=_("juridiction"),
-        required=False,
+        label=_("Juridiction"),
+        required=True,
         choices=[],
         widget=forms.Select(attrs={"class": "form-input"}),
+        help_text=_("Tribunal ou juridiction saisie pour ce dossier."),
     )
 
     class Meta:
@@ -52,9 +53,9 @@ class MatterForm(forms.ModelForm):
         fields = (
             "title",
             "scale",
+            "jurisdiction",
             "description",
             "practice_area",
-            "jurisdiction",
             "status",
             "opened_at",
             "closed_at",
@@ -76,8 +77,6 @@ class MatterForm(forms.ModelForm):
     def __init__(
         self,
         *args: Any,
-        include_cabinet: bool = False,
-        cabinets: QuerySet[Cabinet] | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
@@ -99,43 +98,27 @@ class MatterForm(forms.ModelForm):
         if current_area and current_area not in {item[0] for item in area_names}:
             area_names.insert(0, (current_area, current_area))
         self.fields["practice_area"] = forms.ChoiceField(
-            label=_("matière / domaine"),
+            label=_("Matière / domaine"),
             required=False,
             choices=[("", _("— Choisir une matière —")), *area_names],
             widget=forms.Select(attrs={"class": "form-input"}),
         )
         if current_area:
             self.fields["practice_area"].initial = current_area
-        if include_cabinet:
-            cabinet_qs = (
-                cabinets if cabinets is not None else Cabinet.objects.filter(is_active=True)
-            )
-            self.fields["target_cabinet"] = forms.ModelChoiceField(
-                label=_("Cabinet destinataire"),
-                queryset=cabinet_qs.order_by("name"),
-                required=True,
-                widget=forms.Select(attrs={"class": "form-input"}),
-                help_text=_(
-                    "Choix obligatoire : le dossier sera ouvert dans ce cabinet. "
-                    "Les cabinets spécialisés sont proposés selon la matière."
-                ),
-            )
-            self.order_fields(
-                [
-                    "practice_area",
-                    "target_cabinet",
-                    "title",
-                    "scale",
-                    "description",
-                    "jurisdiction",
-                    "status",
-                    "opened_at",
-                    "closed_at",
-                    "initial_pdf",
-                    "notes",
-                ]
-            )
-
+        self.order_fields(
+            [
+                "title",
+                "scale",
+                "jurisdiction",
+                "practice_area",
+                "description",
+                "status",
+                "opened_at",
+                "closed_at",
+                "initial_pdf",
+                "notes",
+            ]
+        )
     def clean(self) -> dict[str, Any]:
         cleaned = super().clean()
         scale = cleaned.get("scale") or MatterScale.NATIONAL
@@ -146,4 +129,37 @@ class MatterForm(forms.ModelForm):
             for field, errors in exc.message_dict.items():
                 for err in errors:
                     self.add_error(field, err)
+        return cleaned
+
+
+class MatterLawyerAssignForm(forms.Form):
+    """Affectation d'un ou plusieurs avocats du cabinet à un dossier."""
+
+    lawyers = forms.ModelMultipleChoiceField(
+        label=_("Avocats"),
+        queryset=User.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=True,
+    )
+    lead = forms.ModelChoiceField(
+        label=_("Responsable"),
+        queryset=User.objects.none(),
+        required=False,
+        empty_label=_("— Premier sélectionné —"),
+        widget=forms.Select(attrs={"class": "form-input"}),
+    )
+
+    def __init__(self, *args: Any, lawyer_queryset: QuerySet[Any] | None = None, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        qs = lawyer_queryset if lawyer_queryset is not None else User.objects.none()
+        self.fields["lawyers"].queryset = qs
+        self.fields["lead"].queryset = qs
+
+    def clean(self) -> dict[str, Any]:
+        cleaned = super().clean()
+        lawyers = list(cleaned.get("lawyers") or [])
+        lead = cleaned.get("lead")
+        # Par défaut : le responsable est le premier avocat sélectionné s'il n'en fait pas partie.
+        if lawyers and (lead is None or lead not in lawyers):
+            cleaned["lead"] = lawyers[0]
         return cleaned

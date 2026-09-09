@@ -7,7 +7,6 @@
 <header class="page-header">
   <div>
     <h1>{% translate "Dossiers" %}</h1>
-    <p class="page-lede">{% translate "Affaires nationales et internationales. Le ministère délivre une procuration au cabinet pour autoriser les actes sur chaque dossier." %}</p>
   </div>
   {% if is_platform_admin %}
   <a class="btn btn-primary" href="{% url 'matters:create' %}">{% translate "Nouveau dossier" %}</a>
@@ -87,7 +86,7 @@
           <span class="badge badge-warning">{% translate "Archivé" %}</span>
           {% endif %}
         </td>
-        <td>{{ m.responsible_lawyer.get_full_name|default:m.responsible_lawyer.email }}</td>
+        <td>{% if m.responsible_lawyer %}{{ m.responsible_lawyer.get_full_name|default:m.responsible_lawyer.email }}{% else %}—{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>

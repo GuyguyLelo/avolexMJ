@@ -1,0 +1,116 @@
+{% extends "layouts/app.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Affecter des avocats" %} — {{ matter.reference }} — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<article class="detail-sheet detail-sheet--compact assign-lawyers-page">
+  <header class="detail-sheet-header">
+    <div class="detail-sheet-identity">
+      <span class="detail-sheet-avatar" aria-hidden="true">{{ matter.reference|slice:"-2:" }}</span>
+      <div class="detail-sheet-title">
+        <p class="detail-sheet-kicker">{% translate "Dossier" %}</p>
+        <h1>{% translate "Affecter des avocats" %}</h1>
+        <p class="detail-sheet-lede">
+          <span>{{ matter.reference }}</span>
+          <span>{{ matter.title }}</span>
+        </p>
+      </div>
+    </div>
+    <div class="detail-sheet-actions">
+      <a class="btn btn-secondary btn-sm" href="{% url 'matters:detail' matter.pk %}">{% translate "Retour" %}</a>
+    </div>
+  </header>
+
+  <form method="post" class="assign-lawyers-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+    <section class="form-panel assign-lawyers-panel">
+      <header class="form-panel-head">
+        <h2>{% translate "Membres du cabinet" %}</h2>
+        <p>{% translate "Cochez les avocats affectés à ce dossier, puis désignez le responsable." %}</p>
+      </header>
+
+      <div class="lawyer-pick-list" role="group" aria-label="{{ form.lawyers.label }}">
+        {% for lawyer in form.lawyers.field.queryset %}
+        <label class="lawyer-pick">
+          <input
+            type="checkbox"
+            name="{{ form.lawyers.html_name }}"
+            value="{{ lawyer.pk }}"
+            {% if lawyer.pk|stringformat:"s" in selected_lawyer_ids %}checked{% endif %}
+          >
+          <span class="lawyer-pick-avatar" aria-hidden="true">
+            {% with name=lawyer.get_full_name|default:lawyer.email %}{{ name|slice:":1"|upper }}{% endwith %}
+          </span>
+          <span class="lawyer-pick-meta">
+            <span class="lawyer-pick-name">{{ lawyer.get_full_name|default:lawyer.email }}</span>
+            {% if lawyer.get_full_name %}<span class="lawyer-pick-id">{{ lawyer.email }}</span>{% endif %}
+          </span>
+        </label>
+        {% empty %}
+        <p class="assign-lawyers-empty">{% translate "Aucun avocat disponible dans ce cabinet." %}</p>
+        {% endfor %}
+      </div>
+      {% if form.lawyers.errors %}<div class="form-error">{{ form.lawyers.errors }}</div>{% endif %}
+
+      <div class="form-field assign-lawyers-lead">
+        <label for="{{ form.lead.id_for_label }}">{{ form.lead.label }}</label>
+        <select name="{{ form.lead.html_name }}" id="{{ form.lead.id_for_label }}" class="form-input" data-lead-select>
+          <option value="">{% translate "— Premier sélectionné —" %}</option>
+          {% for lawyer in form.lawyers.field.queryset %}
+          <option
+            value="{{ lawyer.pk }}"
+            data-lawyer-option
+            {% if form.lead.value|stringformat:"s" == lawyer.pk|stringformat:"s" %}selected{% endif %}
+            {% if lawyer.pk|stringformat:"s" not in selected_lawyer_ids %}hidden disabled{% endif %}
+          >{{ lawyer.get_full_name|default:lawyer.email }}</option>
+          {% endfor %}
+        </select>
+        {% if form.lead.errors %}<div class="form-error">{{ form.lead.errors }}</div>{% endif %}
+        <p class="form-help">{% translate "Par défaut : le premier avocat sélectionné." %}</p>
+      </div>
+    </section>
+
+    <footer class="form-actions">
+      <button class="btn btn-primary" type="submit">{% translate "Enregistrer" %}</button>
+      <a class="btn btn-secondary" href="{% url 'matters:detail' matter.pk %}">{% translate "Annuler" %}</a>
+    </footer>
+  </form>
+</article>
+<script>
+(function () {
+  var form = document.querySelector(".assign-lawyers-form");
+  if (!form) return;
+  var lead = form.querySelector("[data-lead-select]");
+  if (!lead) return;
+
+  function selectedBoxes() {
+    return Array.prototype.slice.call(
+      form.querySelectorAll('.lawyer-pick-list input[type="checkbox"]:checked')
+    );
+  }
+
+  function syncLead() {
+    var selected = selectedBoxes();
+    var ids = selected.map(function (el) { return el.value; });
+    Array.prototype.forEach.call(lead.querySelectorAll("[data-lawyer-option]"), function (opt) {
+      var on = ids.indexOf(opt.value) !== -1;
+      opt.hidden = !on;
+      opt.disabled = !on;
+    });
+    if (lead.value && ids.indexOf(lead.value) === -1) {
+      lead.value = "";
+    }
+  }
+
+  form.addEventListener("change", function (event) {
+    if (event.target && event.target.matches('.lawyer-pick-list input[type="checkbox"]')) {
+      syncLead();
+    }
+  });
+  syncLead();
+})();
+</script>
+{% endblock %}

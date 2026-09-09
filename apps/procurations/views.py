@@ -6,7 +6,7 @@ from typing import Any
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import QuerySet
+from django.db.models import Q, QuerySet
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
@@ -38,7 +38,7 @@ from apps.tenants.mixins import (
 )
 from apps.tenants.models import Cabinet
 from apps.tenants.roles import PERM_VIEW
-from apps.tenants.services import is_platform_admin
+from apps.tenants.services import is_platform_admin, suggest_cabinets_for_practice_area
 
 
 def _get_procuration(request: HttpRequest, pk: str) -> Procuration:
@@ -165,30 +165,55 @@ class ProcurationCreateView(PlatformAdminRequiredMixin, BreadcrumbMixin, CreateV
 
     def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()
-        cabinets = Cabinet.objects.filter(is_active=True).order_by("name")
-        cabinet_id = _selected_create_cabinet_id(self.request, cabinets=cabinets)
-        kwargs["include_cabinet"] = True
-        kwargs["cabinet_queryset"] = cabinets
+        # Afficher uniquement les dossiers sans procuration valide
+        from apps.procurations.services import get_valid_procuration
+        matters_with_procuration = set()
+        for proc in Procuration.objects.filter(status=ProcurationStatus.GRANTED).select_related('matter'):
+            if proc.matter_id:
+                matters_with_procuration.add(proc.matter_id)
+        
+        matter_queryset = (
+            Matter.unscoped
+            .filter(is_archived=False, cabinet__isnull=True)
+            .exclude(pk__in=matters_with_procuration)
+            .select_related("responsible_lawyer")
+            .order_by("-updated_at")
+        )
+        # Si un cabinet est déjà choisi (GET), inclure aussi ses dossiers sans procuration.
+        cabinet_id = self.request.GET.get("cabinet") or self.request.POST.get("cabinet")
         if cabinet_id:
-            kwargs["matter_queryset"] = (
-                Matter.unscoped.filter(cabinet_id=cabinet_id, is_archived=False)
+            matter_queryset = (
+                Matter.unscoped
+                .filter(is_archived=False)
+                .filter(Q(cabinet__isnull=True) | Q(cabinet_id=cabinet_id))
+                .exclude(pk__in=matters_with_procuration)
                 .select_related("responsible_lawyer")
                 .order_by("-updated_at")
             )
-        else:
-            kwargs["matter_queryset"] = Matter.unscoped.none()
+        
+        kwargs["matter_queryset"] = matter_queryset
+        kwargs["cabinet_queryset"] = Cabinet.objects.filter(is_active=True).order_by("name")
+        kwargs["include_cabinet"] = True
         return kwargs
 
     def get_initial(self) -> dict[str, Any]:
         initial = super().get_initial()
-        cabinets = Cabinet.objects.filter(is_active=True).order_by("name")
-        cabinet_id = _selected_create_cabinet_id(self.request, cabinets=cabinets)
-        if cabinet_id:
-            initial["cabinet"] = cabinet_id
         matter_id = self.request.GET.get("matter", "")
         if matter_id:
             initial["matter"] = matter_id
         return initial
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        # Suggérer des cabinets spécialisés selon la matière du dossier sélectionné
+        ctx["suggested_cabinets"] = []
+        if self.request.GET.get("matter"):
+            matter = Matter.unscoped.filter(pk=self.request.GET.get("matter")).first()
+            if matter and matter.practice_area:
+                ctx["suggested_cabinets"] = suggest_cabinets_for_practice_area(
+                    practice_area_name=matter.practice_area
+                )
+        return ctx
 
     def form_valid(self, form: ProcurationForm) -> HttpResponse:
         try:

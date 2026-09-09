@@ -138,7 +138,8 @@ class DocumentDetailView(CabinetPermissionMixin, BreadcrumbMixin, DetailView):
         """Document + versions (prefetch)."""
         return Document.objects.select_related(
             "matter",
-            "matter__client",
+            "matter",
+            "assigned_to",
             "current_version",
             "current_version__uploaded_by",
         ).prefetch_related(

@@ -86,9 +86,8 @@ class MatterViewSet(CabinetModelViewSet):
         matter = create_matter(
             cabinet=self.request.cabinet,  # type: ignore[attr-defined]
             user=self.request.user,  # type: ignore[arg-type]
-            client=data.pop("client"),
             title=data.pop("title"),
-            responsible_lawyer=data.pop("responsible_lawyer", self.request.user),
+            responsible_lawyer=data.pop("responsible_lawyer", None),
             **data,
         )
         serializer.instance = matter

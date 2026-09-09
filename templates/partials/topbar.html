@@ -11,20 +11,83 @@
     <span class="menu-toggle-bar" aria-hidden="true"></span>
   </button>
 
-  <span class="app-topbar-spacer" aria-hidden="true"></span>
+  {% if current_cabinet %}
+    {% translate "Cabinet" as banner_label %}
+    {% with banner_name=current_cabinet.name banner_mark=current_cabinet.name|slice:":1"|upper %}
+  <div class="app-cabinet-banner" title="{{ banner_name }}">
+    <span class="app-cabinet-banner-mark" aria-hidden="true">{{ banner_mark }}</span>
+    <div class="app-cabinet-banner-track" aria-label="{{ banner_label }} : {{ banner_name }}">
+      <div class="app-cabinet-banner-marquee">
+        <span class="app-cabinet-banner-label">{{ banner_label }}</span>
+        <span class="app-cabinet-banner-name">{{ banner_name }}</span>
+        <span class="app-cabinet-banner-sep" aria-hidden="true">·</span>
+        <span class="app-cabinet-banner-label">{{ banner_label }}</span>
+        <span class="app-cabinet-banner-name">{{ banner_name }}</span>
+      </div>
+    </div>
+  </div>
+    {% endwith %}
+  {% elif is_platform_admin or is_super_admin %}
+  <div class="app-cabinet-banner app-cabinet-banner--ministry" title="{{ SITE_INSTITUTION }}">
+    <span class="app-cabinet-banner-mark" aria-hidden="true">MJ</span>
+    <div class="app-cabinet-banner-track" aria-label="{% translate 'Supervision' %} : {{ SITE_INSTITUTION }}">
+      <div class="app-cabinet-banner-marquee">
+        <span class="app-cabinet-banner-label">{% translate "Supervision" %}</span>
+        <span class="app-cabinet-banner-name">{{ SITE_INSTITUTION }}</span>
+        <span class="app-cabinet-banner-sep" aria-hidden="true">·</span>
+        <span class="app-cabinet-banner-label">{% translate "Supervision" %}</span>
+        <span class="app-cabinet-banner-name">{{ SITE_INSTITUTION }}</span>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="app-cabinet-banner" title="{{ SITE_NAME }}">
+    <span class="app-cabinet-banner-mark" aria-hidden="true">A</span>
+    <div class="app-cabinet-banner-track" aria-label="{{ SITE_NAME }}">
+      <div class="app-cabinet-banner-marquee">
+        <span class="app-cabinet-banner-label">{% translate "Plateforme" %}</span>
+        <span class="app-cabinet-banner-name">{{ SITE_NAME }}</span>
+        <span class="app-cabinet-banner-sep" aria-hidden="true">·</span>
+        <span class="app-cabinet-banner-label">{% translate "Plateforme" %}</span>
+        <span class="app-cabinet-banner-name">{{ SITE_NAME }}</span>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
-  <div class="dropdown" data-dropdown>
+  <div class="dropdown app-user-menu" data-dropdown>
     <button
       type="button"
-      class="btn btn-ghost btn-sm"
+      class="app-user-chip"
       data-dropdown-button
       aria-expanded="false"
       aria-haspopup="true"
+      title="{{ user.get_full_name }}"
     >
-      {{ user.get_short_name|default:user.email }}
+      <span class="app-user-chip-mark" aria-hidden="true">
+        {% if user.first_name and user.last_name %}
+          {{ user.first_name|slice:":1"|upper }}{{ user.last_name|slice:":1"|upper }}
+        {% else %}
+          {{ user.get_short_name|default:user.email|slice:":1"|upper }}
+        {% endif %}
+      </span>
+      <span class="app-user-chip-meta">
+        <span class="app-user-chip-label">{% translate "Connecté" %}</span>
+        <span class="app-user-chip-name">{{ user.get_short_name|default:user.email }}</span>
+      </span>
+      <span class="app-user-chip-caret" aria-hidden="true"></span>
     </button>
-    <div class="dropdown-menu" data-dropdown-menu hidden role="menu">
+    <div class="dropdown-menu app-user-menu-panel" data-dropdown-menu hidden role="menu">
+      <div class="app-user-menu-head" role="presentation">
+        <span class="app-user-menu-head-name">{{ user.get_full_name }}</span>
+        {% if user.email %}
+        <span class="app-user-menu-head-email">{{ user.email }}</span>
+        {% endif %}
+      </div>
+      {% if current_cabinet and not is_platform_admin %}
       <a href="{% url 'tenants:invite' %}" role="menuitem">{% translate "Inviter" %}</a>
+      {% endif %}
+      <a href="{% url 'accounts:profile' %}" role="menuitem">{% translate "Mon profil" %}</a>
       <form method="post" action="{% url 'accounts:logout' %}">
         {% csrf_token %}
         <button type="submit" role="menuitem">{% translate "Se déconnecter" %}</button>

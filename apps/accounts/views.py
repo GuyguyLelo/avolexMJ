@@ -57,7 +57,7 @@ class AvoLexLoginView(LoginView):
 class AvoLexLogoutView(LogoutView):
     """Déconnexion."""
 
-    next_page = reverse_lazy("core:landing")
+    next_page = reverse_lazy("accounts:login")
 
 
 class RegisterView(FormView):

@@ -19,6 +19,14 @@ def test_health_ok(client: Client) -> None:
 
 
 @pytest.mark.django_db
+def test_root_shows_login(client: Client) -> None:
+    """La racine affiche directement la page de connexion."""
+    response = client.get("/")
+    assert response.status_code == 200
+    assert b"Login" in response.content or b"Connexion" in response.content or b"login" in response.content.lower()
+
+
+@pytest.mark.django_db
 def test_landing_ok(client: Client) -> None:
     """La landing page publique répond 200."""
     response = client.get(reverse("core:landing"))

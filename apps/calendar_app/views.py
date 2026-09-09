@@ -17,9 +17,10 @@ from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from apps.calendar_app.forms import EventForm, HearingForm
-from apps.calendar_app.models import Event, EventType, HearingStatus
+from apps.calendar_app.models import Event, EventType, HearingAttachment, HearingStatus
 from apps.calendar_app.services import (
     create_event,
+    delete_hearing_attachment,
     events_queryset,
     hearings_queryset,
     mark_event_done,
@@ -77,11 +78,8 @@ class EventDetailView(CabinetPermissionMixin, BreadcrumbMixin, DetailView):
     required_perm = PERM_VIEW
 
     def get_queryset(self) -> QuerySet[Event]:
-        return Event.objects.select_related(
-            "matter",
-            "matter__client",
-            "assigned_to",
-            "created_by",
+        return Event.objects.select_related("matter", "assigned_to", "created_by").prefetch_related(
+            "attachments"
         )
 
     def get_breadcrumb(self) -> list[dict[str, str]]:
@@ -272,6 +270,7 @@ class HearingCreateView(CabinetPermissionMixin, BreadcrumbMixin, CreateView):
     def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()
         kwargs["matter_queryset"] = Matter.objects.order_by("reference")
+        kwargs["matter_locked"] = bool(self.request.GET.get("matter"))
         return kwargs
 
     def get_initial(self) -> dict[str, Any]:
@@ -281,6 +280,16 @@ class HearingCreateView(CabinetPermissionMixin, BreadcrumbMixin, CreateView):
             initial["matter"] = matter_id
         initial["hearing_status"] = HearingStatus.SCHEDULED
         return initial
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        matter_id = self.request.GET.get("matter")
+        if not matter_id:
+            form = ctx.get("form")
+            if form is not None and "matter" in form.fields:
+                matter_id = form["matter"].value()
+        ctx["matter"] = Matter.objects.filter(pk=matter_id).first() if matter_id else None
+        return ctx
 
     def form_valid(self, form: HearingForm) -> HttpResponse:
         data = form.cleaned_data
@@ -296,7 +305,6 @@ class HearingCreateView(CabinetPermissionMixin, BreadcrumbMixin, CreateView):
                 ends_at=data.get("ends_at"),
                 all_day=data.get("all_day") or False,
                 location=data.get("location") or "",
-                court=data.get("court") or "",
                 chamber=data.get("chamber") or "",
                 hearing_status=data.get("hearing_status") or HearingStatus.SCHEDULED,
                 remind_at=data.get("remind_at"),
@@ -334,9 +342,14 @@ class HearingUpdateView(CabinetPermissionMixin, BreadcrumbMixin, UpdateView):
         kwargs["matter_queryset"] = Matter.objects.order_by("reference")
         return kwargs
 
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        ctx["matter"] = getattr(self.object, "matter", None)
+        return ctx
+
     def form_valid(self, form: HearingForm) -> HttpResponse:
         data = form.cleaned_data.copy()
-        report_file = data.pop("report_file", None)
+        report_files = list(self.request.FILES.getlist("report_files"))
         try:
             update_event(
                 event=self.object,
@@ -344,11 +357,11 @@ class HearingUpdateView(CabinetPermissionMixin, BreadcrumbMixin, UpdateView):
                 event_type=EventType.HEARING,
                 **data,
             )
-            if report_file:
+            if report_files:
                 save_hearing_report(
                     event=self.object,
                     user=self.request.user,  # type: ignore[arg-type]
-                    uploaded=report_file,
+                    uploads=report_files,
                 )
         except (ValidationError, PermissionDenied) as exc:
             messages.error(self.request, str(exc))
@@ -380,55 +393,147 @@ class HearingStatusView(CabinetPermissionMixin, View):
 
 
 class HearingReportView(CabinetPermissionMixin, View):
-    """Joint un rapport Word ou PDF à une audience."""
+    """Joint un ou plusieurs fichiers Word/PDF à une audience."""
 
     required_perm = PERM_CHANGE
     http_method_names = ("post",)
 
     def post(self, request: Any, pk: str) -> HttpResponse:
         event = get_object_or_404(Event, pk=pk, event_type=EventType.HEARING)
+        uploads = list(request.FILES.getlist("report_files"))
+        if not uploads and request.FILES.get("report_file"):
+            uploads = [request.FILES["report_file"]]
         try:
             save_hearing_report(
                 event=event,
                 user=request.user,
-                uploaded=request.FILES.get("report_file"),
+                uploads=uploads,
                 mark_held=bool(request.POST.get("mark_held")),
             )
         except (ValidationError, PermissionDenied) as exc:
             messages.error(request, str(exc))
             return redirect("calendar:event_detail", pk=pk)
-        messages.success(request, _g("Rapport d'audience enregistré."))
+        messages.success(request, _g("Fichier(s) enregistré(s)."))
         return redirect("calendar:event_detail", pk=pk)
 
 
 class HearingReportDownloadView(CabinetPermissionMixin, View):
-    """Téléchargement du rapport d'audience."""
+    """Téléchargement du premier fichier (compatibilité) ou legacy."""
 
     required_perm = PERM_VIEW
     http_method_names = ("get",)
 
     def get(self, request: HttpRequest, pk: str) -> HttpResponse:
         event = get_object_or_404(Event, pk=pk, event_type=EventType.HEARING)
-        return _serve_hearing_report(event, as_attachment=True)
+        attachment = event.attachments.order_by("created_at").first()
+        if attachment is not None:
+            return _serve_hearing_attachment(attachment, as_attachment=True)
+        return _serve_legacy_hearing_report(event, as_attachment=True)
 
 
 class HearingReportPreviewView(CabinetPermissionMixin, View):
-    """Aperçu inline du rapport PDF."""
+    """Aperçu inline du premier PDF (compatibilité) ou legacy."""
 
     required_perm = PERM_VIEW
     http_method_names = ("get",)
 
     def get(self, request: HttpRequest, pk: str) -> HttpResponse:
         event = get_object_or_404(Event, pk=pk, event_type=EventType.HEARING)
+        attachment = next(
+            (item for item in event.attachments.all() if item.can_preview),
+            None,
+        )
+        if attachment is not None:
+            return _serve_hearing_attachment(attachment, as_attachment=False)
         if not event.hearing_report_file:
             raise Http404(_g("Aucun rapport n'est joint à cette audience."))
         if not event.hearing_report_can_preview:
             return redirect("hearings:report_download", pk=pk)
-        return _serve_hearing_report(event, as_attachment=False)
+        return _serve_legacy_hearing_report(event, as_attachment=False)
 
 
-def _serve_hearing_report(event: Event, *, as_attachment: bool) -> FileResponse:
-    """Sert le rapport joint en téléchargement ou en aperçu."""
+class HearingAttachmentDownloadView(CabinetPermissionMixin, View):
+    """Téléchargement d'une pièce jointe d'audience."""
+
+    required_perm = PERM_VIEW
+    http_method_names = ("get",)
+
+    def get(self, request: HttpRequest, pk: str, attachment_id: str) -> HttpResponse:
+        attachment = get_object_or_404(
+            HearingAttachment.objects.select_related("event"),
+            pk=attachment_id,
+            event_id=pk,
+            event__event_type=EventType.HEARING,
+        )
+        return _serve_hearing_attachment(attachment, as_attachment=True)
+
+
+class HearingAttachmentPreviewView(CabinetPermissionMixin, View):
+    """Aperçu PDF d'une pièce jointe."""
+
+    required_perm = PERM_VIEW
+    http_method_names = ("get",)
+
+    def get(self, request: HttpRequest, pk: str, attachment_id: str) -> HttpResponse:
+        attachment = get_object_or_404(
+            HearingAttachment.objects.select_related("event"),
+            pk=attachment_id,
+            event_id=pk,
+            event__event_type=EventType.HEARING,
+        )
+        if not attachment.can_preview:
+            return redirect(
+                "hearings:attachment_download",
+                pk=pk,
+                attachment_id=attachment.pk,
+            )
+        return _serve_hearing_attachment(attachment, as_attachment=False)
+
+
+class HearingAttachmentDeleteView(CabinetPermissionMixin, View):
+    """Suppression d'une pièce jointe."""
+
+    required_perm = PERM_CHANGE
+    http_method_names = ("post",)
+
+    def post(self, request: Any, pk: str, attachment_id: str) -> HttpResponse:
+        attachment = get_object_or_404(
+            HearingAttachment.objects.select_related("event"),
+            pk=attachment_id,
+            event_id=pk,
+            event__event_type=EventType.HEARING,
+        )
+        try:
+            delete_hearing_attachment(attachment=attachment, user=request.user)
+        except (ValidationError, PermissionDenied) as exc:
+            messages.error(request, str(exc))
+            return redirect("calendar:event_detail", pk=pk)
+        messages.success(request, _g("Fichier retiré."))
+        return redirect("calendar:event_detail", pk=pk)
+
+
+def _serve_hearing_attachment(attachment: HearingAttachment, *, as_attachment: bool) -> FileResponse:
+    """Sert une pièce jointe en téléchargement ou aperçu."""
+    if not attachment.file:
+        raise Http404(_g("Fichier introuvable."))
+    filename = attachment.original_filename or "rapport-audience.pdf"
+    response = FileResponse(
+        attachment.file.open("rb"),
+        as_attachment=as_attachment,
+        filename=filename,
+        content_type=attachment.mime_type,
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
+    if not as_attachment:
+        response["Content-Security-Policy"] = (
+            "default-src 'none'; img-src 'self' data:; style-src 'none'; sandbox"
+        )
+    return response
+
+
+def _serve_legacy_hearing_report(event: Event, *, as_attachment: bool) -> FileResponse:
+    """Sert le rapport legacy en téléchargement ou aperçu."""
     if not event.hearing_report_file:
         raise Http404(_g("Aucun rapport n'est joint à cette audience."))
     filename = event.hearing_report_filename or "rapport-audience.pdf"

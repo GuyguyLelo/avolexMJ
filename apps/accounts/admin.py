@@ -20,12 +20,13 @@ class UserAdmin(DjangoUserAdmin):  # type: ignore[type-arg]
         "last_name",
         "phone",
         "is_staff",
+        "is_super_admin",
         "is_platform_admin",
         "is_active",
         "date_joined",
     )
     search_fields = ("email", "first_name", "last_name", "phone")
-    list_filter = ("is_staff", "is_platform_admin", "is_superuser", "is_active")
+    list_filter = ("is_staff", "is_super_admin", "is_platform_admin", "is_superuser", "is_active")
 
     fieldsets = (
         (None, {"fields": ("email", "password")}),
@@ -39,6 +40,7 @@ class UserAdmin(DjangoUserAdmin):  # type: ignore[type-arg]
                 "fields": (
                     "is_active",
                     "is_staff",
+                    "is_super_admin",
                     "is_platform_admin",
                     "is_superuser",
                     "groups",
@@ -58,6 +60,7 @@ class UserAdmin(DjangoUserAdmin):  # type: ignore[type-arg]
                     "password1",
                     "password2",
                     "is_staff",
+                    "is_super_admin",
                     "is_platform_admin",
                     "is_active",
                 ),

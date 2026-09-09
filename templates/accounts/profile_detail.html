@@ -1,0 +1,90 @@
+{% extends "layouts/app.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Mon profil" %} — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<article class="detail-sheet detail-sheet--compact">
+  <header class="detail-sheet-header">
+    <div class="detail-sheet-identity">
+      <span class="detail-sheet-avatar" aria-hidden="true">
+        {% if profile_user.first_name and profile_user.last_name %}
+          {{ profile_user.first_name|slice:":1"|upper }}{{ profile_user.last_name|slice:":1"|upper }}
+        {% else %}
+          {{ profile_user.full_name.0|upper }}
+        {% endif %}
+      </span>
+      <div class="detail-sheet-title">
+        <p class="detail-sheet-kicker">{% translate "Mon profil" %}</p>
+        <h1>{{ profile_user.full_name }}</h1>
+        <p class="detail-sheet-lede">
+          <span>{{ profile_user.email }}</span>
+          {% if profile_user.is_super_admin %}
+          <span class="badge badge-gold">{% translate "SuperAdmin" %}</span>
+          {% elif profile_user.is_platform_admin %}
+          <span class="badge badge-info">{% translate "Administrateur" %}</span>
+          {% else %}
+          <span class="badge">{% translate "Compte cabinet" %}</span>
+          {% endif %}
+        </p>
+      </div>
+    </div>
+    <div class="detail-sheet-actions">
+      <a class="btn btn-primary btn-sm" href="{% url 'accounts:profile_update' %}">{% translate "Modifier" %}</a>
+    </div>
+  </header>
+
+  <section class="matter-facts" aria-label="{% translate 'Identité' %}">
+    <div class="matter-fact">
+      <dt>{% translate "Identifiant" %}</dt>
+      <dd>{{ profile_user.email }}</dd>
+    </div>
+    <div class="matter-fact">
+      <dt>{% translate "Prénom" %}</dt>
+      <dd>{% if profile_user.first_name %}{{ profile_user.first_name }}{% else %}<span class="matter-fact-empty">—</span>{% endif %}</dd>
+    </div>
+    <div class="matter-fact">
+      <dt>{% translate "Nom" %}</dt>
+      <dd>{% if profile_user.last_name %}{{ profile_user.last_name }}{% else %}<span class="matter-fact-empty">—</span>{% endif %}</dd>
+    </div>
+    <div class="matter-fact">
+      <dt>{% translate "Téléphone" %}</dt>
+      <dd>{% if profile_user.phone %}{{ profile_user.phone }}{% else %}<span class="matter-fact-empty">—</span>{% endif %}</dd>
+    </div>
+    <div class="matter-fact">
+      <dt>{% translate "Inscription" %}</dt>
+      <dd>{{ profile_user.date_joined|date:"d/m/Y H:i" }}</dd>
+    </div>
+  </section>
+
+  {% if memberships %}
+  <section class="detail-sheet-block">
+    <header class="detail-sheet-block-head">
+      <h2>{% translate "Cabinets" %}</h2>
+    </header>
+    <div class="table-wrap">
+      <table class="table table-compact">
+        <thead>
+          <tr>
+            <th>{% translate "Cabinet" %}</th>
+            <th>{% translate "Rôle" %}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in memberships %}
+          <tr>
+            <td>{{ m.cabinet.name }}</td>
+            <td><span class="badge">{{ m.get_role_display }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% elif profile_user.is_super_admin or profile_user.is_platform_admin %}
+  <section class="detail-sheet-block">
+    <p class="text-muted empty-state-compact">{% translate "Compte ministère : non lié à un cabinet d'avocats." %}</p>
+  </section>
+  {% endif %}
+</article>
+{% endblock %}

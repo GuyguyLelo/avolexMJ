@@ -56,22 +56,27 @@ Après `seed_demo` :
 | App | http://127.0.0.1:8000/app/ |
 | API | http://127.0.0.1:8000/api/v1/clients/ (session auth) |
 
-### Supervision plateforme (tous les cabinets)
-
-Compte en **lecture seule** pour suivre l’activité de tous les cabinets :
+### SuperAdmin et Administrateur
 
 ```bash
-python manage.py create_platform_admin
+# SuperAdmin (tous les droits + gestion des comptes)
+python manage.py create_platform_admin --email SuperAdmin --password "@SuperAdmin123"
+
+# Administrateur ministère (cabinets, dossiers, procurations)
+python manage.py create_platform_admin --as-administrator --email Admin --password "@Admin12345"
 ```
 
-| Champ | Valeur |
-|-------|--------|
-| E-mail | `supervision@avolex.local` |
-| Mot de passe | `@Supervise123` |
-| Accueil | http://127.0.0.1:8000/app/supervision/ |
+| Rôle | Droits |
+|------|--------|
+| **SuperAdmin** | Toutes les fonctionnalités ; crée Administrateurs et comptes cabinets |
+| **Administrateur** | Cabinets avocats, dossiers, procurations, matières, supervision |
+| **Compte cabinet** | Dossiers / actes couverts par une procuration valide |
 
-Ce compte voit tous les cabinets, peut les créer / modifier / supprimer, et consulte
-leur activité interne en lecture seule.
+| Champ | SuperAdmin | Administrateur |
+|-------|------------|----------------|
+| Identifiant | `SuperAdmin` | `Admin` |
+| Mot de passe | `@SuperAdmin123` | `@Admin12345` (commande) ou `@12345678` (seed) |
+| Accueil | `/app/supervision/` | `/app/supervision/` |
 
 ### Modules disponibles
 

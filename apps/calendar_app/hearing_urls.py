@@ -23,5 +23,20 @@ urlpatterns = [
         views.HearingReportPreviewView.as_view(),
         name="report_preview",
     ),
+    path(
+        "<uuid:pk>/pieces/<uuid:attachment_id>/telecharger/",
+        views.HearingAttachmentDownloadView.as_view(),
+        name="attachment_download",
+    ),
+    path(
+        "<uuid:pk>/pieces/<uuid:attachment_id>/apercu/",
+        views.HearingAttachmentPreviewView.as_view(),
+        name="attachment_preview",
+    ),
+    path(
+        "<uuid:pk>/pieces/<uuid:attachment_id>/supprimer/",
+        views.HearingAttachmentDeleteView.as_view(),
+        name="attachment_delete",
+    ),
     path("<uuid:pk>/statut/", views.HearingStatusView.as_view(), name="status"),
 ]

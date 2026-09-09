@@ -1813,6 +1813,7 @@ body.public-body > .state-line-h,
   font-family: var(--font-sans);
   font-size: 0.82rem;
   font-weight: 650;
+  white-space: nowrap;
 }
 
 .brand-sub {
@@ -2065,6 +2066,246 @@ body.public-body > .state-line-h,
 
 .app-topbar-spacer {
   flex: 1;
+}
+
+.app-cabinet-banner {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  max-width: min(36rem, 100%);
+  margin-right: auto;
+  padding: 0.28rem 0.7rem 0.28rem 0.28rem;
+  border: 1px solid color-mix(in srgb, var(--color-brass-500) 35%, var(--color-border));
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      105deg,
+      color-mix(in srgb, var(--color-ink-900) 92%, #0a2540) 0%,
+      color-mix(in srgb, var(--color-ink-800) 88%, #1c4160) 55%,
+      color-mix(in srgb, var(--color-brass-700) 55%, #1c4160) 100%
+    );
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgb(255 255 255 / 8%);
+  color: #fff;
+}
+
+.app-cabinet-banner-mark {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-brass-400) 88%, #fff);
+  color: var(--color-ink-950);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.app-cabinet-banner--ministry .app-cabinet-banner-mark {
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+.app-cabinet-banner-track {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+.app-cabinet-banner-marquee {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  width: max-content;
+  white-space: nowrap;
+  animation: cabinet-marquee 18s linear infinite;
+}
+
+.app-cabinet-banner-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-brass-300) 80%, #fff);
+}
+
+.app-cabinet-banner-name {
+  font-size: 0.88rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: #fff;
+}
+
+.app-cabinet-banner-sep {
+  color: color-mix(in srgb, var(--color-brass-300) 55%, transparent);
+  font-weight: 600;
+}
+
+@keyframes cabinet-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-cabinet-banner-marquee {
+    animation: none;
+  }
+
+  .app-cabinet-banner-track {
+    mask-image: none;
+  }
+
+  .app-cabinet-banner-marquee > *:nth-child(n + 3) {
+    display: none;
+  }
+}
+
+.app-user-menu {
+  flex-shrink: 0;
+}
+
+.app-user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  max-width: min(16rem, 42vw);
+  min-height: 2.55rem;
+  padding: 0.22rem 0.7rem 0.22rem 0.22rem;
+  border: 1px solid color-mix(in srgb, var(--color-brass-500) 28%, var(--color-border));
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      160deg,
+      #fff 0%,
+      color-mix(in srgb, var(--color-brass-100, #f4ead4) 55%, #fff) 100%
+    );
+  box-shadow: var(--shadow-sm);
+  color: var(--color-ink-900);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.app-user-chip:hover,
+.app-user-chip[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--color-brass-500) 55%, var(--color-border));
+  box-shadow: var(--shadow-sm), 0 0 0 3px rgb(var(--rdc-yellow-rgb) / 14%);
+  transform: translateY(-1px);
+}
+
+.app-user-chip-mark {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 2.05rem;
+  height: 2.05rem;
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      145deg,
+      var(--color-ink-900) 0%,
+      color-mix(in srgb, var(--color-ink-800) 70%, #1c4160) 100%
+    );
+  color: color-mix(in srgb, var(--color-brass-300) 85%, #fff);
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.app-user-chip-meta {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 0.02rem;
+  text-align: left;
+}
+
+.app-user-chip-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.app-user-chip-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.86rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: var(--color-ink-900);
+}
+
+.app-user-chip-caret {
+  flex-shrink: 0;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-left: 0.1rem;
+  border-right: 1.5px solid var(--color-text-muted);
+  border-bottom: 1.5px solid var(--color-text-muted);
+  transform: rotate(45deg) translateY(-0.12rem);
+  opacity: 0.7;
+  transition: transform 160ms ease;
+}
+
+.app-user-chip[aria-expanded="true"] .app-user-chip-caret {
+  transform: rotate(225deg) translateY(-0.12rem);
+}
+
+.app-user-menu-panel {
+  min-width: 15rem;
+  padding-top: 0.35rem;
+}
+
+.app-user-menu-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0 0 0.35rem;
+  padding: 0.55rem 0.75rem 0.7rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-user-menu-head-name {
+  font-size: var(--text-sm);
+  font-weight: 650;
+  color: var(--color-ink-900);
+}
+
+.app-user-menu-head-email {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  word-break: break-all;
+}
+
+@media (max-width: 639px) {
+  .app-user-chip {
+    max-width: none;
+    padding-right: 0.35rem;
+  }
+
+  .app-user-chip-meta,
+  .app-user-chip-caret {
+    display: none;
+  }
 }
 
 .app-topbar-search input {
@@ -4020,9 +4261,9 @@ body.public-body > .state-line-h,
   justify-content: space-between;
   gap: var(--space-3);
   margin-bottom: var(--space-5);
-  padding: var(--space-4) var(--space-5);
+  padding: 0.65rem 0.9rem;
   border: 1px solid rgb(var(--rdc-red-rgb) / 28%);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius);
   background: var(--color-danger-bg);
 }
 
@@ -4031,9 +4272,126 @@ body.public-body > .state-line-h,
   background: rgb(var(--rdc-yellow-rgb) / 10%);
 }
 
+.proc-banner.is-pending {
+  border-color: rgb(var(--rdc-yellow-rgb) / 55%);
+  background: rgb(var(--rdc-yellow-rgb) / 16%);
+}
+
+.proc-banner.is-danger {
+  border-color: rgb(var(--rdc-red-rgb) / 35%);
+  background: var(--color-danger-bg);
+}
+
+.proc-banner.is-muted {
+  border-color: var(--color-border);
+  background: color-mix(in srgb, var(--color-border) 35%, #fff);
+}
+
+.proc-banner-body {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.proc-banner-title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-ink-900);
+}
+
 .proc-banner p {
   margin: 0;
   max-width: 40rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--color-text-muted);
+}
+
+.proc-banner-title + p {
+  color: var(--color-text-muted);
+}
+
+.matter-fact-sub {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.detail-sheet-block-head--actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.party-chip-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.party-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.65rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.party-chip-name {
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--color-ink-900);
+}
+
+.party-chip-role {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.party-chip-notes {
+  flex: 1 1 100%;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.proc-decision {
+  display: grid;
+  gap: 1rem;
+}
+
+.proc-decision-form {
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.proc-decision-form.is-refuse {
+  border-color: rgb(var(--rdc-red-rgb) / 28%);
+  background: color-mix(in srgb, var(--color-danger-bg) 55%, #fff);
+}
+
+.proc-decision-form h3 {
+  margin: 0 0 0.65rem;
+  font-size: 0.9rem;
+}
+
+.proc-decision-form .btn {
+  margin-top: 0.75rem;
+}
+
+.text-danger {
+  color: var(--color-danger, #b42318);
 }
 
 
@@ -4174,6 +4532,50 @@ body.public-body > .state-line-h,
 }
 
 /* —— Module Audiences —— */
+.hearing-attachment-list {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.hearing-attachment-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.hearing-attachment-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-ink-900);
+  word-break: break-word;
+}
+
+.hearing-attachment-item form {
+  margin: 0;
+}
+
+.hearing-jurisdiction-readonly {
+  margin: 0;
+  padding: 0.45rem 0.65rem;
+  min-height: 2.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--color-border) 22%, #fff);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-ink-900);
+  line-height: 1.35;
+}
+
 .hearings-kicker {
   margin: 0 0 var(--space-2);
   font-size: 0.72rem;
@@ -4337,8 +4739,54 @@ body.public-body > .state-line-h,
 .hearing-status-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: 0.5rem;
+}
+
+.hearing-status-actions form {
+  margin: 0;
+}
+
+.detail-sheet--compact .hearing-report-form {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.detail-sheet--compact .hearing-report-form .form-field {
+  margin-bottom: 0.65rem;
+}
+
+.detail-sheet--compact .hearing-report-form label {
+  font-size: 0.75rem;
+}
+
+.detail-sheet--compact .hearing-report-preview {
+  margin-bottom: 0.75rem;
+  min-height: 18rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.detail-sheet--compact .hearing-report-preview iframe {
+  width: 100%;
+  min-height: 18rem;
+  border: 0;
+}
+
+.detail-sheet--compact .hearing-report-body {
+  margin: 0 0 0.5rem;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.detail-sheet--compact .hearing-report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .matter-hearings {
@@ -5258,20 +5706,21 @@ body.public-body > .state-line-h,
 }
 
 .official-ministry {
-  font-size: 0.85rem;
+  font-size: clamp(1.05rem, 2.2vw, 1.25rem);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.8);
-  margin-bottom: 0.5rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 0.55rem;
 }
 
 .official-department {
   font-family: var(--font-display);
-  font-size: 1.3rem;
+  font-size: clamp(1.2rem, 3.2vw, 1.85rem);
   font-weight: 600;
   margin-bottom: 0.5rem;
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .official-platform {
@@ -5501,7 +5950,7 @@ body.public-body > .state-line-h,
   }
   
   .official-department {
-    font-size: 1.5rem;
+    font-size: 1.85rem;
   }
   
   .official-login-box {
@@ -5511,6 +5960,183 @@ body.public-body > .state-line-h,
   
   .official-form {
     max-width: 420px;
+  }
+}
+
+/* Affectation avocats */
+.assign-lawyers-page .assign-lawyers-form {
+  margin-top: 0.25rem;
+}
+
+.assign-lawyers-panel {
+  margin-bottom: 0.75rem;
+}
+
+.assign-lawyers-panel .form-panel-head {
+  margin-bottom: 0.75rem;
+}
+
+.assign-lawyers-panel .form-panel-head h2 {
+  font-size: 1rem;
+  margin: 0 0 0.2rem;
+}
+
+.assign-lawyers-panel .form-panel-head p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.lawyer-pick-list {
+  display: grid;
+  gap: 0.4rem;
+  margin-bottom: 0.85rem;
+}
+
+.lawyer-pick {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.lawyer-pick:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+}
+
+.lawyer-pick:has(input:checked) {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 8%, #fff);
+}
+
+.lawyer-pick input[type="checkbox"] {
+  margin: 0;
+  width: 1rem;
+  height: 1rem;
+}
+
+.lawyer-pick-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 14%, #fff);
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.lawyer-pick-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0.05rem;
+}
+
+.lawyer-pick-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-text);
+}
+
+.lawyer-pick-id {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assign-lawyers-empty {
+  margin: 0;
+  padding: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+}
+
+.assign-lawyers-lead {
+  max-width: 22rem;
+  margin-bottom: 0;
+}
+
+.assign-lawyers-lead label {
+  font-size: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.assign-lawyers-lead select {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.85rem;
+}
+
+.assign-lawyers-form .form-actions {
+  margin-top: 0.25rem;
+  padding-top: 0;
+}
+
+.matter-lawyer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.matter-lawyer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.55rem 0.2rem 0.2rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.matter-lawyer-chip.is-lead {
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary) 7%, #fff);
+}
+
+.matter-lawyer-chip-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 14%, #fff);
+  color: var(--color-primary);
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.matter-lawyer-chip-name {
+  font-weight: 600;
+}
+
+.matter-lawyer-chip .badge {
+  font-size: 0.62rem;
+  padding: 0.08rem 0.32rem;
+}
+
+@media (min-width: 720px) {
+  .lawyer-pick-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

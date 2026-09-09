@@ -17,6 +17,11 @@ urlpatterns = [
         name="create_context",
     ),
     path("<uuid:pk>/", views.MatterDetailView.as_view(), name="detail"),
+    path(
+        "<uuid:pk>/affecter-avocats/",
+        views.MatterAssignLawyersView.as_view(),
+        name="assign_lawyers",
+    ),
     path("<uuid:pk>/modifier/", views.MatterUpdateView.as_view(), name="update"),
     path("<uuid:pk>/archiver/", views.MatterArchiveView.as_view(), name="archive"),
     path("<uuid:pk>/supprimer/", views.MatterDeleteView.as_view(), name="delete"),

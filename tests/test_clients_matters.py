@@ -21,18 +21,22 @@ from tests.factories import CabinetFactory, MembershipFactory, UserFactory
 
 
 def _open_matter(cabinet, user, client, title: str, **kwargs):  # type: ignore[no-untyped-def]
-    """Crée un dossier de test (la procuration n'est pas encore requise)."""
+    """Crée un dossier de test puis le rattache au cabinet via procuration."""
+    from apps.procurations.services import stamp_granted_procuration
+
     actor = (
         user if getattr(user, "is_platform_admin", False) else UserFactory(is_platform_admin=True)
     )
-    return create_matter(
-        cabinet=cabinet,
+    with_procuration = kwargs.pop("with_procuration", True)
+    matter = create_matter(
         user=actor,
-        client=client,
         title=title,
-        responsible_lawyer=kwargs.pop("responsible_lawyer", user),
         **kwargs,
     )
+    if with_procuration:
+        stamp_granted_procuration(matter=matter, cabinet=cabinet, actor=actor)
+        matter.refresh_from_db()
+    return matter
 
 
 @pytest.mark.django_db
@@ -54,8 +58,8 @@ def test_client_matter_flow_and_history() -> None:
         assert matter.reference.startswith("DOS-")
         assert matter.actions.filter(action="created").exists()
         stats = build_dashboard_stats(cabinet=cabinet)
-        assert stats.clients_count == 1
         assert stats.matters_active == 1
+        assert stats.matters_total == 1
 
 
 @pytest.mark.django_db
@@ -124,16 +128,17 @@ def test_closed_matter_cannot_be_deleted_but_can_be_archived() -> None:
             last_name="Arch",
         )
         matter = _open_matter(cabinet, user, client, "Affaire close")
+        admin = UserFactory(is_platform_admin=True)
         update_matter(
             matter=matter,
-            user=user,
+            user=admin,
             status=MatterStatus.CLOSED,
         )
         matter.refresh_from_db()
         with pytest.raises(Exception) as exc:
-            soft_delete_matter(matter=matter, user=user)
+            soft_delete_matter(matter=matter, user=admin)
         assert "clos" in str(exc.value).lower() or "archiv" in str(exc.value).lower()
-        archived = archive_matter(matter=matter, user=user)
+        archived = archive_matter(matter=matter, user=admin)
         assert archived.is_archived is True
         assert archived.actions.filter(action="archived").exists()
 
@@ -275,20 +280,35 @@ def test_cabinet_cannot_create_matter(client) -> None:  # type: ignore[no-untype
     session.save()
     assert client.get(reverse("matters:create")).status_code == 403
     with cabinet_context(cabinet):
-        person = create_client(
-            cabinet=cabinet,
-            user=user,
-            client_type=ClientType.PERSON,
-            last_name="Kalala",
-        )
         with pytest.raises(PermissionDenied):
             create_matter(
-                cabinet=cabinet,
                 user=user,
-                client=person,
                 title="Dossier illicite",
-                responsible_lawyer=user,
             )
+
+
+@pytest.mark.django_db
+def test_cabinet_cannot_update_or_delete_matter(client) -> None:  # type: ignore[no-untyped-def]
+    """Le cabinet ne peut ni modifier ni supprimer un dossier."""
+    user = UserFactory()
+    admin = UserFactory(is_platform_admin=True)
+    cabinet = CabinetFactory()
+    MembershipFactory(user=user, cabinet=cabinet, role=Role.OWNER)
+    matter = _open_matter(cabinet, user, None, "Dossier protégé")
+    client.force_login(user)
+    session = client.session
+    session["cabinet_id"] = str(cabinet.pk)
+    session.save()
+    assert client.get(reverse("matters:update", args=[matter.pk])).status_code == 403
+    assert client.post(reverse("matters:delete", args=[matter.pk])).status_code == 403
+    with pytest.raises(PermissionDenied):
+        update_matter(matter=matter, user=user, title="Hack")
+    with pytest.raises(PermissionDenied):
+        soft_delete_matter(matter=matter, user=user)
+    # Le ministère conserve les droits
+    update_matter(matter=matter, user=admin, title="Titre ministère")
+    matter.refresh_from_db()
+    assert matter.title == "Titre ministère"
 
 
 @pytest.mark.django_db
@@ -310,22 +330,16 @@ def test_cabinet_only_sees_matters_with_procuration(client) -> None:  # type: ig
             last_name="Mwamba",
         )
         hidden = create_matter(
-            cabinet=cabinet,
             user=admin,
-            client=person,
             title="Sans procuration",
-            responsible_lawyer=user,
         )
         visible = create_matter(
-            cabinet=cabinet,
             user=admin,
-            client=person,
             title="Avec procuration",
-            responsible_lawyer=user,
         )
         from apps.procurations.services import stamp_granted_procuration
 
-        stamp_granted_procuration(matter=visible, actor=admin)
+        stamp_granted_procuration(matter=visible, cabinet=cabinet, actor=admin)
 
     listing = client.get(reverse("matters:list"))
     html = listing.content.decode()

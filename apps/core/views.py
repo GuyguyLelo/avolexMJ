@@ -45,6 +45,12 @@ class HomeView(CabinetRequiredMixin, BreadcrumbMixin, TemplateView):
 
     template_name = "core/home.html"
 
+    def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        """Les comptes ministère vont à la supervision (pas de cabinet courant)."""
+        if request.user.is_authenticated and is_platform_admin(request.user):  # type: ignore[arg-type]
+            return redirect("core:supervision")
+        return super().dispatch(request, *args, **kwargs)
+
     def get_breadcrumb(self) -> list[dict[str, str]]:
         """Pas de fil d'Ariane : le bandeau du dashboard suffit."""
         return []

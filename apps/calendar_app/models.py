@@ -15,9 +15,16 @@ from apps.core.models import TenantOwnedModel
 
 
 def hearing_report_upload_to(instance: Event, filename: str) -> str:
-    """Chemin opaque cabinet/audience/uuid.ext."""
+    """Chemin opaque cabinet/audience/uuid.ext (champ legacy)."""
     ext = PurePosixPath(filename).suffix.lower()[:16]
     return f"{instance.cabinet_id}/{instance.pk}/{uuid.uuid4().hex}{ext}"
+
+
+def hearing_attachment_upload_to(instance: HearingAttachment, filename: str) -> str:
+    """Chemin opaque cabinet/audience/uuid.ext pour pièce jointe."""
+    ext = PurePosixPath(filename).suffix.lower()[:16]
+    event = instance.event
+    return f"{event.cabinet_id}/{event.pk}/{uuid.uuid4().hex}{ext}"
 
 
 class EventType(models.TextChoices):
@@ -37,6 +44,20 @@ class HearingStatus(models.TextChoices):
     HELD = "held", _("Tenue")
     POSTPONED = "postponed", _("Reportée")
     CANCELLED = "cancelled", _("Annulée")
+
+
+def _guess_report_mime(name: str) -> str:
+    mime, _ = mimetypes.guess_type(name or "")
+    if mime:
+        return mime
+    lower = (name or "").lower()
+    if lower.endswith(".pdf"):
+        return "application/pdf"
+    if lower.endswith(".docx"):
+        return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    if lower.endswith(".doc"):
+        return "application/msword"
+    return "application/octet-stream"
 
 
 class Event(TenantOwnedModel):
@@ -75,7 +96,7 @@ class Event(TenantOwnedModel):
     )
     hearing_report = models.TextField(_("compte-rendu d'audience"), blank=True)
     hearing_report_file = models.FileField(
-        _("rapport d'audience"),
+        _("rapport d'audience (legacy)"),
         upload_to=hearing_report_upload_to,
         storage=private_hearing_storage,
         max_length=512,
@@ -122,28 +143,66 @@ class Event(TenantOwnedModel):
 
     @property
     def has_hearing_report(self) -> bool:
-        """Indique si un rapport (fichier ou texte historique) est présent."""
+        """Indique si au moins un fichier ou un compte-rendu texte est présent."""
+        if self.pk and self.attachments.exists():
+            return True
         return bool(self.hearing_report_file) or bool(self.hearing_report.strip())
 
     @property
     def hearing_report_mime_type(self) -> str:
-        """Type MIME du rapport joint, d'après le nom de fichier."""
+        """Type MIME du rapport legacy, d'après le nom de fichier."""
         name = self.hearing_report_filename
         if not name and self.hearing_report_file:
             name = self.hearing_report_file.name
-        mime, _ = mimetypes.guess_type(name or "")
-        if mime:
-            return mime
-        lower = (name or "").lower()
-        if lower.endswith(".pdf"):
-            return "application/pdf"
-        if lower.endswith(".docx"):
-            return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        if lower.endswith(".doc"):
-            return "application/msword"
-        return "application/octet-stream"
+        return _guess_report_mime(name)
 
     @property
     def hearing_report_can_preview(self) -> bool:
         """Le PDF peut s'afficher dans le navigateur ; Word se télécharge."""
         return bool(self.hearing_report_file) and self.hearing_report_mime_type == "application/pdf"
+
+
+class HearingAttachment(models.Model):
+    """Fichier joint à une audience (plusieurs possibles)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    event = models.ForeignKey(
+        Event,
+        verbose_name=_("audience"),
+        on_delete=models.CASCADE,
+        related_name="attachments",
+    )
+    file = models.FileField(
+        _("fichier"),
+        upload_to=hearing_attachment_upload_to,
+        storage=private_hearing_storage,
+        max_length=512,
+    )
+    original_filename = models.CharField(_("nom du fichier"), max_length=255)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("déposé par"),
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="hearing_attachments_uploaded",
+    )
+    created_at = models.DateTimeField(_("créé le"), auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Pièce jointe d'audience")
+        verbose_name_plural = _("Pièces jointes d'audience")
+        ordering = ("created_at",)
+
+    def __str__(self) -> str:
+        return self.original_filename
+
+    @property
+    def mime_type(self) -> str:
+        """Type MIME d'après le nom de fichier."""
+        return _guess_report_mime(self.original_filename or (self.file.name if self.file else ""))
+
+    @property
+    def can_preview(self) -> bool:
+        """Aperçu navigateur réservé aux PDF."""
+        return self.mime_type == "application/pdf"

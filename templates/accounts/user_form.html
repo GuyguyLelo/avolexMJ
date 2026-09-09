@@ -1,0 +1,70 @@
+{% extends "layouts/app.html" %}
+{% load i18n %}
+
+{% block title %}{% if is_create %}{% translate "Nouvel utilisateur" %}{% else %}{% translate "Modifier l'utilisateur" %}{% endif %} — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="cabinets-page cabinets-form-page">
+  <header class="page-header page-header-compact cabinets-page-header">
+    <div>
+      <p class="cabinets-kicker">{% translate "Plateforme" %}</p>
+      <h1>{% if is_create %}{% translate "Nouvel utilisateur" %}{% else %}{% translate "Modifier l'utilisateur" %}{% endif %}</h1>
+      <p class="page-lede">
+        {% if is_create %}
+          {% translate "Compte cabinet : précisez le cabinet d'avocats. SuperAdmin / Admin : sans rattachement." %}
+        {% else %}
+          {{ account_user.email }}
+        {% endif %}
+      </p>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="{% if account_user %}{% url 'accounts:user_detail' account_user.pk %}{% else %}{% url 'accounts:user_list' %}{% endif %}">{% translate "Retour" %}</a>
+  </header>
+
+  <form method="post" class="card compact-form" novalidate data-user-form>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="form-grid">
+      {% for field in form %}
+      <div class="form-field{% if field.name == 'email' or field.name == 'account_type' or field.name == 'is_active' or field.name == 'cabinet' %} form-field-span{% endif %}"{% if field.name == 'cabinet' or field.name == 'cabinet_role' %} data-cabinet-only{% endif %}>
+        {% if field.field.widget.input_type == "checkbox" %}
+        <div class="cluster" style="align-items:center;gap:0.5rem;">
+          {{ field }}
+          <label for="{{ field.id_for_label }}" style="margin:0;">{{ field.label }}</label>
+        </div>
+        {% else %}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% endif %}
+        {% if field.help_text %}<p class="form-help">{{ field.help_text }}</p>{% endif %}
+        {% if field.errors %}<div class="form-error">{{ field.errors }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="cluster" style="margin-top:1rem;">
+      <button class="btn btn-primary" type="submit">{% translate "Enregistrer" %}</button>
+      <a class="btn btn-secondary" href="{% if account_user %}{% url 'accounts:user_detail' account_user.pk %}{% else %}{% url 'accounts:user_list' %}{% endif %}">{% translate "Annuler" %}</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if is_create %}
+<script>
+(function () {
+  var typeField = document.getElementById("id_account_type");
+  if (!typeField) return;
+  var blocks = document.querySelectorAll("[data-cabinet-only]");
+  function sync() {
+    var show = typeField.value === "cabinet";
+    blocks.forEach(function (el) {
+      el.hidden = !show;
+      el.style.display = show ? "" : "none";
+    });
+  }
+  typeField.addEventListener("change", sync);
+  sync();
+})();
+</script>
+{% endif %}
+{% endblock %}

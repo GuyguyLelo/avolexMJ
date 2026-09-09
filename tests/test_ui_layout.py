@@ -43,6 +43,11 @@ def test_app_shell_has_sidebar_and_topbar(client) -> None:
     content = response.content.decode()
     assert "app-sidebar" in content
     assert "app-topbar" in content
+    assert "app-cabinet-banner" in content
+    assert "app-cabinet-banner-marquee" in content
+    assert "app-user-chip" in content
+    assert reverse("accounts:profile") in content
+    assert "Mon profil" in content
     assert "data-sidebar-toggle" in content
     assert "js/main.js" in content
     assert "page-header-dash--cabinet" in content

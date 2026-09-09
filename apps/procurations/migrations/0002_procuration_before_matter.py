@@ -11,14 +11,14 @@ def fill_case_fields_from_matter(apps, schema_editor) -> None:
         if matter is None:
             continue
         client = getattr(matter, "client", None)
-        company = getattr(client, "company_name", "") or ""
-        last = getattr(client, "last_name", "") or ""
-        first = getattr(client, "first_name", "") or ""
+        company = getattr(client, "company_name", "") or "" if client is not None else ""
+        last = getattr(client, "last_name", "") or "" if client is not None else ""
+        first = getattr(client, "first_name", "") or "" if client is not None else ""
         procuration.subject = (matter.title or procuration.purpose or "")[:255]
         procuration.scale = matter.scale or "national"
         procuration.jurisdiction = matter.jurisdiction or ""
         procuration.practice_area = matter.practice_area or ""
-        procuration.opposing_party = matter.opposing_party or ""
+        procuration.opposing_party = getattr(matter, "opposing_party", "") or ""
         procuration.client_name = (company or f"{first} {last}".strip())[:255]
         procuration.save(
             update_fields=[

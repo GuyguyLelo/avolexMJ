@@ -3,14 +3,13 @@
 
 {% block title %}{{ procuration.reference }} — {{ SITE_NAME }}{% endblock %}
 
-
 {% block content %}
-<article class="detail-sheet">
+<article class="detail-sheet detail-sheet--compact">
   <header class="detail-sheet-header">
     <div class="detail-sheet-identity">
       <span class="detail-sheet-avatar is-gold" aria-hidden="true">MJ</span>
       <div class="detail-sheet-title">
-        <p class="detail-sheet-kicker">{% translate "Ministère de la Justice et Garde des Sceaux" %}</p>
+        <p class="detail-sheet-kicker">{% translate "Procuration" %}</p>
         <h1>{{ procuration.reference }}</h1>
         <p class="detail-sheet-lede">
           <span>{{ procuration.subject|default:procuration.purpose }}</span>
@@ -30,8 +29,20 @@
       {% if can_submit %}
       <form method="post" action="{% url 'procurations:submit' procuration.pk %}">
         {% csrf_token %}
-        <button class="btn btn-primary btn-sm" type="submit">{% translate "Transmettre au ministère" %}</button>
+        <button class="btn btn-primary btn-sm" type="submit">{% translate "Transmettre" %}</button>
       </form>
+      {% endif %}
+      {% if can_generate %}
+      <form method="post" action="{% url 'procurations:generate' procuration.pk %}"{% if procuration.instrument %} onsubmit="return confirm('{% translate "Un acte est deja joint. Le remplacer ?" %}');"{% endif %}>
+        {% csrf_token %}
+        <button class="btn btn-primary btn-sm" type="submit">{% if procuration.instrument %}{% translate "Régénérer" %}{% else %}{% translate "Générer" %}{% endif %}</button>
+      </form>
+      {% endif %}
+      {% if procuration.instrument %}
+        {% if procuration.instrument_can_preview %}
+        <a class="btn btn-secondary btn-sm" href="{% url 'procurations:preview' procuration.pk %}" target="_blank" rel="noopener">{% translate "Afficher" %}</a>
+        {% endif %}
+        <a class="btn btn-secondary btn-sm" href="{% url 'procurations:download' procuration.pk %}">{% translate "Télécharger" %}</a>
       {% endif %}
       {% if can_delete %}
       <form method="post" action="{% url 'procurations:delete' procuration.pk %}" onsubmit="return confirm('{% translate "Supprimer cette procuration ?" %}');">
@@ -39,244 +50,140 @@
         <button class="btn btn-ghost btn-sm" type="submit">{% translate "Supprimer" %}</button>
       </form>
       {% endif %}
-      {% if can_generate %}
-      <form method="post" action="{% url 'procurations:generate' procuration.pk %}"{% if procuration.instrument %} onsubmit="return confirm('{% translate "Un acte est deja joint. Le remplacer ?" %}');"{% endif %}>
-        {% csrf_token %}
-        <button class="btn btn-primary btn-sm" type="submit">{% if procuration.instrument %}{% translate "Régénérer l'acte" %}{% else %}{% translate "Générer la procuration" %}{% endif %}</button>
-      </form>
-      {% endif %}
-      {% if procuration.instrument %}
-        {% if procuration.instrument_can_preview %}
-        <a class="btn btn-secondary btn-sm" href="{% url 'procurations:preview' procuration.pk %}" target="_blank" rel="noopener">{% translate "Afficher l'acte" %}</a>
-        {% endif %}
-        <a class="btn btn-secondary btn-sm" href="{% url 'procurations:download' procuration.pk %}">{% translate "Télécharger" %}</a>
-      {% endif %}
     </div>
   </header>
 
   {% if procuration.status == 'granted' and procuration.is_currently_valid %}
-  <aside class="proc-banner is-ok" style="background: linear-gradient(135deg, #003d99 0%, #0056b3 100%); border-left: 4px solid #c4a40a;">
-    <div style="display: flex; align-items: center; gap: 1rem;">
-      <svg style="width: 24px; height: 24px; color: #c4a40a;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <div>
-        <p style="margin: 0; color: white; font-weight: 600;">{% translate "Procuration active" %}</p>
-        <p style="margin: 0; color: rgba(255,255,255,0.8); font-size: 0.9rem;">
-          {% if procuration.expires_at %}
-          {% translate "Valide jusqu'au" %} {{ procuration.expires_at|date:"d/m/Y" }}
-          {% else %}
-          {% translate "Validité indéterminée" %}
-          {% endif %}
-        </p>
-      </div>
+  <aside class="proc-banner is-ok">
+    <div class="proc-banner-body">
+      <p class="proc-banner-title">{% translate "Procuration active" %}</p>
+      <p>
+        {% if procuration.expires_at %}
+        {% translate "Valide jusqu'au" %} {{ procuration.expires_at|date:"d/m/Y" }}
+        {% else %}
+        {% translate "Validité indéterminée" %}
+        {% endif %}
+      </p>
     </div>
   </aside>
   {% elif procuration.status == 'requested' %}
-  <aside class="proc-banner" style="background: linear-gradient(135deg, #f7d618 0%, #e6c200 100%); border-left: 4px solid #b8860b;">
-    <div style="display: flex; align-items: center; gap: 1rem;">
-      <svg style="width: 24px; height: 24px; color: #8b4513;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M12 6v6l4 2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <div>
-        <p style="margin: 0; color: #8b4513; font-weight: 600;">{% translate "En attente d'approbation" %}</p>
-        <p style="margin: 0; color: rgba(139,69,19,0.8); font-size: 0.9rem;">{% translate "Cette procuration est en cours d'examen par le Ministère de la Justice." %}</p>
-      </div>
+  <aside class="proc-banner is-pending">
+    <div class="proc-banner-body">
+      <p class="proc-banner-title">{% translate "En attente d'approbation" %}</p>
+      <p>{% translate "Examen en cours par le Ministère de la Justice." %}</p>
     </div>
   </aside>
   {% elif procuration.status == 'refused' %}
-  <aside class="proc-banner" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-left: 4px solid #bd2130;">
-    <div style="display: flex; align-items: center; gap: 1rem;">
-      <svg style="width: 24px; height: 24px; color: white;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M15 9l-6 6-6-6" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <div>
-        <p style="margin: 0; color: white; font-weight: 600;">{% translate "Procuration refusée" %}</p>
-        <p style="margin: 0; color: rgba(255,255,255,0.8); font-size: 0.9rem;">{% translate "Le Ministère de la Justice n'a pas accordé cette procuration." %}</p>
-      </div>
+  <aside class="proc-banner is-danger">
+    <div class="proc-banner-body">
+      <p class="proc-banner-title">{% translate "Procuration refusée" %}</p>
+      <p>{% translate "Le Ministère de la Justice n'a pas accordé cette procuration." %}</p>
     </div>
   </aside>
   {% elif procuration.status == 'revoked' %}
-  <aside class="proc-banner" style="background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%); border-left: 4px solid #495057;">
-    <div style="display: flex; align-items: center; gap: 1rem;">
-      <svg style="width: 24px; height: 24px; color: white;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M15 9l-6 6-6-6" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <div>
-        <p style="margin: 0; color: white; font-weight: 600;">{% translate "Procuration révoquée" %}</p>
-        <p style="margin: 0; color: rgba(255,255,255,0.8); font-size: 0.9rem;">{% translate "Cette procuration a été annulée par le Ministère de la Justice." %}</p>
-      </div>
+  <aside class="proc-banner is-muted">
+    <div class="proc-banner-body">
+      <p class="proc-banner-title">{% translate "Procuration révoquée" %}</p>
+      <p>{% translate "Cette procuration a été annulée par le Ministère de la Justice." %}</p>
     </div>
   </aside>
   {% endif %}
 
-  <section class="card">
-    <header class="card-header">
-      <h2 class="card-title">{% translate "Informations générales" %}</h2>
-    </header>
-    <dl class="matter-facts">
-      <div class="matter-fact">
-        <dt>
-          <svg style="width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 0.5rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 21h18M5 21V7a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          {% translate "Cabinet" %}
-        </dt>
-        <dd>
-          <strong>{{ procuration.cabinet.name }}</strong>
-          {% if procuration.cabinet.bar_association %}
-          <span style="color: #667483; font-size: 0.85rem;">· {{ procuration.cabinet.bar_association }}</span>
-          {% endif %}
-        </dd>
-      </div>
-      <div class="matter-fact">
-        <dt>
-          <svg style="width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 0.5rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          {% translate "Dossier" %}
-        </dt>
-        <dd>
-          {% if procuration.matter_id %}
-          <a href="{% url 'matters:detail' procuration.matter_id %}" style="font-weight: 600; color: #003d99;">
-            {{ procuration.matter.reference }}
-          </a>
-          <br>
-          <span style="color: #495057;">{{ procuration.matter.title }}</span>
-          <span class="badge {% if procuration.matter.scale == 'international' %}badge-gold{% else %}badge-info{% endif %}" style="margin-left: 0.5rem;">
-            {{ procuration.matter.get_scale_display }}
-          </span>
-          {% else %}
-          <span style="color: #495057;">{{ procuration.subject|default:"—" }}</span>
-          {% endif %}
-        </dd>
-      </div>
-      <div class="matter-fact">
-        <dt>
-          <svg style="width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 0.5rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="9" cy="7" r="4" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          {% translate "Justiciable" %}
-        </dt>
-        <dd>
-          {{ procuration.client_name|default:"—" }}
-        </dd>
-      </div>
-      {% if procuration.jurisdiction %}
-      <div class="matter-fact">
-        <dt>
-          <svg style="width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 0.5rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 21h18M5 21V7a2 2 0 012-2h4l2 2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7z" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          {% translate "Juridiction" %}
-        </dt>
-        <dd><strong>{{ procuration.jurisdiction }}</strong></dd>
-      </div>
-      {% endif %}
-      <div class="matter-fact">
-        <dt>
-          <svg style="width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 0.5rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M8 7V3m8 4L4 7l4-4m4 0h8m-4 4V21m0 0H4a2 2 0 01-2 2V3a2 2 0 012-2h4" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          {% translate "Validité" %}
-        </dt>
-        <dd>
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            {% if procuration.valid_from %}{{ procuration.valid_from|date:"d/m/Y" }}{% else %}—{% endif %}
-            <span style="color: #9ca3af;">→</span>
-            {% if procuration.expires_at %}{{ procuration.expires_at|date:"d/m/Y" }}{% else %}{% translate "sans terme" %}{% endif %}
-          </div>
-        </dd>
-      </div>
-      {% if procuration.ministry_reference %}
-      <div class="matter-fact">
-        <dt>
-          <svg style="width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 0.5rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.5a2 2 0 012 2v5a2 2 0 01-2 2h-.5a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v5a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2h5.5a2 2 0 012 2v5a2 2 0 01-2 2h-.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          {% translate "Référence ministérielle" %}
-        </dt>
-        <dd><strong>{{ procuration.ministry_reference }}</strong></dd>
-      </div>
-      {% endif %}
-      {% if procuration.granted_by %}
-      <div class="matter-fact">
-        <dt>
-          <svg style="width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 0.5rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="12" cy="7" r="4" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          {% translate "Accordée par" %}
-        </dt>
-        <dd>{{ procuration.granted_by.get_full_name|default:procuration.granted_by.email }}</dd>
-      </div>
-      {% endif %}
-      {% if procuration.notes %}
-      <div class="matter-fact matter-fact--wide">
-        <dt>
-          <svg style="width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 0.5rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          {% translate "Notes" %}
-        </dt>
-        <dd>{{ procuration.notes }}</dd>
-      </div>
-      {% endif %}
-      {% if procuration.refusal_reason %}
-      <div class="matter-fact matter-fact--wide">
-        <dt>
-          <svg style="width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 0.5rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          {% translate "Motif du refus" %}
-        </dt>
-        <dd style="color: #dc3545;">{{ procuration.refusal_reason }}</dd>
-      </div>
-      {% endif %}
-      {% if procuration.revocation_reason %}
-      <div class="matter-fact matter-fact--wide">
-        <dt>
-          <svg style="width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 0.5rem;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          {% translate "Motif de révocation" %}
-        </dt>
-        <dd style="color: #6c757d;">{{ procuration.revocation_reason }}</dd>
-      </div>
-      {% endif %}
-    </dl>
+  <section class="matter-facts" aria-label="{% translate 'Informations' %}">
+    <div class="matter-fact">
+      <dt>{% translate "Cabinet" %}</dt>
+      <dd>
+        <span class="matter-fact-value">{{ procuration.cabinet.name }}</span>
+        {% if procuration.cabinet.bar_association %}
+        <span class="matter-fact-sub">{{ procuration.cabinet.bar_association }}</span>
+        {% endif %}
+      </dd>
+    </div>
+    <div class="matter-fact">
+      <dt>{% translate "Dossier" %}</dt>
+      <dd>
+        {% if procuration.matter_id %}
+        <a href="{% url 'matters:detail' procuration.matter_id %}">{{ procuration.matter.reference }}</a>
+        <span class="matter-fact-sub">{{ procuration.matter.title }}</span>
+        <span class="badge {% if procuration.matter.scale == 'international' %}badge-gold{% else %}badge-info{% endif %}">
+          {{ procuration.matter.get_scale_display }}
+        </span>
+        {% else %}
+        <span class="matter-fact-value">{{ procuration.subject|default:"—" }}</span>
+        {% endif %}
+      </dd>
+    </div>
+    {% if procuration.jurisdiction %}
+    <div class="matter-fact">
+      <dt>{% translate "Juridiction" %}</dt>
+      <dd><span class="matter-fact-value">{{ procuration.jurisdiction }}</span></dd>
+    </div>
+    {% endif %}
+    <div class="matter-fact">
+      <dt>{% translate "Validité" %}</dt>
+      <dd>
+        <span class="matter-fact-value">
+          {% if procuration.valid_from %}{{ procuration.valid_from|date:"d/m/Y" }}{% else %}—{% endif %}
+          →
+          {% if procuration.expires_at %}{{ procuration.expires_at|date:"d/m/Y" }}{% else %}{% translate "sans terme" %}{% endif %}
+        </span>
+      </dd>
+    </div>
+    {% if procuration.ministry_reference %}
+    <div class="matter-fact">
+      <dt>{% translate "Réf. ministérielle" %}</dt>
+      <dd><span class="matter-fact-value">{{ procuration.ministry_reference }}</span></dd>
+    </div>
+    {% endif %}
+    {% if procuration.purpose %}
+    <div class="matter-fact matter-fact--wide">
+      <dt>{% translate "Objet" %}</dt>
+      <dd>{{ procuration.purpose }}</dd>
+    </div>
+    {% endif %}
+    {% if procuration.notes %}
+    <div class="matter-fact matter-fact--wide">
+      <dt>{% translate "Notes" %}</dt>
+      <dd>{{ procuration.notes }}</dd>
+    </div>
+    {% endif %}
+    {% if procuration.refusal_reason %}
+    <div class="matter-fact matter-fact--wide">
+      <dt>{% translate "Motif du refus" %}</dt>
+      <dd class="text-danger">{{ procuration.refusal_reason }}</dd>
+    </div>
+    {% endif %}
+    {% if procuration.revocation_reason %}
+    <div class="matter-fact matter-fact--wide">
+      <dt>{% translate "Motif de révocation" %}</dt>
+      <dd>{{ procuration.revocation_reason }}</dd>
+    </div>
+    {% endif %}
   </section>
 
   {% if can_generate and not procuration.instrument %}
-  <section class="card" style="margin-top: var(--space-6);">
-    <header class="card-header">
-      <h2 class="card-title">{% translate "Acte de procuration" %}</h2>
+  <section class="detail-sheet-block">
+    <header class="detail-sheet-block-head">
+      <h2>{% translate "Acte de procuration" %}</h2>
     </header>
-    <div style="padding: 0 var(--space-5) var(--space-5);">
-      <p class="page-lede">{% translate "Générez l'acte officiel au format PDF pour le cabinet." %}</p>
-      <form method="post" action="{% url 'procurations:generate' procuration.pk %}">
-        {% csrf_token %}
-        <button class="btn btn-primary" type="submit">{% translate "Générer la procuration" %}</button>
-      </form>
-    </div>
+    <p class="detail-sheet-block-lede">{% translate "Générez l'acte officiel au format PDF pour le cabinet." %}</p>
+    <form method="post" action="{% url 'procurations:generate' procuration.pk %}">
+      {% csrf_token %}
+      <button class="btn btn-primary btn-sm" type="submit">{% translate "Générer la procuration" %}</button>
+    </form>
   </section>
   {% endif %}
 
   {% if can_grant or can_refuse %}
-  <section class="card" style="margin-top: var(--space-6);">
-    <header class="card-header">
-      <h2 class="card-title">{% translate "Décision du ministère" %}</h2>
+  <section class="detail-sheet-block">
+    <header class="detail-sheet-block-head">
+      <h2>{% translate "Décision du ministère" %}</h2>
     </header>
-    <div class="proc-decision" style="padding: var(--space-5); display: grid; gap: var(--space-6);">
+    <div class="proc-decision">
       {% if can_grant %}
-      <form method="post" action="{% url 'procurations:grant' procuration.pk %}">
+      <form method="post" action="{% url 'procurations:grant' procuration.pk %}" class="proc-decision-form">
         {% csrf_token %}
-        <h3 style="margin: 0 0 var(--space-3); font-size: var(--text-base);">{% translate "Accorder" %}</h3>
+        <h3>{% translate "Accorder" %}</h3>
         <div class="form-grid">
           <div class="form-field">
             <label for="{{ grant_form.ministry_reference.id_for_label }}">{{ grant_form.ministry_reference.label }}</label>
@@ -295,18 +202,18 @@
             {{ grant_form.notes }}
           </div>
         </div>
-        <button class="btn btn-primary" type="submit" style="margin-top: var(--space-4);">{% translate "Accorder la procuration" %}</button>
+        <button class="btn btn-primary btn-sm" type="submit">{% translate "Accorder la procuration" %}</button>
       </form>
       {% endif %}
       {% if can_refuse %}
-      <form method="post" action="{% url 'procurations:refuse' procuration.pk %}">
+      <form method="post" action="{% url 'procurations:refuse' procuration.pk %}" class="proc-decision-form is-refuse">
         {% csrf_token %}
-        <h3 style="margin: 0 0 var(--space-3); font-size: var(--text-base);">{% translate "Refuser" %}</h3>
+        <h3>{% translate "Refuser" %}</h3>
         <div class="form-field">
           <label for="id_reason">{% translate "Motif" %}</label>
           <textarea class="form-input" id="id_reason" name="reason" rows="3" required></textarea>
         </div>
-        <button class="btn btn-danger" type="submit" style="margin-top: var(--space-3);">{% translate "Refuser" %}</button>
+        <button class="btn btn-danger btn-sm" type="submit">{% translate "Refuser" %}</button>
       </form>
       {% endif %}
     </div>

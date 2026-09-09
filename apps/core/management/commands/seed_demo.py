@@ -40,7 +40,7 @@ User = get_user_model()
 
 DEMO_PASSWORD = "@12345678"  # noqa: S105 — compte de démo local uniquement
 DEMO_EMAIL = "ngamika@gmail.com"
-MINISTRY_EMAIL = "ministere@avolex.local"
+MINISTRY_EMAIL = "Admin"
 DEMO_CABINET_NAME = "ILEO Law Firm"
 DEMO_CABINET_LEGAL_NAME = "ILEO Law Firm"
 
@@ -281,6 +281,7 @@ class Command(BaseCommand):
             self._seed()
 
     def _seed(self) -> None:
+        super_admin = self._ensure_super_admin()
         ministry = self._ensure_ministry()
         owner = self._ensure_user(
             email=DEMO_EMAIL,
@@ -307,7 +308,8 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Données de test prêtes."))
         self.stdout.write(f"  Cabinet   : {cabinet.name}")
         self.stdout.write("  Comptes (mot de passe identique) :")
-        self.stdout.write(f"    {MINISTRY_EMAIL:28}  ministère    {DEMO_PASSWORD}")
+        self.stdout.write(f"    {super_admin.email:28}  SuperAdmin   {DEMO_PASSWORD}")
+        self.stdout.write(f"    {MINISTRY_EMAIL:28}  administrateur  {DEMO_PASSWORD}")
         for member in TEAM:
             self.stdout.write(f"    {member['email']:28}  {member['role']:12}  {DEMO_PASSWORD}")
         self.stdout.write("  Cabinets Kinshasa/Gombe :")
@@ -316,6 +318,8 @@ class Command(BaseCommand):
             self.stdout.write(f"      {spec['owner_email']:28}  {DEMO_PASSWORD}")
 
     def _ensure_ministry(self) -> Any:
+        from apps.tenants.services import detach_user_from_all_cabinets
+
         user = self._ensure_user(
             email=MINISTRY_EMAIL,
             first_name="Ministère",
@@ -324,6 +328,27 @@ class Command(BaseCommand):
         if not user.is_platform_admin:
             user.is_platform_admin = True
             user.save(update_fields=["is_platform_admin"])
+        detach_user_from_all_cabinets(user)
+        return user
+
+    def _ensure_super_admin(self) -> Any:
+        from apps.tenants.services import detach_user_from_all_cabinets
+
+        user = self._ensure_user(
+            email="SuperAdmin",
+            first_name="Super",
+            last_name="Admin",
+        )
+        changed = False
+        if not user.is_super_admin:
+            user.is_super_admin = True
+            changed = True
+        if not user.is_platform_admin:
+            user.is_platform_admin = True
+            changed = True
+        if changed:
+            user.save(update_fields=["is_super_admin", "is_platform_admin"])
+        detach_user_from_all_cabinets(user)
         return user
 
     def _ensure_user(self, *, email: str, first_name: str, last_name: str) -> Any:
@@ -479,18 +504,16 @@ class Command(BaseCommand):
                 ).first()
                 if matter is None:
                     matter = create_matter(
-                        cabinet=cabinet,
                         user=ministry,
-                        client=client,
                         title=spec["matter_title"],
-                        responsible_lawyer=owner,
                         jurisdiction=spec["jurisdiction"],
                         scale=spec.get("scale") or MatterScale.NATIONAL,
                         practice_area=(spec.get("specialties") or ("",))[0],
                     )
                 stamp_granted_procuration(
                     matter=matter,
-                    actor=owner,
+                    cabinet=cabinet,
+                    actor=ministry,
                     purpose="Représentation et actes de procédure",
                     ministry_reference=f"MJ/GS/2026/{cabinet.slug[:8].upper()}",
                 )
@@ -712,34 +735,30 @@ class Command(BaseCommand):
         ]
         matters: dict[str, Matter] = {}
         for spec in specs:
-            existing = Matter.objects.filter(
+            existing = Matter.unscoped.filter(
                 cabinet=cabinet,
-                client=spec["client"],
                 title=spec["title"],
             ).first()
             if existing:
                 existing.scale = spec.get("scale", MatterScale.NATIONAL)
                 existing.jurisdiction = spec.get("jurisdiction", existing.jurisdiction)
                 existing.save(update_fields=["scale", "jurisdiction", "updated_at"])
-                stamp_granted_procuration(matter=existing, actor=owner)
+                stamp_granted_procuration(matter=existing, cabinet=cabinet, actor=ministry)
                 matters[spec["title"]] = existing
                 continue
             closed_at = spec.pop("closed_at", None)
             status = spec.pop("status")
-            client = spec.pop("client")
-            lawyer_user = spec.pop("lawyer")
+            spec.pop("client", None)
+            spec.pop("lawyer", None)
             matter = create_matter(
-                cabinet=cabinet,
                 user=ministry,
-                client=client,
-                responsible_lawyer=lawyer_user,
                 **spec,
             )
-            stamp_granted_procuration(matter=matter, actor=owner)
+            stamp_granted_procuration(matter=matter, cabinet=cabinet, actor=ministry)
             if status != MatterStatus.OPEN or closed_at:
                 update_matter(
                     matter=matter,
-                    user=owner,
+                    user=ministry,
                     status=status,
                     closed_at=closed_at,
                 )
