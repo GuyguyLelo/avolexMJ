@@ -33,7 +33,25 @@ from apps.core.kinshasa_courts import kinshasa_court_filter_choices
 from apps.core.mixins import BreadcrumbMixin
 from apps.matters.models import Matter
 from apps.tenants.mixins import CabinetPermissionMixin
+from apps.tenants.models import Cabinet
 from apps.tenants.roles import PERM_ADD, PERM_CHANGE, PERM_DELETE, PERM_VIEW
+from apps.tenants.services import is_platform_admin
+
+
+def _platform_sets_no_cabinet(view: CabinetPermissionMixin, request: Any) -> None:
+    """Supervision ministère : pas de cabinet courant requis pour la lecture."""
+    if is_platform_admin(request.user):
+        view.cabinet_required = False
+    else:
+        view.cabinet_required = True
+
+
+def _visible_events(request: Any) -> QuerySet[Event]:
+    """Événements visibles : tous cabinets pour le ministère, sinon cabinet courant."""
+    related = ("matter", "assigned_to", "created_by", "matter__cabinet", "cabinet")
+    if is_platform_admin(request.user):
+        return Event.unscoped.select_related(*related).prefetch_related("attachments")
+    return Event.objects.select_related(*related).prefetch_related("attachments")
 
 
 class CalendarListView(CabinetPermissionMixin, BreadcrumbMixin, ListView):
@@ -76,11 +94,14 @@ class EventDetailView(CabinetPermissionMixin, BreadcrumbMixin, DetailView):
     template_name = "calendar_app/event_detail.html"
     context_object_name = "event"
     required_perm = PERM_VIEW
+    cabinet_required = False
+
+    def dispatch(self, request: Any, *args: Any, **kwargs: Any) -> HttpResponse:
+        _platform_sets_no_cabinet(self, request)
+        return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self) -> QuerySet[Event]:
-        return Event.objects.select_related("matter", "assigned_to", "created_by").prefetch_related(
-            "attachments"
-        )
+        return _visible_events(self.request)
 
     def get_breadcrumb(self) -> list[dict[str, str]]:
         if self.object.event_type == EventType.HEARING:
@@ -92,6 +113,11 @@ class EventDetailView(CabinetPermissionMixin, BreadcrumbMixin, DetailView):
             {"label": _g("Agenda"), "url": reverse("calendar:list")},
             {"label": self.object.title},
         ]
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        ctx["is_platform_supervision"] = is_platform_admin(self.request.user)
+        return ctx
 
 
 class EventCreateView(CabinetPermissionMixin, BreadcrumbMixin, CreateView):
@@ -219,6 +245,11 @@ class HearingListView(CabinetPermissionMixin, BreadcrumbMixin, ListView):
     context_object_name = "hearings"
     paginate_by = 15
     required_perm = PERM_VIEW
+    cabinet_required = False
+
+    def dispatch(self, request: Any, *args: Any, **kwargs: Any) -> HttpResponse:
+        _platform_sets_no_cabinet(self, request)
+        return super().dispatch(request, *args, **kwargs)
 
     def get_breadcrumb(self) -> list[dict[str, str]]:
         return [{"label": _g("Audiences")}]
@@ -226,11 +257,14 @@ class HearingListView(CabinetPermissionMixin, BreadcrumbMixin, ListView):
     def get_queryset(self) -> QuerySet[Event]:
         period = self.request.GET.get("period", "upcoming")
         now = timezone.now()
+        platform = is_platform_admin(self.request.user)  # type: ignore[arg-type]
         kwargs: dict[str, Any] = {
-            "cabinet": self.request.cabinet,  # type: ignore[attr-defined]
+            "cabinet": getattr(self.request, "cabinet", None),
             "matter_id": self.request.GET.get("matter", ""),
             "hearing_status": self.request.GET.get("status", ""),
             "court": self.request.GET.get("court", ""),
+            "cabinet_id": self.request.GET.get("cabinet", "") if platform else "",
+            "cross_cabinet": platform,
         }
         if period == "past":
             kwargs["to_dt"] = now
@@ -244,13 +278,21 @@ class HearingListView(CabinetPermissionMixin, BreadcrumbMixin, ListView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
+        platform = is_platform_admin(self.request.user)  # type: ignore[arg-type]
         ctx["hearing_statuses"] = HearingStatus.choices
         ctx["filter_period"] = self.request.GET.get("period", "upcoming")
         ctx["filter_status"] = self.request.GET.get("status", "")
         ctx["filter_matter"] = self.request.GET.get("matter", "")
         ctx["filter_court"] = self.request.GET.get("court", "")
-        ctx["matters"] = Matter.objects.order_by("reference")
+        ctx["filter_cabinet"] = self.request.GET.get("cabinet", "")
+        ctx["is_platform_supervision"] = platform
         ctx["court_choices"] = kinshasa_court_filter_choices()
+        if platform:
+            ctx["matters"] = Matter.unscoped.order_by("reference")[:200]
+            ctx["cabinets"] = Cabinet.objects.filter(is_active=True).order_by("name")
+        else:
+            ctx["matters"] = Matter.objects.order_by("reference")
+            ctx["cabinets"] = []
         return ctx
 
 
@@ -422,9 +464,14 @@ class HearingReportDownloadView(CabinetPermissionMixin, View):
 
     required_perm = PERM_VIEW
     http_method_names = ("get",)
+    cabinet_required = False
+
+    def dispatch(self, request: Any, *args: Any, **kwargs: Any) -> HttpResponse:
+        _platform_sets_no_cabinet(self, request)
+        return super().dispatch(request, *args, **kwargs)
 
     def get(self, request: HttpRequest, pk: str) -> HttpResponse:
-        event = get_object_or_404(Event, pk=pk, event_type=EventType.HEARING)
+        event = get_object_or_404(_visible_events(request), pk=pk, event_type=EventType.HEARING)
         attachment = event.attachments.order_by("created_at").first()
         if attachment is not None:
             return _serve_hearing_attachment(attachment, as_attachment=True)
@@ -436,9 +483,14 @@ class HearingReportPreviewView(CabinetPermissionMixin, View):
 
     required_perm = PERM_VIEW
     http_method_names = ("get",)
+    cabinet_required = False
+
+    def dispatch(self, request: Any, *args: Any, **kwargs: Any) -> HttpResponse:
+        _platform_sets_no_cabinet(self, request)
+        return super().dispatch(request, *args, **kwargs)
 
     def get(self, request: HttpRequest, pk: str) -> HttpResponse:
-        event = get_object_or_404(Event, pk=pk, event_type=EventType.HEARING)
+        event = get_object_or_404(_visible_events(request), pk=pk, event_type=EventType.HEARING)
         attachment = next(
             (item for item in event.attachments.all() if item.can_preview),
             None,
@@ -457,14 +509,15 @@ class HearingAttachmentDownloadView(CabinetPermissionMixin, View):
 
     required_perm = PERM_VIEW
     http_method_names = ("get",)
+    cabinet_required = False
+
+    def dispatch(self, request: Any, *args: Any, **kwargs: Any) -> HttpResponse:
+        _platform_sets_no_cabinet(self, request)
+        return super().dispatch(request, *args, **kwargs)
 
     def get(self, request: HttpRequest, pk: str, attachment_id: str) -> HttpResponse:
-        attachment = get_object_or_404(
-            HearingAttachment.objects.select_related("event"),
-            pk=attachment_id,
-            event_id=pk,
-            event__event_type=EventType.HEARING,
-        )
+        event = get_object_or_404(_visible_events(request), pk=pk, event_type=EventType.HEARING)
+        attachment = get_object_or_404(event.attachments.select_related("event"), pk=attachment_id)
         return _serve_hearing_attachment(attachment, as_attachment=True)
 
 
@@ -473,14 +526,15 @@ class HearingAttachmentPreviewView(CabinetPermissionMixin, View):
 
     required_perm = PERM_VIEW
     http_method_names = ("get",)
+    cabinet_required = False
+
+    def dispatch(self, request: Any, *args: Any, **kwargs: Any) -> HttpResponse:
+        _platform_sets_no_cabinet(self, request)
+        return super().dispatch(request, *args, **kwargs)
 
     def get(self, request: HttpRequest, pk: str, attachment_id: str) -> HttpResponse:
-        attachment = get_object_or_404(
-            HearingAttachment.objects.select_related("event"),
-            pk=attachment_id,
-            event_id=pk,
-            event__event_type=EventType.HEARING,
-        )
+        event = get_object_or_404(_visible_events(request), pk=pk, event_type=EventType.HEARING)
+        attachment = get_object_or_404(event.attachments.select_related("event"), pk=attachment_id)
         if not attachment.can_preview:
             return redirect(
                 "hearings:attachment_download",

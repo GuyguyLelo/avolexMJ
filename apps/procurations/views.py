@@ -78,6 +78,14 @@ class ProcurationListView(CabinetPermissionMixin, BreadcrumbMixin, ListView):
     context_object_name = "procurations"
     paginate_by = 10
     required_perm = PERM_VIEW
+    cabinet_required = False
+
+    def dispatch(self, request: Any, *args: Any, **kwargs: Any) -> HttpResponse:
+        if is_platform_admin(request.user):
+            self.cabinet_required = False
+        else:
+            self.cabinet_required = True
+        return super().dispatch(request, *args, **kwargs)
 
     def get_breadcrumb(self) -> list[dict[str, str]]:
         return [{"label": _g("Procurations")}]

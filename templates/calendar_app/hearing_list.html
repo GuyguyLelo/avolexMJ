@@ -10,9 +10,17 @@
     <div>
       <p class="hearings-kicker">{% translate "Procédure" %}</p>
       <h1>{% translate "Audiences" %}</h1>
-      <p class="page-lede">{% translate "Planification et suivi des audiences judiciaires." %}</p>
+      <p class="page-lede">
+        {% if is_platform_supervision %}
+        {% translate "Supervision nationale des audiences judiciaires." %}
+        {% else %}
+        {% translate "Planification et suivi des audiences judiciaires." %}
+        {% endif %}
+      </p>
     </div>
+    {% if not is_platform_supervision %}
     <a class="btn btn-primary" href="{% url 'hearings:create' %}">{% translate "Nouvelle audience" %}</a>
+    {% endif %}
   </header>
 
   <form class="hearings-toolbar list-toolbar" method="get">
@@ -33,6 +41,17 @@
         {% endfor %}
       </select>
     </div>
+    {% if is_platform_supervision %}
+    <div class="form-field">
+      <label class="sr-only" for="cabinet">{% translate "Cabinet" %}</label>
+      <select class="form-input" id="cabinet" name="cabinet">
+        <option value="">{% translate "Tous les cabinets" %}</option>
+        {% for c in cabinets %}
+        <option value="{{ c.pk }}" {% if filter_cabinet == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
     <div class="form-field">
       <label class="sr-only" for="matter">{% translate "Dossier" %}</label>
       <select class="form-input" id="matter" name="matter">
@@ -60,6 +79,7 @@
         <tr>
           <th>{% translate "Audience" %}</th>
           <th>{% translate "Statut" %}</th>
+          {% if is_platform_supervision %}<th>{% translate "Cabinet" %}</th>{% endif %}
           <th>{% translate "Dossier" %}</th>
           <th>{% translate "Tribunal" %}</th>
           <th></th>
@@ -88,6 +108,9 @@
             <span class="badge badge-danger">{{ h.get_hearing_status_display|default:"Planifiée" }}</span>
             {% endif %}
           </td>
+          {% if is_platform_supervision %}
+          <td class="hearing-cell-muted">{{ h.cabinet.name }}</td>
+          {% endif %}
           <td>
             {% if h.matter %}
             <a href="{% url 'matters:detail' h.matter_id %}">{{ h.matter.reference }}</a>
@@ -98,7 +121,9 @@
             <div class="cluster" style="justify-content:flex-end;">
               <a class="btn btn-sm btn-ghost" href="{% url 'calendar:event_detail' h.pk %}">{% translate "Voir" %}</a>
               <a class="btn btn-sm btn-secondary" href="{% url 'calendar:event_detail' h.pk %}#rapport">{% translate "Rapport" %}</a>
+              {% if not is_platform_supervision %}
               <a class="btn btn-sm btn-ghost" href="{% url 'hearings:update' h.pk %}">{% translate "Modifier" %}</a>
+              {% endif %}
             </div>
           </td>
         </tr>
@@ -110,8 +135,16 @@
   {% else %}
   <section class="empty-state hearings-empty">
     <h2>{% translate "Aucune audience" %}</h2>
-    <p>{% translate "Planifiez une audience et rattachez-la à un dossier." %}</p>
+    <p>
+      {% if is_platform_supervision %}
+      {% translate "Aucune audience ne correspond aux filtres." %}
+      {% else %}
+      {% translate "Planifiez une audience et rattachez-la à un dossier." %}
+      {% endif %}
+    </p>
+    {% if not is_platform_supervision %}
     <a class="btn btn-primary" href="{% url 'hearings:create' %}">{% translate "Nouvelle audience" %}</a>
+    {% endif %}
   </section>
   {% endif %}
 </div>

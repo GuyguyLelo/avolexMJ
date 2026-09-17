@@ -1,4 +1,4 @@
-{% if widget.is_initial %}{{ widget.initial_text }}: {{ widget.filename }}{% if not widget.required %}
+{% if widget.is_initial %}{{ widget.initial_text }}: <span class="file-upload-name">{{ widget.filename }}</span>{% if not widget.required %}
 <input type="checkbox" name="{{ widget.checkbox_name }}" id="{{ widget.checkbox_id }}"{% if widget.attrs.disabled %} disabled{% endif %}{% if widget.attrs.checked %} checked{% endif %}>
 <label for="{{ widget.checkbox_id }}">{{ widget.clear_checkbox_label }}</label>{% endif %}<br>
 {{ widget.input_text }}:{% endif %}

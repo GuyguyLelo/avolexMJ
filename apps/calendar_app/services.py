@@ -59,19 +59,27 @@ def events_queryset(
 
 def hearings_queryset(
     *,
-    cabinet: Cabinet,
+    cabinet: Cabinet | None = None,
     from_dt: datetime | None = None,
     to_dt: datetime | None = None,
     matter_id: str = "",
     hearing_status: str = "",
     court: str = "",
+    cabinet_id: str = "",
     upcoming_only: bool = False,
+    cross_cabinet: bool = False,
 ) -> QuerySet[Event]:
-    """Audiences judiciaires filtrées."""
-    qs = (
-        Event.objects.filter(cabinet=cabinet, event_type=EventType.HEARING)
-        .select_related("matter", "assigned_to", "matter__responsible_lawyer", "matter__cabinet")
-    )
+    """Audiences judiciaires filtrées (cabinet ou supervision nationale)."""
+    related = ("matter", "assigned_to", "matter__responsible_lawyer", "matter__cabinet", "cabinet")
+    if cross_cabinet:
+        qs = Event.unscoped.filter(event_type=EventType.HEARING).select_related(*related)
+    elif cabinet is not None:
+        qs = (
+            Event.objects.filter(cabinet=cabinet, event_type=EventType.HEARING)
+            .select_related(*related)
+        )
+    else:
+        return Event.objects.none()
     if from_dt:
         qs = qs.filter(starts_at__gte=from_dt)
     if to_dt:
@@ -82,6 +90,8 @@ def hearings_queryset(
         qs = qs.filter(hearing_status=hearing_status)
     if court:
         qs = qs.filter(court=court)
+    if cabinet_id:
+        qs = qs.filter(cabinet_id=cabinet_id)
     if upcoming_only:
         qs = qs.filter(
             starts_at__gte=timezone.now() - timedelta(days=1),

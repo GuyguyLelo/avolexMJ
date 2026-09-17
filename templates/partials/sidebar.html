@@ -1,6 +1,6 @@
 {% load i18n %}
 <aside class="app-sidebar" data-sidebar id="app-sidebar" aria-label="{% translate 'Navigation cabinet' %}">
-  <a class="app-sidebar-brand brand-block is-compact" href="{% url 'core:home' %}">
+  <a class="app-sidebar-brand brand-block is-compact" href="{% if is_platform_admin %}{% url 'core:supervision' %}{% else %}{% url 'core:home' %}{% endif %}">
     {% include "partials/brand.html" %}
   </a>
 
@@ -45,6 +45,7 @@
 
     <div class="app-nav-group">
       <p class="app-nav-section">{% translate "Espace de travail" %}</p>
+      {% if not is_platform_admin %}
       <a class="app-nav-link {% if request.resolver_match.url_name == 'home' %}is-active{% endif %}" href="{% url 'core:home' %}">
         <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="7" height="7" rx="1.2"/>
@@ -54,6 +55,7 @@
         </svg>
         <span>{% translate "Tableau de bord" %}</span>
       </a>
+      {% endif %}
       <a class="app-nav-link {% if request.resolver_match.app_name == 'matters' %}is-active{% endif %}" href="{% url 'matters:list' %}">
         <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 7.5h16v12H4z"/>

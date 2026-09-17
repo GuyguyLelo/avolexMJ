@@ -4,26 +4,91 @@
 {% block title %}{% if event %}{% translate "Modifier l'événement" %}{% else %}{% translate "Nouvel événement" %}{% endif %} — {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
-<header class="page-header">
-  <div>
-    <h1>{% if event %}{% translate "Modifier l'événement" %}{% else %}{% translate "Nouvel événement" %}{% endif %}</h1>
-  </div>
-</header>
+<div class="event-form-page">
+  <header class="page-header page-header-compact">
+    <div>
+      <p class="page-kicker">{% translate "Agenda" %}</p>
+      <h1>{% if event %}{% translate "Modifier l'événement" %}{% else %}{% translate "Nouvel événement" %}{% endif %}</h1>
+      <p class="page-lede">{% translate "Rendez-vous, délai, rappel ou tâche." %}</p>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="{% url 'calendar:list' %}">{% translate "Retour" %}</a>
+  </header>
 
-<form method="post" class="card" novalidate style="max-width: 40rem;">
-  {% csrf_token %}
-  {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
-  {% for field in form %}
-  <div class="form-field">
-    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-    {{ field }}
-    {% if field.help_text %}<p class="form-help">{{ field.help_text }}</p>{% endif %}
-    {% if field.errors %}<div class="form-error">{{ field.errors }}</div>{% endif %}
-  </div>
-  {% endfor %}
-  <div class="cluster">
-    <button class="btn btn-primary" type="submit">{% translate "Enregistrer" %}</button>
-    <a class="btn btn-secondary" href="{% url 'calendar:list' %}">{% translate "Annuler" %}</a>
-  </div>
-</form>
+  <form method="post" class="event-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+    <div class="event-form-panels">
+      <section class="form-panel">
+        <header class="form-panel-head">
+          <h2>{% translate "Événement" %}</h2>
+          <p>{% translate "Type, intitulé et dossier." %}</p>
+        </header>
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="{{ form.event_type.id_for_label }}">{{ form.event_type.label }}</label>
+            {{ form.event_type }}
+            {% if form.event_type.errors %}<div class="form-error">{{ form.event_type.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field">
+            <label for="{{ form.matter.id_for_label }}">{{ form.matter.label }}</label>
+            {{ form.matter }}
+            {% if form.matter.errors %}<div class="form-error">{{ form.matter.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field form-field-span">
+            <label for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+            {{ form.title }}
+            {% if form.title.errors %}<div class="form-error">{{ form.title.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field form-field-span">
+            <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+            {{ form.description }}
+            {% if form.description.errors %}<div class="form-error">{{ form.description.errors }}</div>{% endif %}
+          </div>
+        </div>
+      </section>
+
+      <section class="form-panel">
+        <header class="form-panel-head">
+          <h2>{% translate "Quand & où" %}</h2>
+          <p>{% translate "Horaires, lieu et rappel." %}</p>
+        </header>
+        <div class="form-grid">
+          <div class="form-field">
+            <label for="{{ form.starts_at.id_for_label }}">{{ form.starts_at.label }}</label>
+            {{ form.starts_at }}
+            {% if form.starts_at.errors %}<div class="form-error">{{ form.starts_at.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field">
+            <label for="{{ form.ends_at.id_for_label }}">{{ form.ends_at.label }}</label>
+            {{ form.ends_at }}
+            {% if form.ends_at.errors %}<div class="form-error">{{ form.ends_at.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field form-field-check">
+            <label class="form-check-label" for="{{ form.all_day.id_for_label }}">
+              {{ form.all_day }}
+              <span>{{ form.all_day.label }}</span>
+            </label>
+            {% if form.all_day.errors %}<div class="form-error">{{ form.all_day.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field">
+            <label for="{{ form.location.id_for_label }}">{{ form.location.label }}</label>
+            {{ form.location }}
+            {% if form.location.errors %}<div class="form-error">{{ form.location.errors }}</div>{% endif %}
+          </div>
+          <div class="form-field form-field-span">
+            <label for="{{ form.remind_at.id_for_label }}">{{ form.remind_at.label }}</label>
+            {{ form.remind_at }}
+            {% if form.remind_at.errors %}<div class="form-error">{{ form.remind_at.errors }}</div>{% endif %}
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="event-form-actions cluster">
+      <button class="btn btn-primary" type="submit">{% translate "Enregistrer" %}</button>
+      <a class="btn btn-secondary" href="{% url 'calendar:list' %}">{% translate "Annuler" %}</a>
+    </div>
+  </form>
+</div>
 {% endblock %}

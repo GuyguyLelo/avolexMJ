@@ -73,15 +73,9 @@ class CabinetForm(forms.ModelForm):
             choices=bar_association_choices_with_value(current),
             widget=forms.Select(attrs=_INPUT),
         )
-        contract_widget: forms.Widget
-        if self.instance.pk:
-            contract_widget = PrivateClearableFileInput(
-                attrs={"class": "form-input", "accept": _CONTRACT_ACCEPT},
-            )
-        else:
-            contract_widget = forms.FileInput(
-                attrs={"class": "form-input", "accept": _CONTRACT_ACCEPT},
-            )
+        contract_widget = PrivateClearableFileInput(
+            attrs={"class": "form-input", "accept": _CONTRACT_ACCEPT},
+        )
         self.fields["contract_file"].required = False
         self.fields["contract_file"].widget = contract_widget
         self.fields["contract_file"].help_text = _("PDF, DOC, DOCX ou image.")

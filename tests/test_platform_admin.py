@@ -105,10 +105,44 @@ def test_supervision_page(client) -> None:  # type: ignore[no-untyped-def]
     assert b"matters_by_cabinet" in resp.content
     assert b"supervision-charts-data" in resp.content
     assert b"Dossiers actifs par cabinet" in resp.content
+    assert "Tableau de bord" not in resp.content.decode()
 
 
 @pytest.mark.django_db
-def test_build_platform_charts_includes_cabinet_series() -> None:
+def test_platform_admin_can_list_and_open_hearings(client) -> None:  # type: ignore[no-untyped-def]
+    """Synthia / superviseur : audiences depuis le tableau de bord, sans cabinet."""
+    admin = UserFactory(is_platform_admin=True)
+    owner = UserFactory()
+    cabinet = CabinetFactory(name="Cabinet Synthia Test")
+    MembershipFactory(user=owner, cabinet=cabinet, role=Role.OWNER)
+
+    with cabinet_context(cabinet):
+        matter = create_matter(user=admin, title="Affaire audience supervision")
+        from apps.procurations.services import stamp_granted_procuration
+
+        stamp_granted_procuration(matter=matter, cabinet=cabinet, actor=admin)
+        event = create_event(
+            cabinet=cabinet,
+            user=owner,
+            title="Audience supervision nationale",
+            starts_at=timezone.now() + timedelta(days=3),
+            event_type=EventType.HEARING,
+            matter=matter,
+            court="Tribunal de grande instance de Kinshasa/Gombe",
+        )
+
+    client.force_login(admin)
+    listing = client.get(reverse("hearings:list"))
+    assert listing.status_code == 200
+    content = listing.content.decode()
+    assert "Audience supervision nationale" in content
+    assert "Cabinet Synthia Test" in content
+    assert "Nouvelle audience" not in content
+
+    detail = client.get(reverse("calendar:event_detail", args=[event.pk]))
+    assert detail.status_code == 200
+    assert b"Audience supervision nationale" in detail.content
+
     cabinet = CabinetFactory(name="ILEO Law Firm")
     owner = UserFactory()
     admin = UserFactory(is_platform_admin=True)

@@ -4632,6 +4632,106 @@ body.public-body > .state-line-h,
   gap: var(--space-4);
 }
 
+.event-form {
+  max-width: 72rem;
+  display: grid;
+  gap: var(--space-4);
+}
+
+.event-form-panels {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: 1fr;
+}
+
+.event-form .form-panel {
+  position: relative;
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(165deg, #fff 0%, var(--color-paper) 160%);
+  box-shadow: var(--shadow-sm);
+}
+
+.event-form .form-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  background: linear-gradient(180deg, var(--color-brass-400), var(--color-ink-800));
+}
+
+.event-form .form-panel-head {
+  margin-bottom: var(--space-3);
+}
+
+.event-form .form-panel-head h2 {
+  margin: 0 0 0.2rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+}
+
+.event-form .form-panel-head p {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.event-form .form-grid {
+  display: grid;
+  gap: var(--space-3) var(--space-4);
+  grid-template-columns: 1fr 1fr;
+}
+
+.event-form .form-field-span {
+  grid-column: 1 / -1;
+}
+
+.event-form .form-field-check {
+  display: flex;
+  align-items: flex-end;
+  min-height: 2.75rem;
+}
+
+.event-form .form-check-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.event-form textarea.form-input {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+.event-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: rgb(255 255 255 / 94%);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (min-width: 900px) {
+  .event-form-panels {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+@media (max-width: 639px) {
+  .event-form .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .hearing-form-panels {
   display: grid;
   gap: var(--space-4);

@@ -32,7 +32,7 @@ class EventForm(forms.ModelForm):
             "event_type": forms.Select(attrs={"class": "form-input"}),
             "title": forms.TextInput(attrs={"class": "form-input"}),
             "matter": forms.Select(attrs={"class": "form-input"}),
-            "description": forms.Textarea(attrs={"class": "form-input", "rows": 3}),
+            "description": forms.Textarea(attrs={"class": "form-input", "rows": 2}),
             "starts_at": forms.DateTimeInput(
                 attrs={"class": "form-input", "type": "datetime-local"},
                 format="%Y-%m-%dT%H:%M",

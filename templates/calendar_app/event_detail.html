@@ -38,14 +38,18 @@
     <div class="detail-sheet-actions">
       {% if event.event_type == 'hearing' %}
       <a class="btn btn-primary btn-sm" href="#rapport">{% if event.has_hearing_report %}{% translate "Pièces jointes" %}{% else %}{% translate "Joindre des fichiers" %}{% endif %}</a>
+      {% if not is_platform_supervision %}
       <a class="btn btn-secondary btn-sm" href="{% url 'hearings:update' event.pk %}">{% translate "Modifier" %}</a>
-      {% else %}
+      {% endif %}
+      {% elif not is_platform_supervision %}
       <a class="btn btn-secondary btn-sm" href="{% url 'calendar:event_update' event.pk %}">{% translate "Modifier" %}</a>
       {% endif %}
+      {% if not is_platform_supervision %}
       <form method="post" action="{% url 'calendar:event_delete' event.pk %}" onsubmit="return confirm('{% translate "Supprimer cet événement ?" %}');">
         {% csrf_token %}
         <button class="btn btn-ghost btn-sm" type="submit">{% translate "Supprimer" %}</button>
       </form>
+      {% endif %}
     </div>
   </header>
 
