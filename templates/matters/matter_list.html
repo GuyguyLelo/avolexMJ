@@ -86,7 +86,13 @@
           <span class="badge badge-warning">{% translate "Archivé" %}</span>
           {% endif %}
         </td>
-        <td>{% if m.responsible_lawyer %}{{ m.responsible_lawyer.get_full_name|default:m.responsible_lawyer.email }}{% else %}—{% endif %}</td>
+        <td>
+          {% if m.responsible_lawyer or m.cabinet %}
+            {% if m.responsible_lawyer %}{{ m.responsible_lawyer.get_full_name|default:m.responsible_lawyer.email }}{% endif %}{% if m.responsible_lawyer and m.cabinet %} — {% endif %}{% if m.cabinet %}{{ m.cabinet.name }}{% endif %}
+          {% else %}
+            —
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>

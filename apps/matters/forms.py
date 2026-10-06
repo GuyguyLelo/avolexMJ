@@ -9,32 +9,85 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
-from django.forms import formset_factory
 
-from apps.core.kinshasa_courts import court_choices_with_value
-from apps.matters.models import Matter, MatterParty, MatterScale, MatterStatus
+from apps.matters.models import Matter, MatterScale, MatterStatus, PartyRole
 from apps.matters.services import validate_matter_scale
+from apps.tenants.jurisdictions import jurisdiction_choices
 from apps.tenants.legal_areas import ensure_default_legal_practice_areas
-from apps.tenants.models import Cabinet, LegalPracticeArea
+from apps.tenants.models import LegalPracticeArea
 
 User = get_user_model()
 
 
-class MatterPartyForm(forms.ModelForm):
-    """Formulaire pour une partie d'un dossier."""
+class StateEntityPartyForm(forms.Form):
+    """Partie étatique représentée par le Ministère (obligatoire)."""
 
-    class Meta:
-        model = MatterParty
-        fields = ("name", "role", "is_state_entity", "notes")
-        widgets = {
-            "name": forms.TextInput(attrs={"class": "form-input"}),
-            "role": forms.Select(attrs={"class": "form-input"}),
-            "is_state_entity": forms.CheckboxInput(attrs={"class": "form-input"}),
-            "notes": forms.Textarea(attrs={"class": "form-input", "rows": 2}),
-        }
+    name = forms.CharField(
+        label=_("Entité étatique"),
+        max_length=255,
+        required=True,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-input",
+                "placeholder": _("Ex. Ministère des Finances, Province de…"),
+            }
+        ),
+        help_text=_("Service ou organe de l'État congolais que le Ministère représente."),
+    )
+    role = forms.ChoiceField(
+        label=_("Rôle"),
+        choices=PartyRole.choices,
+        initial=PartyRole.PLAINTIFF,
+        widget=forms.Select(attrs={"class": "form-input"}),
+    )
+    notes = forms.CharField(
+        label=_("Notes"),
+        required=False,
+        widget=forms.Textarea(attrs={"class": "form-input", "rows": 2}),
+    )
 
 
-MatterPartyFormSet = formset_factory(MatterPartyForm, extra=2, can_delete=False)
+class OpposingPartyForm(forms.Form):
+    """Partie adverse unique (obligatoire)."""
+
+    name = forms.CharField(
+        label=_("Partie adverse"),
+        max_length=255,
+        required=True,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-input",
+                "placeholder": _("Ex. Société XYZ, Monsieur…"),
+            }
+        ),
+        help_text=_("Adversaire dans l'affaire (une seule partie adverse)."),
+    )
+    role = forms.ChoiceField(
+        label=_("Rôle"),
+        choices=PartyRole.choices,
+        initial=PartyRole.DEFENDANT,
+        widget=forms.Select(attrs={"class": "form-input"}),
+    )
+    notes = forms.CharField(
+        label=_("Notes"),
+        required=False,
+        widget=forms.Textarea(attrs={"class": "form-input", "rows": 2}),
+    )
+
+
+def validate_distinct_party_roles(
+    state_form: StateEntityPartyForm,
+    opposing_form: OpposingPartyForm,
+) -> bool:
+    """Refuse que l'entité étatique et la partie adverse aient le même rôle."""
+    state_role = state_form.cleaned_data.get("role")
+    opposing_role = opposing_form.cleaned_data.get("role")
+    if not state_role or not opposing_role or state_role != opposing_role:
+        return True
+    msg = _("Les deux parties ne peuvent pas avoir le même rôle.")
+    state_form.add_error("role", msg)
+    opposing_form.add_error("role", msg)
+    return False
 
 
 class MatterForm(forms.ModelForm):
@@ -87,7 +140,7 @@ class MatterForm(forms.ModelForm):
             "ou internationale (CIJ, CPI, OHADA, etc.)."
         )
         current_jurisdiction = (self.instance.jurisdiction if self.instance.pk else "") or ""
-        self.fields["jurisdiction"].choices = court_choices_with_value(current_jurisdiction)
+        self.fields["jurisdiction"].choices = jurisdiction_choices(current=current_jurisdiction)
         ensure_default_legal_practice_areas()
         area_names = list(
             LegalPracticeArea.objects.filter(is_active=True)
@@ -105,20 +158,23 @@ class MatterForm(forms.ModelForm):
         )
         if current_area:
             self.fields["practice_area"].initial = current_area
-        self.order_fields(
-            [
-                "title",
-                "scale",
-                "jurisdiction",
-                "practice_area",
-                "description",
-                "status",
-                "opened_at",
-                "closed_at",
-                "initial_pdf",
-                "notes",
-            ]
-        )
+        # À la création, la date de clôture n'a pas de sens.
+        if not self.instance.pk:
+            self.fields.pop("closed_at", None)
+        field_order = [
+            "title",
+            "scale",
+            "jurisdiction",
+            "practice_area",
+            "description",
+            "status",
+            "opened_at",
+            "closed_at",
+            "initial_pdf",
+            "notes",
+        ]
+        self.order_fields([name for name in field_order if name in self.fields])
+
     def clean(self) -> dict[str, Any]:
         cleaned = super().clean()
         scale = cleaned.get("scale") or MatterScale.NATIONAL

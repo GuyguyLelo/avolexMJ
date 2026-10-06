@@ -6,9 +6,11 @@
 {% block content %}
 <header class="page-header">
   <div>
+    <p class="page-kicker">{% translate "Données référentielles" %}</p>
     <h1>{% translate "Spécialités" %}</h1>
     <p class="page-lede">{% translate "Matières juridiques dans lesquelles ce cabinet est compétent. Le ministère s'appuie sur cette liste pour proposer un cabinet à l'ouverture d'un dossier." %}</p>
   </div>
+  <a class="btn btn-ghost btn-sm" href="{% url 'core:settings' %}">{% translate "Retour" %}</a>
 </header>
 
 {% if can_manage_specialties %}

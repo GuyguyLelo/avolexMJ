@@ -12,7 +12,7 @@ from django.db.models import Q, QuerySet
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.kinshasa_courts import international_court_values, national_court_values
+from apps.tenants.jurisdictions import international_jurisdiction_names, national_jurisdiction_names
 from apps.matters.models import (
     Matter,
     MatterAction,
@@ -135,7 +135,7 @@ def validate_matter_scale(*, scale: str, jurisdiction: str) -> None:
     court = (jurisdiction or "").strip()
     if not court:
         return
-    if scale == MatterScale.NATIONAL and court in international_court_values():
+    if scale == MatterScale.NATIONAL and court in international_jurisdiction_names():
         raise ValidationError(
             {
                 "jurisdiction": _(
@@ -143,7 +143,7 @@ def validate_matter_scale(*, scale: str, jurisdiction: str) -> None:
                 )
             }
         )
-    if scale == MatterScale.INTERNATIONAL and court in national_court_values():
+    if scale == MatterScale.INTERNATIONAL and court in national_jurisdiction_names():
         raise ValidationError(
             {"jurisdiction": _("Cette juridiction est nationale. Choisissez l'échelle nationale.")}
         )

@@ -32,6 +32,7 @@ from apps.documents.services import create_document_with_file
 from apps.matters.models import Matter, MatterScale, MatterStatus
 from apps.matters.services import create_matter, update_matter
 from apps.tenants.context import cabinet_context
+from apps.tenants.jurisdictions import ensure_default_jurisdictions
 from apps.tenants.models import Cabinet, Invitation, Membership
 from apps.tenants.roles import Role
 from apps.tenants.services import create_cabinet_with_owner, invite_member
@@ -304,6 +305,7 @@ class Command(BaseCommand):
 
         kinshasa = self._ensure_kinshasa_cabinets(ministry)
         self._ensure_practice_areas(cabinet, kinshasa, owner)
+        ensure_default_jurisdictions()
 
         self.stdout.write(self.style.SUCCESS("Données de test prêtes."))
         self.stdout.write(f"  Cabinet   : {cabinet.name}")

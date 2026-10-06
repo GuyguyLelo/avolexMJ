@@ -85,7 +85,7 @@ class Matter(TenantOwnedModel):
     closed_at = models.DateField(_("clos le"), null=True, blank=True)
     is_archived = models.BooleanField(_("archivé"), default=False, db_index=True)
     notes = models.TextField(_("notes"), blank=True)
-    initial_pdf = models.FileField(_("PDF initial"), upload_to="matters/%Y/%m/", blank=True, null=True)
+    initial_pdf = models.FileField(_("Dossier scanné"), upload_to="matters/%Y/%m/", blank=True, null=True)
     search_vector = SearchVectorField(_("vecteur de recherche"), null=True, editable=False)
 
     class Meta:

@@ -94,13 +94,9 @@
       <dt>{% translate "Ouverture" %}</dt>
       <dd>{% if matter.opened_at %}<span class="matter-fact-value">{{ matter.opened_at|date:"d/m/Y" }}</span>{% else %}<span class="matter-fact-empty">—</span>{% endif %}</dd>
     </div>
-    <div class="matter-fact">
-      <dt>{% translate "Clôture" %}</dt>
-      <dd>{% if matter.closed_at %}<span class="matter-fact-value">{{ matter.closed_at|date:"d/m/Y" }}</span>{% else %}<span class="matter-fact-empty">—</span>{% endif %}</dd>
-    </div>
     {% if matter.initial_pdf %}
     <div class="matter-fact">
-      <dt>{% translate "PDF initial" %}</dt>
+      <dt>{% translate "Dossier scanné" %}</dt>
       <dd><a href="{{ matter.initial_pdf.url }}" target="_blank" rel="noopener">{% translate "Télécharger" %}</a></dd>
     </div>
     {% endif %}
@@ -166,13 +162,7 @@
       <header class="detail-sheet-block-head detail-sheet-block-head--actions">
         <h2>{% translate "Procuration" %}</h2>
         <div class="cluster">
-          <a class="btn btn-ghost btn-sm" href="{% url 'procurations:detail' p.pk %}">{% translate "Voir" %}</a>
-          {% if is_platform_admin and p.status == 'granted' %}
-          <form method="post" action="{% url 'procurations:generate' p.pk %}"{% if p.instrument %} onsubmit="return confirm('Un acte est déjà joint. Le remplacer ?');"{% endif %}>
-            {% csrf_token %}
-            <button class="btn btn-primary btn-sm" type="submit">{% if p.instrument %}{% translate "Régénérer" %}{% else %}{% translate "Générer" %}{% endif %}</button>
-          </form>
-          {% endif %}
+          <a class="btn btn-primary btn-sm" href="{% url 'procurations:detail' p.pk %}">{% translate "Voir" %}</a>
         </div>
       </header>
       <dl class="matter-facts matter-facts--inline">
@@ -187,16 +177,6 @@
               {{ p.get_status_display }}
             </span>
             {% if p.is_currently_valid %}<span class="badge badge-success">{% translate "Valide" %}</span>{% endif %}
-          </dd>
-        </div>
-        <div class="matter-fact">
-          <dt>{% translate "Validité" %}</dt>
-          <dd>
-            <span class="matter-fact-value">
-              {% if p.valid_from %}{{ p.valid_from|date:"d/m/Y" }}{% else %}—{% endif %}
-              →
-              {% if p.expires_at %}{{ p.expires_at|date:"d/m/Y" }}{% else %}{% translate "sans terme" %}{% endif %}
-            </span>
           </dd>
         </div>
         {% if p.purpose %}

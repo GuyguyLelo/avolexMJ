@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.core.bar_associations import bar_association_choices_with_value
 from apps.core.widgets import PrivateClearableFileInput
-from apps.tenants.models import Cabinet, LegalPracticeArea
+from apps.tenants.models import Cabinet, Jurisdiction, LegalPracticeArea
 from apps.tenants.roles import Role
 from apps.tenants.services import validate_cabinet_contract_file
 
@@ -161,6 +161,25 @@ class PracticeAreaForm(forms.ModelForm):
         widgets = {
             "name": forms.TextInput(attrs=_INPUT),
             "description": forms.Textarea(attrs={**_INPUT, "rows": 3}),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check"}),
+        }
+
+
+class JurisdictionForm(forms.ModelForm):
+    """Création / édition d'une juridiction du référentiel."""
+
+    class Meta:
+        model = Jurisdiction
+        fields = ("name", "scale", "category", "is_active")
+        widgets = {
+            "name": forms.TextInput(attrs=_INPUT),
+            "scale": forms.Select(attrs=_INPUT),
+            "category": forms.TextInput(
+                attrs={
+                    **_INPUT,
+                    "placeholder": _("Ex. Tribunaux de grande instance"),
+                }
+            ),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check"}),
         }
 

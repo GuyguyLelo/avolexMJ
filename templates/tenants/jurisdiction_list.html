@@ -1,0 +1,74 @@
+{% extends "layouts/app.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Juridictions" %} — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<header class="page-header">
+  <div>
+    <p class="page-kicker">{% translate "Données référentielles" %}</p>
+    <h1>{% translate "Juridictions" %}</h1>
+    <p class="page-lede">{% translate "Référentiel des tribunaux et cours utilisés à l'ouverture des dossiers et pour les audiences." %}</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-ghost btn-sm" href="{% url 'core:settings' %}">{% translate "Retour" %}</a>
+    <a class="btn btn-primary" href="{% url 'tenants:jurisdiction_create' %}">{% translate "Nouvelle juridiction" %}</a>
+  </div>
+</header>
+
+<form method="get" class="toolbar" style="margin-bottom:1rem;">
+  <input class="form-input" type="search" name="q" value="{{ filter_q }}" placeholder="{% translate 'Rechercher' %}" aria-label="{% translate 'Rechercher' %}">
+  <select class="form-input" name="scale" aria-label="{% translate 'Échelle' %}">
+    <option value="">{% translate "Toutes les échelles" %}</option>
+    {% for value, label in scale_choices %}
+    <option value="{{ value }}"{% if filter_scale == value %} selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn btn-secondary" type="submit">{% translate "Filtrer" %}</button>
+</form>
+
+{% if jurisdictions %}
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>{% translate "Juridiction" %}</th>
+        <th>{% translate "Échelle" %}</th>
+        <th>{% translate "Groupe" %}</th>
+        <th>{% translate "Statut" %}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in jurisdictions %}
+      <tr>
+        <td>
+          <span class="list-entity-title">{{ item.name }}</span>
+        </td>
+        <td>{{ item.get_scale_display }}</td>
+        <td>{% if item.category %}{{ item.category }}{% else %}—{% endif %}</td>
+        <td>
+          {% if item.is_active %}<span class="badge badge-success">{% translate "Active" %}</span>
+          {% else %}<span class="badge badge-warning">{% translate "Inactive" %}</span>{% endif %}
+        </td>
+        <td class="table-actions">
+          <a class="btn btn-ghost btn-sm" href="{% url 'tenants:jurisdiction_update' item.pk %}">{% translate "Modifier" %}</a>
+          <form method="post" action="{% url 'tenants:jurisdiction_delete' item.pk %}" onsubmit="return confirm('{% translate "Supprimer cette juridiction ?" %}');">
+            {% csrf_token %}
+            <button class="btn btn-ghost btn-sm" type="submit">{% translate "Supprimer" %}</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "partials/pagination.html" %}
+{% else %}
+<section class="empty-state">
+  <h2>{% translate "Aucune juridiction" %}</h2>
+  <p>{% translate "Ajoutez les tribunaux et cours proposés à l'ouverture des dossiers." %}</p>
+  <a class="btn btn-primary" href="{% url 'tenants:jurisdiction_create' %}">{% translate "Nouvelle juridiction" %}</a>
+</section>
+{% endif %}
+{% endblock %}

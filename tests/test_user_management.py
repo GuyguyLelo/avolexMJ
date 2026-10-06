@@ -40,7 +40,10 @@ def test_super_admin_manages_users(client) -> None:  # type: ignore[no-untyped-d
 
     listing = client.get(reverse("accounts:user_list"))
     assert listing.status_code == 200
-    assert b"Utilisateurs" in listing.content
+    listing_html = listing.content.decode()
+    assert "Gestion des utilisateurs" in listing_html
+    assert "Données référentielles" in listing_html
+    assert reverse("core:settings") in listing_html
 
     create = client.post(
         reverse("accounts:user_create"),

@@ -1,0 +1,34 @@
+{% extends "layouts/app.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Données référentielles" %} — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="settings-page">
+  <header class="page-header page-header-compact">
+    <div>
+      <p class="page-kicker">{% translate "Paramètres" %}</p>
+      <h1>{% translate "Données référentielles" %}</h1>
+      <p class="page-lede">{% translate "Tables de référence utilisées dans les dossiers, procurations et cabinets." %}</p>
+    </div>
+  </header>
+
+  {% if settings_tables %}
+  <div class="settings-ref-grid">
+    {% for table in settings_tables %}
+    <a class="settings-ref-card" href="{{ table.href }}">
+      <span class="settings-ref-card-kicker">{{ table.kicker }}</span>
+      <h2>{{ table.title }}</h2>
+      <p>{{ table.lede }}</p>
+      <span class="settings-ref-card-meta">{{ table.count }} {{ table.count_label }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <section class="empty-state">
+    <h2>{% translate "Aucun référentiel disponible" %}</h2>
+    <p>{% translate "Aucune table de référence n'est accessible pour ce compte." %}</p>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

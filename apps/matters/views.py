@@ -17,8 +17,14 @@ from django.views.generic import CreateView, DetailView, FormView, ListView, Upd
 
 from apps.calendar_app.models import EventType, HearingStatus
 from apps.core.mixins import BreadcrumbMixin
-from apps.matters.forms import MatterForm, MatterLawyerAssignForm, MatterPartyFormSet
-from apps.matters.models import Matter, MatterScale, MatterStatus
+from apps.matters.forms import (
+    MatterForm,
+    MatterLawyerAssignForm,
+    OpposingPartyForm,
+    StateEntityPartyForm,
+    validate_distinct_party_roles,
+)
+from apps.matters.models import Matter, MatterParty, MatterScale, MatterStatus, PartyRole
 from apps.matters.services import (
     archive_matter,
     assign_matter_lawyers,
@@ -31,6 +37,72 @@ from apps.tenants.mixins import CabinetPermissionMixin, PlatformAdminRequiredMix
 from apps.tenants.models import Cabinet, Membership
 from apps.tenants.roles import PERM_ADD, PERM_CHANGE, PERM_VIEW, Role
 from apps.tenants.services import is_platform_admin, is_super_admin, suggest_cabinets_for_practice_area
+
+
+def _parties_forms_from_request(
+    request: Any, *, matter: Matter | None = None
+) -> tuple[StateEntityPartyForm, OpposingPartyForm]:
+    """Construit les deux formulaires parties (étatique + adverse)."""
+    if request.method == "POST":
+        return (
+            StateEntityPartyForm(request.POST, prefix="state_party"),
+            OpposingPartyForm(request.POST, prefix="opposing_party"),
+        )
+    state_initial: dict[str, Any] = {"role": PartyRole.PLAINTIFF}
+    opposing_initial: dict[str, Any] = {"role": PartyRole.DEFENDANT}
+    if matter is not None:
+        state_party = matter.parties.filter(is_state_entity=True).order_by("pk").first()
+        opposing = matter.parties.filter(is_state_entity=False).order_by("pk").first()
+        if state_party is None and opposing is None:
+            legacy = list(matter.parties.order_by("pk")[:2])
+            if legacy:
+                state_party = legacy[0]
+                opposing = legacy[1] if len(legacy) > 1 else None
+        if state_party is not None:
+            state_initial = {
+                "name": state_party.name,
+                "role": state_party.role,
+                "notes": state_party.notes,
+            }
+        if opposing is not None:
+            opposing_initial = {
+                "name": opposing.name,
+                "role": opposing.role,
+                "notes": opposing.notes,
+            }
+    return (
+        StateEntityPartyForm(prefix="state_party", initial=state_initial),
+        OpposingPartyForm(prefix="opposing_party", initial=opposing_initial),
+    )
+
+
+def _save_matter_parties(
+    *,
+    matter: Matter,
+    user: Any,
+    state_form: StateEntityPartyForm,
+    opposing_form: OpposingPartyForm,
+) -> None:
+    """Remplace les parties : exactement 1 étatique + 1 adverse."""
+    MatterParty.objects.filter(matter=matter).delete()
+    MatterParty.objects.create(
+        cabinet=matter.cabinet,
+        matter=matter,
+        name=state_form.cleaned_data["name"].strip(),
+        role=state_form.cleaned_data.get("role") or PartyRole.PLAINTIFF,
+        is_state_entity=True,
+        notes=(state_form.cleaned_data.get("notes") or "").strip(),
+        created_by=user,
+    )
+    MatterParty.objects.create(
+        cabinet=matter.cabinet,
+        matter=matter,
+        name=opposing_form.cleaned_data["name"].strip(),
+        role=opposing_form.cleaned_data.get("role") or PartyRole.DEFENDANT,
+        is_state_entity=False,
+        notes=(opposing_form.cleaned_data.get("notes") or "").strip(),
+        created_by=user,
+    )
 
 
 def _visible_matters(request: Any) -> QuerySet[Matter]:
@@ -280,16 +352,29 @@ class MatterCreateView(CabinetPermissionMixin, BreadcrumbMixin, CreateView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
-        if self.request.POST:
-            ctx["parties_formset"] = MatterPartyFormSet(self.request.POST)
+        bound = getattr(self, "_parties_bound", None)
+        if bound is not None:
+            ctx["state_party_form"], ctx["opposing_party_form"] = bound
         else:
-            ctx["parties_formset"] = MatterPartyFormSet()
+            state_form, opposing_form = _parties_forms_from_request(self.request)
+            ctx["state_party_form"] = state_form
+            ctx["opposing_party_form"] = opposing_form
         return ctx
 
     def form_valid(self, form: MatterForm) -> HttpResponse:
-        parties_formset = MatterPartyFormSet(self.request.POST)
-        if not parties_formset.is_valid():
-            messages.error(self.request, _g("Erreur dans les parties du dossier."))
+        state_form, opposing_form = _parties_forms_from_request(self.request)
+        self._parties_bound = (state_form, opposing_form)
+        if not state_form.is_valid() or not opposing_form.is_valid():
+            messages.error(
+                self.request,
+                _g("Renseignez l'entité étatique et la partie adverse."),
+            )
+            return self.form_invalid(form)
+        if not validate_distinct_party_roles(state_form, opposing_form):
+            messages.error(
+                self.request,
+                _g("Les deux parties ne peuvent pas avoir le même rôle."),
+            )
             return self.form_invalid(form)
 
         data = form.cleaned_data
@@ -303,23 +388,14 @@ class MatterCreateView(CabinetPermissionMixin, BreadcrumbMixin, CreateView):
                 scale=data.get("scale") or MatterScale.NATIONAL,
                 status=data.get("status") or MatterStatus.OPEN,
                 opened_at=data.get("opened_at"),
-                closed_at=data.get("closed_at"),
                 notes=data.get("notes") or "",
             )
-            for party_form in parties_formset:
-                if party_form.cleaned_data and not party_form.cleaned_data.get("DELETE"):
-                    from apps.matters.models import MatterParty
-
-                    party = MatterParty(
-                        cabinet=None,
-                        matter=matter,
-                        name=party_form.cleaned_data["name"],
-                        role=party_form.cleaned_data["role"],
-                        is_state_entity=party_form.cleaned_data.get("is_state_entity", False),
-                        notes=party_form.cleaned_data.get("notes", ""),
-                        created_by=self.request.user,
-                    )
-                    party.save()
+            _save_matter_parties(
+                matter=matter,
+                user=self.request.user,
+                state_form=state_form,
+                opposing_form=opposing_form,
+            )
         except (ValidationError, PermissionDenied) as exc:
             if isinstance(exc, ValidationError) and hasattr(exc, "message_dict"):
                 for field, errs in exc.message_dict.items():
@@ -364,53 +440,49 @@ class MatterUpdateView(PlatformAdminRequiredMixin, BreadcrumbMixin, UpdateView):
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)
-        if self.request.POST:
-            ctx["parties_formset"] = MatterPartyFormSet(self.request.POST)
+        bound = getattr(self, "_parties_bound", None)
+        if bound is not None:
+            ctx["state_party_form"], ctx["opposing_party_form"] = bound
         else:
-            # Pre-populate with existing parties
-            existing_parties = self.object.parties.all()
-            initial_data = []
-            for party in existing_parties:
-                initial_data.append({
-                    'name': party.name,
-                    'role': party.role,
-                    'is_state_entity': party.is_state_entity,
-                    'notes': party.notes,
-                })
-            ctx["parties_formset"] = MatterPartyFormSet(initial=initial_data)
+            state_form, opposing_form = _parties_forms_from_request(
+                self.request, matter=self.object
+            )
+            ctx["state_party_form"] = state_form
+            ctx["opposing_party_form"] = opposing_form
         return ctx
 
     def form_valid(self, form: MatterForm) -> HttpResponse:
-        parties_formset = MatterPartyFormSet(self.request.POST)
-        if not parties_formset.is_valid():
-            messages.error(self.request, _g("Erreur dans les parties du dossier."))
+        state_form, opposing_form = _parties_forms_from_request(self.request, matter=self.object)
+        self._parties_bound = (state_form, opposing_form)
+        if not state_form.is_valid() or not opposing_form.is_valid():
+            messages.error(
+                self.request,
+                _g("Renseignez l'entité étatique et la partie adverse."),
+            )
             return self.form_invalid(form)
-        
+        if not validate_distinct_party_roles(state_form, opposing_form):
+            messages.error(
+                self.request,
+                _g("Les deux parties ne peuvent pas avoir le même rôle."),
+            )
+            return self.form_invalid(form)
+
         # Nettoyer les données avant de passer au service
         cleaned_data = form.cleaned_data.copy()
-        # Retirer le champ responsible_lawyer s'il est présent
-        cleaned_data.pop('responsible_lawyer', None)
-        
+        cleaned_data.pop("responsible_lawyer", None)
+
         try:
             update_matter(
                 matter=self.object,
                 user=self.request.user,  # type: ignore[arg-type]
                 **cleaned_data,
             )
-            # Update parties - delete existing and recreate
-            from apps.matters.models import MatterParty
-            self.object.parties.all().delete()
-            for party_form in parties_formset:
-                if party_form.cleaned_data and not party_form.cleaned_data.get('DELETE'):
-                    MatterParty.objects.create(
-                        cabinet=self.object.cabinet,
-                        matter=self.object,
-                        name=party_form.cleaned_data['name'],
-                        role=party_form.cleaned_data['role'],
-                        is_state_entity=party_form.cleaned_data.get('is_state_entity', False),
-                        notes=party_form.cleaned_data.get('notes', ''),
-                        created_by=self.request.user,
-                    )
+            _save_matter_parties(
+                matter=self.object,
+                user=self.request.user,
+                state_form=state_form,
+                opposing_form=opposing_form,
+            )
         except (ValidationError, PermissionDenied) as exc:
             messages.error(self.request, str(exc))
             return self.form_invalid(form)

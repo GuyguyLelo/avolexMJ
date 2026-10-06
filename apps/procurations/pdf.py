@@ -1,23 +1,23 @@
-"""Génération PDF de l'acte de procuration ministérielle."""
+"""Génération PDF de l'acte de procuration ministérielle (modèle officiel MJ)."""
 
 from __future__ import annotations
 
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.conf import settings
 from django.template.loader import render_to_string
+from django.utils import timezone
 
 if TYPE_CHECKING:
     from apps.procurations.models import Procuration
 
 logger = logging.getLogger(__name__)
 
-INK = (12, 28, 46)
-BRASS = (196, 154, 60)
-SLATE = (102, 116, 131)
+INK = (17, 17, 17)
+SLATE = (51, 51, 51)
 
 _STUB_PDF = b"""%PDF-1.4
 1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj
@@ -29,15 +29,20 @@ trailer<< /Root 1 0 R >>
 
 
 def build_procuration_pdf(procuration: Procuration) -> bytes:
-    """Rend l'acte de procuration en PDF."""
+    """Rend l'acte de procuration en PDF selon le modèle ministériel."""
     backend = getattr(settings, "BILLING_PDF_BACKEND", "weasyprint")
     if backend == "stub":
         return _STUB_PDF
 
     procuration = (
         type(procuration)
-        .unscoped.select_related("cabinet", "matter", "granted_by")
-        .prefetch_related("matter__parties")
+        .unscoped.select_related(
+            "cabinet",
+            "matter",
+            "matter__responsible_lawyer",
+            "granted_by",
+        )
+        .prefetch_related("matter__parties", "matter__assigned_lawyers__lawyer")
         .get(pk=procuration.pk)
     )
 
@@ -71,38 +76,190 @@ def _try_weasyprint(procuration: Procuration) -> bytes | None:
     return None
 
 
+def _format_date_long(value: object) -> str:
+    """Date française : 08 septembre 2026."""
+    if value is None:
+        return "…………………"
+    if not hasattr(value, "strftime"):
+        return str(value)
+    months = (
+        "",
+        "janvier",
+        "février",
+        "mars",
+        "avril",
+        "mai",
+        "juin",
+        "juillet",
+        "août",
+        "septembre",
+        "octobre",
+        "novembre",
+        "décembre",
+    )
+    day = int(value.strftime("%d"))  # type: ignore[union-attr]
+    month = months[int(value.strftime("%m"))]  # type: ignore[union-attr]
+    year = value.strftime("%Y")  # type: ignore[union-attr]
+    return f"{day:02d} {month} {year}"
+
+
+def _cabinet_address(cabinet: Any) -> str:
+    if cabinet is None:
+        return ""
+    parts = [
+        cabinet.address_line1 or "",
+        cabinet.address_line2 or "",
+        " ".join(p for p in [cabinet.postal_code or "", cabinet.city or ""] if p).strip(),
+    ]
+    return ", ".join(p.strip() for p in parts if p and p.strip())
+
+
+def _lawyer_label(user: Any) -> str:
+    if user is None:
+        return ""
+    name = (user.get_full_name() or user.email or "").strip()
+    if not name:
+        return ""
+    if name.lower().startswith("maître") or name.lower().startswith("maitre"):
+        return name
+    return f"Maître {name}"
+
+
+def _resolve_lawyer(procuration: Procuration) -> tuple[str, str, str]:
+    """Retourne (nom avocat, barreau, adresse cabinet)."""
+    cabinet = procuration.cabinet
+    bar = (cabinet.bar_association if cabinet else "") or ""
+    address = _cabinet_address(cabinet)
+    matter = procuration.matter
+    lawyer = None
+    if matter is not None:
+        lawyer = matter.responsible_lawyer
+        if lawyer is None:
+            lead = (
+                matter.assigned_lawyers.filter(is_lead=True)
+                .select_related("lawyer")
+                .first()
+            )
+            if lead is None:
+                lead = matter.assigned_lawyers.select_related("lawyer").first()
+            if lead is not None:
+                lawyer = lead.lawyer
+    return _lawyer_label(lawyer), bar, address
+
+
+def _party_names(parties: list[Any], *, state: bool) -> str:
+    names = [p.name.strip() for p in parties if bool(p.is_state_entity) is state and p.name.strip()]
+    return ", ".join(names)
+
+
+def _en_cause_contre(procuration: Procuration, parties: list[Any]) -> tuple[str, str]:
+    state = _party_names(parties, state=True)
+    others = _party_names(parties, state=False)
+    en_cause = state or "La République Démocratique du Congo"
+    if state and others:
+        # Conservé si l'État est déjà nommé ; sinon « et consorts » reste possible.
+        pass
+    if state and "République" not in en_cause and "REPUBLIQUE" not in en_cause.upper():
+        en_cause = f"{en_cause}"
+    contre = others or (procuration.opposing_party or "—")
+    return en_cause, contre
+
+
+def _document_number(procuration: Procuration) -> str:
+    if procuration.ministry_reference:
+        return procuration.ministry_reference
+    year = timezone.localdate().year
+    return f"/CAB/ME/MIN/J&GS/{year}/{procuration.reference}"
+
+
+def _purpose_text(procuration: Procuration) -> str:
+    matter = procuration.matter
+    jurisdiction = (
+        (matter.jurisdiction if matter is not None else "")
+        or procuration.jurisdiction
+        or "la juridiction compétente"
+    )
+    case_ref = matter.reference if matter is not None else procuration.reference
+    custom = (procuration.purpose or "").strip()
+    if custom and custom.lower() not in {"représentation", "representation", "procuration"}:
+        base = custom
+        if "devant" not in custom.lower():
+            base = f"{custom} devant {jurisdiction}"
+        if case_ref and case_ref not in base:
+            base = f"{base} dans l'affaire enrôlée sous {case_ref}"
+        return base.rstrip(".") + "."
+    return (
+        "Représenter la République Démocratique du Congo et accomplir tous les actes "
+        f"et formalités afférents à la défense de ses intérêts devant {jurisdiction} "
+        f"dans l'affaire enrôlée sous {case_ref}."
+    )
+
+
 def _template_context(procuration: Procuration) -> dict[str, object]:
     cabinet = procuration.cabinet
     matter = procuration.matter
-    # Use parties instead of client
-    parties = []
+    parties: list[Any] = []
     if matter is not None:
         parties = list(matter.parties.all().order_by("role", "name"))
-    client_name = procuration.client_name
+    lawyer_name, lawyer_bar, lawyer_address = _resolve_lawyer(procuration)
+    en_cause, contre = _en_cause_contre(procuration, parties)
     granted_by = ""
     if procuration.granted_by_id:
         granted_by = procuration.granted_by.get_full_name() or procuration.granted_by.email
+    printed = timezone.localtime()
     return {
         "procuration": procuration,
         "cabinet": cabinet,
         "matter": matter,
         "parties": parties,
-        "client_name": client_name,
+        "document_number": _document_number(procuration),
+        "minister_name": getattr(
+            settings,
+            "PROCURATION_MINISTER_NAME",
+            "Monsieur Guillaume NGEFA ATONDOKO ANDALI",
+        ),
+        "minister_title": getattr(
+            settings,
+            "PROCURATION_MINISTER_TITLE",
+            "Ministre d'État, Ministre de la Justice et Garde des Sceaux",
+        ),
+        "ministry_address": getattr(
+            settings,
+            "PROCURATION_MINISTRY_ADDRESS",
+            "Kinshasa, Palais de Justice, Place de l'Indépendance, dans la Commune de la Gombe",
+        ),
+        "ordinance_appointment": getattr(
+            settings,
+            "PROCURATION_ORDINANCE_APPOINTMENT",
+            "Ordonnance n°25/247 du 07 août 2025 portant nomination des Vice-Premiers "
+            "Ministres, Ministres d'État, Ministres, Ministres Délégués et Vice-Ministres",
+        ),
+        "ordinance_attributions": getattr(
+            settings,
+            "PROCURATION_ORDINANCE_ATTRIBUTIONS",
+            "Ordonnance n° 25/293 du 15 décembre 2025 fixant les attributions des "
+            "Ministères, article 1er litera B point 12",
+        ),
+        "lawyer_name": lawyer_name,
+        "lawyer_bar": lawyer_bar,
+        "lawyer_address": lawyer_address or _cabinet_address(cabinet),
+        "cabinet_address": _cabinet_address(cabinet),
+        "purpose_text": _purpose_text(procuration),
+        "en_cause": en_cause,
+        "contre": contre,
+        "granted_date": _format_date_long(procuration.granted_at or timezone.localdate()),
+        "signatory_capacity": (
+            "Pour le Ministre d'État, Ministre de la Justice et Garde des Sceaux"
+        ),
+        "signatory_name": granted_by,
+        "signatory_title": "",
         "granted_by": granted_by,
+        "printed_at": printed.strftime("%d/%m/%Y imp %H:%M:%S"),
         "country": getattr(settings, "SITE_COUNTRY", "République Démocratique du Congo"),
         "institution": getattr(
             settings, "SITE_INSTITUTION", "Ministère de la Justice et Garde des Sceaux"
         ),
-        "authority": getattr(settings, "SITE_AUTHORITY", "Le Gouvernement"),
     }
-
-
-def _format_date(value: object) -> str:
-    if value is None:
-        return "—"
-    if hasattr(value, "strftime"):
-        return value.strftime("%d/%m/%Y")  # type: ignore[union-attr]
-    return str(value)
 
 
 def _font_candidates() -> list[tuple[Path, Path]]:
@@ -110,6 +267,7 @@ def _font_candidates() -> list[tuple[Path, Path]]:
     base = Path(settings.BASE_DIR) / "static" / "fonts"
     return [
         (base / "SourceSans3-Regular.ttf", base / "SourceSans3-Bold.ttf"),
+        (windir / "times.ttf", windir / "timesbd.ttf"),
         (windir / "arial.ttf", windir / "arialbd.ttf"),
         (windir / "calibri.ttf", windir / "calibrib.ttf"),
         (
@@ -117,190 +275,142 @@ def _font_candidates() -> list[tuple[Path, Path]]:
             Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
         ),
         (
-            Path("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"),
-            Path("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"),
+            Path("/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf"),
+            Path("/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf"),
         ),
     ]
-
-
-def _join(*parts: str) -> str:
-    return "  ·  ".join(p.strip() for p in parts if p and p.strip())
 
 
 def _build_with_fpdf(procuration: Procuration) -> bytes:
     from fpdf import FPDF
 
     ctx = _template_context(procuration)
-    cabinet = procuration.cabinet
-    matter = procuration.matter
 
     pdf = FPDF(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=22)
-    pdf.alias_nb_pages()
+    pdf.set_margins(20, 22, 20)
 
-    font_name = "Helvetica"
+    font_name = "Times"
     for regular, bold in _font_candidates():
         if regular.is_file():
             bold_path = bold if bold.is_file() else regular
-            pdf.add_font("ProcSans", "", str(regular))
-            pdf.add_font("ProcSans", "B", str(bold_path))
-            font_name = "ProcSans"
+            pdf.add_font("ProcSerif", "", str(regular))
+            pdf.add_font("ProcSerif", "B", str(bold_path))
+            font_name = "ProcSerif"
             break
 
     pdf.add_page()
+    usable = 210 - 40
 
-    pdf.set_fill_color(*INK)
-    pdf.rect(0, 0, 210, 42, "F")
-    pdf.set_fill_color(*BRASS)
-    pdf.rect(0, 42, 210, 1.6, "F")
-
-    pdf.set_text_color(201, 212, 224)
-    pdf.set_font(font_name, "", 9)
-    pdf.set_xy(16, 10)
-    pdf.cell(178, 5, str(ctx["country"]), align="C")
-
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font(font_name, "B", 14)
-    pdf.set_xy(16, 17)
-    pdf.cell(178, 8, str(ctx["institution"]), align="C")
-
-    pdf.set_text_color(*BRASS)
-    pdf.set_font(font_name, "B", 11)
-    pdf.set_xy(16, 28)
-    pdf.cell(178, 6, "PROCURATION", align="C")
-
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font(font_name, "B", 12)
-    pdf.set_xy(16, 34)
-    pdf.cell(178, 6, procuration.reference, align="C")
-
-    y = 54
-    if procuration.ministry_reference:
-        pdf.set_text_color(*SLATE)
-        pdf.set_font(font_name, "", 9)
-        pdf.set_xy(16, y)
-        pdf.cell(178, 5, f"Référence ministérielle : {procuration.ministry_reference}", align="C")
-        y += 10
-
-    pdf.set_text_color(*INK)
-    pdf.set_font(font_name, "", 11)
-    pdf.set_xy(16, y)
-    pdf.multi_cell(
-        178,
-        6,
-        "Le Ministre de la Justice et Garde des Sceaux donne par les présentes "
-        "procuration au cabinet d'avocats ci-après désigné, pour accomplir les "
-        "actes de procédure et de représentation dans le dossier indiqué.",
-    )
-    y = pdf.get_y() + 8
-
-    def _section(title: str) -> None:
-        nonlocal y
-        pdf.set_text_color(*SLATE)
-        pdf.set_font(font_name, "B", 8)
-        pdf.set_xy(16, y)
-        pdf.cell(178, 5, title.upper())
-        y += 6
-
-    def _body(text: str, *, bold: bool = False) -> None:
-        nonlocal y
+    def _center(text: str, *, size: float = 12, bold: bool = False) -> None:
         pdf.set_text_color(*INK)
-        pdf.set_font(font_name, "B" if bold else "", 11)
-        pdf.set_xy(16, y)
-        pdf.multi_cell(178, 6, text)
-        y = pdf.get_y() + 4
+        pdf.set_font(font_name, "B" if bold else "", size)
+        pdf.multi_cell(usable, 6, text, align="C")
 
-    _section("Cabinet destinataire")
-    _body(cabinet.name, bold=True)
-    extras = _join(
-        cabinet.legal_name if cabinet.legal_name != cabinet.name else "",
-        cabinet.bar_association,
-        cabinet.address_line1,
-        f"{cabinet.postal_code} {cabinet.city}".strip(),
+    def _para(text: str, *, bold_prefix: str = "") -> None:
+        pdf.set_text_color(*INK)
+        pdf.set_font(font_name, "", 11)
+        if bold_prefix:
+            # fpdf n'enchaîne pas facilement gras+normal : préfixe en gras puis suite.
+            pdf.set_font(font_name, "B", 11)
+            pdf.write(6, bold_prefix)
+            pdf.set_font(font_name, "", 11)
+            pdf.multi_cell(usable, 6, text)
+        else:
+            pdf.multi_cell(usable, 6, text)
+        pdf.ln(3)
+
+    _center("// PROCURATION //", size=13, bold=True)
+    pdf.ln(1)
+    _center(f"N° {ctx['document_number']}", size=11, bold=False)
+    pdf.ln(2)
+    y = pdf.get_y()
+    pdf.set_draw_color(*INK)
+    pdf.set_line_width(0.6)
+    pdf.line(20, y, 190, y)
+    pdf.line(20, y + 0.8, 190, y + 0.8)
+    pdf.ln(8)
+
+    preamble = (
+        f"La REPUBLIQUE DEMOCRATIQUE DU CONGO, représentée par "
+        f"le {ctx['minister_title']}, {ctx['minister_name']}, "
+        f"nommé par {ctx['ordinance_appointment']}, "
+        f"ayant son Cabinet sis à {ctx['ministry_address']}, "
+        f"agissant en vertu de {ctx['ordinance_attributions']},"
     )
-    if extras:
-        pdf.set_font(font_name, "", 9)
-        pdf.set_text_color(58, 69, 84)
-        pdf.set_xy(16, y)
-        pdf.multi_cell(178, 5, extras)
-        y = pdf.get_y() + 6
+    _para(preamble)
 
-    _section("Objet de la procuration")
-    _body(procuration.purpose or procuration.subject)
-
-    _section("Dossier")
-    if matter is not None:
-        _body(f"{matter.reference} — {matter.title}", bold=True)
-        details = [
-            f"Juridiction : {matter.jurisdiction}" if matter.jurisdiction else "",
-            f"Échelle : {matter.get_scale_display()}",
-        ]
-        # Add parties
-        for party in ctx.get("parties", []):
-            role_display = party.get_role_display()
-            state_marker = " (État)" if party.is_state_entity else ""
-            details.append(f"{role_display}{state_marker} : {party.name}")
-            if party.notes:
-                details.append(f"  Note : {party.notes}")
+    if ctx["lawyer_name"]:
+        mandate = (
+            f"donne par les présentes mandat à {ctx['lawyer_name']}"
+            + (f", {ctx['lawyer_bar']}" if ctx["lawyer_bar"] else "")
+            + (
+                f", dont le Cabinet est établi {ctx['lawyer_address']},"
+                if ctx["lawyer_address"]
+                else ","
+            )
+            + " agissant conjointement ou séparément avec pouvoir de substitution."
+        )
+    elif ctx["cabinet"]:
+        cab = ctx["cabinet"]
+        mandate = (
+            f"donne par les présentes mandat au cabinet {cab.name}"  # type: ignore[union-attr]
+            + (f", {cab.bar_association}" if cab.bar_association else "")  # type: ignore[union-attr]
+            + (
+                f", dont le Cabinet est établi {ctx['cabinet_address']},"
+                if ctx["cabinet_address"]
+                else ","
+            )
+            + " agissant conjointement ou séparément avec pouvoir de substitution."
+        )
     else:
-        _body(procuration.subject or procuration.purpose, bold=True)
-        details = [
-            f"Justiciable : {procuration.client_name}" if procuration.client_name else "",
-            f"Juridiction : {procuration.jurisdiction}" if procuration.jurisdiction else "",
-            f"Échelle : {procuration.get_scale_display()}",
-            f"Partie adverse : {procuration.opposing_party}" if procuration.opposing_party else "",
-        ]
-    lines = [line for line in details if line]
-    if lines:
-        pdf.set_font(font_name, "", 10)
-        pdf.set_text_color(58, 69, 84)
-        pdf.set_xy(16, y)
-        pdf.multi_cell(178, 5, "\n".join(lines))
-        y = pdf.get_y() + 6
+        mandate = (
+            "donne par les présentes mandat à l'avocat désigné, "
+            "agissant conjointement ou séparément avec pouvoir de substitution."
+        )
+    _para(mandate)
 
-    _section("Validité")
-    valid_from = _format_date(procuration.valid_from or procuration.granted_at)
-    expires = (
-        _format_date(procuration.expires_at) if procuration.expires_at else "sans terme"
-    )
-    _body(f"Du {valid_from} au {expires}.")
-
-    if procuration.notes:
-        _section("Observations")
-        _body(procuration.notes)
-
-    y += 6
-    granted_at = _format_date(procuration.granted_at)
-    pdf.set_text_color(*INK)
-    pdf.set_font(font_name, "", 11)
-    pdf.set_xy(16, y)
-    pdf.cell(178, 6, f"Fait à Kinshasa, le {granted_at}.")
-    y += 16
-
-    pdf.set_text_color(*SLATE)
-    pdf.set_font(font_name, "B", 8)
-    pdf.set_xy(110, y)
-    pdf.cell(78, 5, "Pour le Ministre de la Justice", align="C")
-    y += 6
-    pdf.set_text_color(*INK)
     pdf.set_font(font_name, "B", 11)
-    pdf.set_xy(110, y)
-    pdf.cell(78, 6, str(ctx["granted_by"]) or "—", align="C")
+    pdf.write(6, "Aux fins de : ")
+    pdf.set_font(font_name, "", 11)
+    pdf.multi_cell(usable, 6, str(ctx["purpose_text"]))
+    pdf.ln(4)
 
-    pdf.set_y(-18)
-    pdf.set_draw_color(*BRASS)
-    pdf.set_line_width(0.4)
-    pdf.line(16, pdf.get_y(), 194, pdf.get_y())
-    pdf.set_y(-15)
+    pdf.set_font(font_name, "B", 11)
+    pdf.write(6, "En cause : ")
+    pdf.set_font(font_name, "", 11)
+    pdf.multi_cell(usable, 6, str(ctx["en_cause"]))
+    pdf.ln(2)
+
+    pdf.set_font(font_name, "B", 11)
+    pdf.write(6, "Contre : ")
+    pdf.set_font(font_name, "", 11)
+    pdf.multi_cell(usable, 6, str(ctx["contre"]))
+    pdf.ln(6)
+
+    _para(f"Fait à Kinshasa, le {ctx['granted_date']}")
+
+    pdf.ln(8)
+    pdf.set_x(110)
+    pdf.set_font(font_name, "", 10)
+    pdf.multi_cell(70, 5, str(ctx["signatory_capacity"]), align="C")
+    if ctx["signatory_name"]:
+        pdf.ln(14)
+        pdf.set_x(110)
+        pdf.set_font(font_name, "B", 11)
+        pdf.multi_cell(70, 6, str(ctx["signatory_name"]), align="C")
+    if ctx["signatory_title"]:
+        pdf.set_x(110)
+        pdf.set_font(font_name, "", 10)
+        pdf.multi_cell(70, 5, str(ctx["signatory_title"]), align="C")
+
+    pdf.set_y(-28)
     pdf.set_text_color(*SLATE)
-    pdf.set_font(font_name, "", 7.5)
-    pdf.cell(
-        120,
-        6,
-        "Acte généré par AvoLex — Ministère de la Justice (RDC).",
-        align="L",
-    )
-    pdf.cell(58, 6, f"Page {pdf.page_no()}/{{nb}}", align="R")
+    pdf.set_font(font_name, "", 8)
+    if ctx["granted_by"]:
+        pdf.cell(usable, 4, str(ctx["granted_by"]), ln=1)
+    pdf.cell(usable, 4, f"Le {ctx['printed_at']}", ln=1)
+    pdf.cell(usable, 4, "Visa Dircaba", ln=1)
 
     raw = pdf.output()
     return bytes(raw) if not isinstance(raw, bytes) else raw

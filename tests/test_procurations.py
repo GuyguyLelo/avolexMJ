@@ -272,6 +272,48 @@ def test_ministry_lists_issued_procurations(client) -> None:  # type: ignore[no-
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize(
+    "flags",
+    [
+        {"is_super_admin": True, "is_platform_admin": True},
+        {"is_super_admin": False, "is_platform_admin": True, "first_name": "Synthia"},
+    ],
+)
+def test_superadmin_and_supervisor_see_procurations_without_cabinet(
+    client,  # type: ignore[no-untyped-def]
+    flags: dict[str, object],
+) -> None:
+    """SuperAdmin et Synthia (superviseur) voient liste + fiche sans cabinet en session."""
+    owner = UserFactory()
+    supervisor = UserFactory(**flags)
+    cabinet = CabinetFactory(name="Cabinet Synthia Test")
+    MembershipFactory(user=owner, cabinet=cabinet, role=Role.OWNER)
+    matter = MatterFactory(cabinet=cabinet, with_procuration=False, responsible_lawyer=owner)
+    with cabinet_context(cabinet):
+        procuration = create_procuration(
+            cabinet=cabinet,
+            user=supervisor,
+            matter=matter,
+            purpose="Mandat supervision nationale",
+        )
+        pk = procuration.pk
+
+    client.force_login(supervisor)
+    # Pas de cabinet_id en session (compte ministère détaché).
+    assert "cabinet_id" not in client.session
+
+    listing = client.get(reverse("procurations:list"))
+    assert listing.status_code == 200
+    html = listing.content.decode()
+    assert "Mandat supervision nationale" in html
+    assert "Cabinet Synthia Test" in html
+
+    detail = client.get(reverse("procurations:detail", args=[pk]))
+    assert detail.status_code == 200
+    assert "Mandat supervision nationale" in detail.content.decode()
+
+
+@pytest.mark.django_db
 def test_new_procuration_starts_with_cabinet(client) -> None:  # type: ignore[no-untyped-def]
     """La création commence par le cabinet : les dossiers n'apparaissent qu'après sélection."""
     owner = UserFactory()
@@ -438,7 +480,7 @@ def test_ministry_generates_procuration_pdf(client) -> None:  # type: ignore[no-
     after = client.get(reverse("procurations:detail", args=[pk]))
     assert after.status_code == 200
     after_html = after.content.decode()
-    assert "Régénérer l'acte" in after_html
+    assert "Régénérer" in after_html
     assert reverse("procurations:preview", args=[pk]) in after_html
 
 

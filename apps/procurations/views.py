@@ -33,12 +33,19 @@ from apps.procurations.services import (
 )
 from apps.tenants.mixins import (
     CabinetPermissionMixin,
-    CabinetRequiredMixin,
     PlatformAdminRequiredMixin,
 )
 from apps.tenants.models import Cabinet
 from apps.tenants.roles import PERM_VIEW
 from apps.tenants.services import is_platform_admin, suggest_cabinets_for_practice_area
+
+
+def _platform_sets_no_cabinet(view: CabinetPermissionMixin, request: Any) -> None:
+    """Supervision (SuperAdmin / Synthia) : lecture sans cabinet courant."""
+    if is_platform_admin(request.user):
+        view.cabinet_required = False
+    else:
+        view.cabinet_required = True
 
 
 def _get_procuration(request: HttpRequest, pk: str) -> Procuration:
@@ -81,10 +88,7 @@ class ProcurationListView(CabinetPermissionMixin, BreadcrumbMixin, ListView):
     cabinet_required = False
 
     def dispatch(self, request: Any, *args: Any, **kwargs: Any) -> HttpResponse:
-        if is_platform_admin(request.user):
-            self.cabinet_required = False
-        else:
-            self.cabinet_required = True
+        _platform_sets_no_cabinet(self, request)
         return super().dispatch(request, *args, **kwargs)
 
     def get_breadcrumb(self) -> list[dict[str, str]]:
@@ -127,6 +131,11 @@ class ProcurationDetailView(CabinetPermissionMixin, BreadcrumbMixin, DetailView)
     template_name = "procurations/procuration_detail.html"
     context_object_name = "procuration"
     required_perm = PERM_VIEW
+    cabinet_required = False
+
+    def dispatch(self, request: Any, *args: Any, **kwargs: Any) -> HttpResponse:
+        _platform_sets_no_cabinet(self, request)
+        return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self) -> QuerySet[Procuration]:
         return procurations_visible_qs(
@@ -340,9 +349,10 @@ class ProcurationDeleteView(PlatformAdminRequiredMixin, View):
         return redirect("procurations:list")
 
 
-class ProcurationGrantView(CabinetRequiredMixin, View):
+class ProcurationGrantView(PlatformAdminRequiredMixin, View):
     """Octroi par le Ministère de la Justice."""
 
+    cabinet_required = False
     http_method_names = ("post",)
 
     def post(self, request: HttpRequest, pk: str) -> HttpResponse:
@@ -367,9 +377,10 @@ class ProcurationGrantView(CabinetRequiredMixin, View):
         return redirect("procurations:detail", pk=pk)
 
 
-class ProcurationRefuseView(CabinetRequiredMixin, View):
+class ProcurationRefuseView(PlatformAdminRequiredMixin, View):
     """Refus ministériel."""
 
+    cabinet_required = False
     http_method_names = ("post",)
 
     def post(self, request: HttpRequest, pk: str) -> HttpResponse:
@@ -391,9 +402,10 @@ class ProcurationRefuseView(CabinetRequiredMixin, View):
         return redirect("procurations:detail", pk=pk)
 
 
-class ProcurationRevokeView(CabinetRequiredMixin, View):
+class ProcurationRevokeView(PlatformAdminRequiredMixin, View):
     """Révocation ministérielle."""
 
+    cabinet_required = False
     http_method_names = ("post",)
 
     def post(self, request: HttpRequest, pk: str) -> HttpResponse:
@@ -439,7 +451,12 @@ class ProcurationDownloadView(CabinetPermissionMixin, View):
     """Téléchargement de l'acte scanné."""
 
     required_perm = PERM_VIEW
+    cabinet_required = False
     http_method_names = ("get",)
+
+    def dispatch(self, request: Any, *args: Any, **kwargs: Any) -> HttpResponse:
+        _platform_sets_no_cabinet(self, request)
+        return super().dispatch(request, *args, **kwargs)
 
     def get(self, request: HttpRequest, pk: str) -> HttpResponse:
         procuration = _get_procuration(request, pk)
@@ -450,7 +467,12 @@ class ProcurationPreviewView(CabinetPermissionMixin, View):
     """Affichage inline de l'acte scanné (PDF / image)."""
 
     required_perm = PERM_VIEW
+    cabinet_required = False
     http_method_names = ("get",)
+
+    def dispatch(self, request: Any, *args: Any, **kwargs: Any) -> HttpResponse:
+        _platform_sets_no_cabinet(self, request)
+        return super().dispatch(request, *args, **kwargs)
 
     def get(self, request: HttpRequest, pk: str) -> HttpResponse:
         procuration = _get_procuration(request, pk)

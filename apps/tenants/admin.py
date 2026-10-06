@@ -9,6 +9,7 @@ from apps.tenants.models import (
     CabinetPracticeArea,
     CabinetPreference,
     Invitation,
+    Jurisdiction,
     LegalPracticeArea,
     Membership,
 )
@@ -52,6 +53,16 @@ class LegalPracticeAreaAdmin(admin.ModelAdmin):
     list_display = ("name", "slug", "is_active", "created_at")
     search_fields = ("name", "description")
     list_filter = ("is_active",)
+    prepopulated_fields = {"slug": ("name",)}
+
+
+@admin.register(Jurisdiction)
+class JurisdictionAdmin(admin.ModelAdmin):
+    """Administration du référentiel de juridictions."""
+
+    list_display = ("name", "scale", "category", "is_active", "created_at")
+    search_fields = ("name", "category")
+    list_filter = ("scale", "is_active")
     prepopulated_fields = {"slug": ("name",)}
 
 

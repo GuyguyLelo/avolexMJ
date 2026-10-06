@@ -13,7 +13,7 @@
 <form method="post" class="card compact-form" enctype="multipart/form-data" novalidate>
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
-  
+
   <div class="form-grid">
     {% for field in form %}
     {% if field.name != 'opposing_party' %}
@@ -26,45 +26,66 @@
     {% endif %}
     {% endfor %}
   </div>
-  
-  {% if parties_formset %}
+
   <div class="parties-section" style="margin-top: 1.5rem;">
-    <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">{% translate "Parties concernées" %}</h3>
-    <p class="form-help" style="margin-bottom: 1rem;">{% translate "Le Ministère de la Justice défend les services de l'État congolais. Indiquez les parties plaignantes/accusatrices et défendeurs/accusés." %}</p>
-    {{ parties_formset.management_form }}
-    <div class="parties-grid" style="display: grid; gap: 1rem;">
-      {% for form in parties_formset %}
-      <div class="party-form card" style="padding: 1rem; background: #f8f9fa;">
-        <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-          <div class="form-field">
-            <label for="{{ form.name.id_for_label }}">{% translate "Nom de la partie" %}</label>
-            {{ form.name }}
-            {% if form.name.errors %}<div class="form-error">{{ form.name.errors }}</div>{% endif %}
-          </div>
-          <div class="form-field">
-            <label for="{{ form.role.id_for_label }}">{% translate "Rôle" %}</label>
-            {{ form.role }}
-            {% if form.role.errors %}<div class="form-error">{{ form.role.errors }}</div>{% endif %}
-          </div>
-          <div class="form-field" style="grid-column: 1 / -1;">
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-              {{ form.is_state_entity }}
-              <label for="{{ form.is_state_entity.id_for_label }}" style="margin: 0; font-size: 0.85rem;">{% translate "Entité étatique (service de l'État congolais)" %}</label>
-            </div>
-            {% if form.is_state_entity.errors %}<div class="form-error">{{ form.is_state_entity.errors }}</div>{% endif %}
-          </div>
-          <div class="form-field" style="grid-column: 1 / -1;">
-            <label for="{{ form.notes.id_for_label }}">{% translate "Notes" %}</label>
-            {{ form.notes }}
-            {% if form.notes.errors %}<div class="form-error">{{ form.notes.errors }}</div>{% endif %}
-          </div>
+    <h3 style="margin-bottom: 0.5rem; font-size: 1.1rem;">{% translate "Parties concernées" %}</h3>
+    <p class="form-help" style="margin-bottom: 1rem;">
+      {% translate "Deux parties seulement : l'entité étatique représentée par le Ministère, et la partie adverse (rôles distincts)." %}
+    </p>
+
+    {% if state_party_form %}
+    <div class="party-form card" style="padding: 1rem; margin-bottom: 1rem; background: color-mix(in srgb, var(--color-brass-100, #f4ead4) 55%, #fff); border: 1px solid color-mix(in srgb, var(--color-brass-500) 25%, var(--color-border));">
+      <p style="margin: 0 0 0.75rem; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted);">
+        {% translate "Entité étatique" %} · {% translate "obligatoire" %}
+      </p>
+      <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div class="form-field" style="grid-column: 1 / -1;">
+          <label for="{{ state_party_form.name.id_for_label }}">{{ state_party_form.name.label }}</label>
+          {{ state_party_form.name }}
+          {% if state_party_form.name.help_text %}<p class="form-help">{{ state_party_form.name.help_text }}</p>{% endif %}
+          {% if state_party_form.name.errors %}<div class="form-error">{{ state_party_form.name.errors }}</div>{% endif %}
+        </div>
+        <div class="form-field">
+          <label for="{{ state_party_form.role.id_for_label }}">{{ state_party_form.role.label }}</label>
+          {{ state_party_form.role }}
+          {% if state_party_form.role.errors %}<div class="form-error">{{ state_party_form.role.errors }}</div>{% endif %}
+        </div>
+        <div class="form-field" style="grid-column: 1 / -1;">
+          <label for="{{ state_party_form.notes.id_for_label }}">{{ state_party_form.notes.label }}</label>
+          {{ state_party_form.notes }}
+          {% if state_party_form.notes.errors %}<div class="form-error">{{ state_party_form.notes.errors }}</div>{% endif %}
         </div>
       </div>
-      {% endfor %}
     </div>
+    {% endif %}
+
+    {% if opposing_party_form %}
+    <div class="party-form card" style="padding: 1rem; background: #f8f9fa;">
+      <p style="margin: 0 0 0.75rem; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted);">
+        {% translate "Partie adverse" %} · {% translate "obligatoire" %}
+      </p>
+      <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div class="form-field" style="grid-column: 1 / -1;">
+          <label for="{{ opposing_party_form.name.id_for_label }}">{{ opposing_party_form.name.label }}</label>
+          {{ opposing_party_form.name }}
+          {% if opposing_party_form.name.help_text %}<p class="form-help">{{ opposing_party_form.name.help_text }}</p>{% endif %}
+          {% if opposing_party_form.name.errors %}<div class="form-error">{{ opposing_party_form.name.errors }}</div>{% endif %}
+        </div>
+        <div class="form-field">
+          <label for="{{ opposing_party_form.role.id_for_label }}">{{ opposing_party_form.role.label }}</label>
+          {{ opposing_party_form.role }}
+          {% if opposing_party_form.role.errors %}<div class="form-error">{{ opposing_party_form.role.errors }}</div>{% endif %}
+        </div>
+        <div class="form-field" style="grid-column: 1 / -1;">
+          <label for="{{ opposing_party_form.notes.id_for_label }}">{{ opposing_party_form.notes.label }}</label>
+          {{ opposing_party_form.notes }}
+          {% if opposing_party_form.notes.errors %}<div class="form-error">{{ opposing_party_form.notes.errors }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
   </div>
-  {% endif %}
-  
+
   <div class="cluster">
     <button class="btn btn-primary" type="submit">{% translate "Enregistrer" %}</button>
     <a class="btn btn-secondary" href="{% if matter %}{% url 'matters:detail' matter.pk %}{% else %}{% url 'matters:list' %}{% endif %}">{% translate "Annuler" %}</a>

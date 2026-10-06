@@ -313,3 +313,58 @@ class CabinetPracticeArea(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.cabinet} — {self.practice_area}"
+
+
+class JurisdictionScale(models.TextChoices):
+    """Échelle d'une juridiction du référentiel."""
+
+    NATIONAL = "national", _("Nationale")
+    INTERNATIONAL = "international", _("Internationale")
+
+
+class Jurisdiction(BaseModel):
+    """Tribunal ou juridiction du référentiel national."""
+
+    name = models.CharField(_("intitulé"), max_length=255)
+    slug = models.SlugField(_("slug"), max_length=255)
+    scale = models.CharField(
+        _("échelle"),
+        max_length=20,
+        choices=JurisdictionScale.choices,
+        default=JurisdictionScale.NATIONAL,
+        db_index=True,
+    )
+    category = models.CharField(_("groupe"), max_length=160, blank=True)
+    is_active = models.BooleanField(_("active"), default=True)
+
+    class Meta:
+        verbose_name = _("Juridiction")
+        verbose_name_plural = _("Juridictions")
+        ordering = ("scale", "category", "name")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("name",),
+                condition=models.Q(is_deleted=False),
+                name="uniq_jurisdiction_name",
+            ),
+            models.UniqueConstraint(
+                fields=("slug",),
+                condition=models.Q(is_deleted=False),
+                name="uniq_jurisdiction_slug",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.name
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        """Génère un slug unique si absent."""
+        if not self.slug:
+            base = slugify(self.name) or "juridiction"
+            slug = base
+            counter = 1
+            while Jurisdiction.all_objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base}-{counter}"
+                counter += 1
+            self.slug = slug
+        super().save(*args, **kwargs)

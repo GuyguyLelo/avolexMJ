@@ -7,6 +7,8 @@ from typing import Any
 from django.db import connection
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
+from django.urls import reverse
+from django.utils.translation import gettext as _g
 from django.views import View
 from django.views.generic import TemplateView
 
@@ -23,7 +25,12 @@ from apps.core.dashboard import (
 )
 from apps.core.mixins import BreadcrumbMixin
 from apps.tenants.mixins import CabinetRequiredMixin, PlatformAdminRequiredMixin
-from apps.tenants.services import is_platform_admin
+from apps.tenants.services import (
+    cabinet_practice_areas_queryset,
+    is_platform_admin,
+    jurisdictions_queryset,
+    legal_practice_areas_queryset,
+)
 
 
 class LandingView(TemplateView):
@@ -64,6 +71,58 @@ class HomeView(CabinetRequiredMixin, BreadcrumbMixin, TemplateView):
         ctx["recent_matters"] = recent_matters(cabinet=cabinet, user=self.request.user)
         ctx["upcoming_events"] = upcoming_events(cabinet=cabinet)
         ctx["upcoming_hearings"] = upcoming_hearings(cabinet=cabinet)
+        return ctx
+
+
+class SettingsHubView(CabinetRequiredMixin, BreadcrumbMixin, TemplateView):
+    """Tables de référence : matières, juridictions et spécialités de cabinet."""
+
+    template_name = "core/settings.html"
+    cabinet_required = False
+
+    def get_breadcrumb(self) -> list[dict[str, str]]:
+        return [
+            {"label": _g("Paramètres")},
+            {"label": _g("Données référentielles")},
+        ]
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        platform = is_platform_admin(self.request.user)  # type: ignore[arg-type]
+        cabinet = getattr(self.request, "cabinet", None)
+        ctx["settings_tables"] = []
+        if platform:
+            ctx["settings_tables"].append(
+                {
+                    "title": _g("Matières juridiques"),
+                    "lede": _g("Référentiel national utilisé à l'ouverture des dossiers et pour les spécialités des cabinets."),
+                    "href": reverse("tenants:practice_area_list"),
+                    "kicker": _g("Référentiel national"),
+                    "count": legal_practice_areas_queryset().count(),
+                    "count_label": _g("matières"),
+                }
+            )
+            ctx["settings_tables"].append(
+                {
+                    "title": _g("Juridictions"),
+                    "lede": _g("Tribunaux et cours proposés à l'ouverture des dossiers et dans les filtres d'audiences."),
+                    "href": reverse("tenants:jurisdiction_list"),
+                    "kicker": _g("Référentiel national"),
+                    "count": jurisdictions_queryset().count(),
+                    "count_label": _g("juridictions"),
+                }
+            )
+        if cabinet is not None and not platform:
+            ctx["settings_tables"].append(
+                {
+                    "title": _g("Spécialités du cabinet"),
+                    "lede": _g("Matières dans lesquelles le cabinet est compétent."),
+                    "href": reverse("tenants:specialty_list"),
+                    "kicker": _g("Cabinet"),
+                    "count": cabinet_practice_areas_queryset(cabinet=cabinet).count(),
+                    "count_label": _g("spécialités"),
+                }
+            )
         return ctx
 
 

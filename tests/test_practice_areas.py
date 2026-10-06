@@ -199,6 +199,36 @@ def test_cabinet_cannot_access_practice_area_catalog(client) -> None:  # type: i
 
 
 @pytest.mark.django_db
+def test_settings_hub_lists_referential_tables(client) -> None:  # type: ignore[no-untyped-def]
+    admin = UserFactory(is_platform_admin=True)
+    client.force_login(admin)
+    platform_hub = client.get(reverse("core:settings"))
+    assert platform_hub.status_code == 200
+    html = platform_hub.content.decode()
+    assert "Paramètres" in html
+    assert "Données référentielles" in html
+    assert "Matières juridiques" in html
+    assert reverse("tenants:practice_area_list") in html
+    assert "Juridictions" in html
+    assert reverse("tenants:jurisdiction_list") in html
+    assert reverse("tenants:specialty_list") not in html
+    assert "Gestion des utilisateurs" not in html
+
+    user = UserFactory()
+    cabinet = CabinetFactory()
+    MembershipFactory(user=user, cabinet=cabinet, role=Role.OWNER)
+    _login_with_cabinet(client, user, cabinet)
+    cabinet_hub = client.get(reverse("core:settings"))
+    assert cabinet_hub.status_code == 200
+    cabinet_html = cabinet_hub.content.decode()
+    assert "Spécialités du cabinet" in cabinet_html
+    assert reverse("tenants:specialty_list") in cabinet_html
+    assert reverse("tenants:practice_area_list") not in cabinet_html
+    assert reverse("tenants:jurisdiction_list") not in cabinet_html
+    assert "Gestion des utilisateurs" not in cabinet_html
+
+
+@pytest.mark.django_db
 def test_ensure_default_legal_practice_areas() -> None:
     areas = ensure_default_legal_practice_areas()
     assert len(areas) >= 10

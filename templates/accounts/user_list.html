@@ -1,14 +1,14 @@
 {% extends "layouts/app.html" %}
 {% load i18n %}
 
-{% block title %}{% translate "Utilisateurs" %} — {{ SITE_NAME }}{% endblock %}
+{% block title %}{% translate "Gestion des utilisateurs" %} — {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
 <div class="cabinets-page">
   <header class="page-header cabinets-page-header">
     <div>
-      <p class="cabinets-kicker">{% translate "Plateforme" %}</p>
-      <h1>{% translate "Utilisateurs" %}</h1>
+      <p class="cabinets-kicker">{% translate "Paramètres" %}</p>
+      <h1>{% translate "Gestion des utilisateurs" %}</h1>
       <p class="page-lede">{% translate "Comptes ministère et cabinets inscrits sur AvoLex." %}</p>
     </div>
     <a class="btn btn-primary" href="{% url 'accounts:user_create' %}">{% translate "Nouvel utilisateur" %}</a>

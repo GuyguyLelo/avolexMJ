@@ -29,7 +29,7 @@ from apps.calendar_app.services import (
     update_event,
     update_hearing_status,
 )
-from apps.core.kinshasa_courts import kinshasa_court_filter_choices
+from apps.tenants.jurisdictions import jurisdiction_filter_choices
 from apps.core.mixins import BreadcrumbMixin
 from apps.matters.models import Matter
 from apps.tenants.mixins import CabinetPermissionMixin
@@ -286,7 +286,7 @@ class HearingListView(CabinetPermissionMixin, BreadcrumbMixin, ListView):
         ctx["filter_court"] = self.request.GET.get("court", "")
         ctx["filter_cabinet"] = self.request.GET.get("cabinet", "")
         ctx["is_platform_supervision"] = platform
-        ctx["court_choices"] = kinshasa_court_filter_choices()
+        ctx["court_choices"] = jurisdiction_filter_choices()
         if platform:
             ctx["matters"] = Matter.unscoped.order_by("reference")[:200]
             ctx["cabinets"] = Cabinet.objects.filter(is_active=True).order_by("name")

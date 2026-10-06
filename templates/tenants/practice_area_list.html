@@ -6,10 +6,14 @@
 {% block content %}
 <header class="page-header">
   <div>
+    <p class="page-kicker">{% translate "Données référentielles" %}</p>
     <h1>{% translate "Matières juridiques" %}</h1>
     <p class="page-lede">{% translate "Référentiel utilisé pour les spécialités des cabinets et l'ouverture des dossiers." %}</p>
   </div>
-  <a class="btn btn-primary" href="{% url 'tenants:practice_area_create' %}">{% translate "Nouvelle matière" %}</a>
+  <div class="page-actions">
+    <a class="btn btn-ghost btn-sm" href="{% url 'core:settings' %}">{% translate "Retour" %}</a>
+    <a class="btn btn-primary" href="{% url 'tenants:practice_area_create' %}">{% translate "Nouvelle matière" %}</a>
+  </div>
 </header>
 
 <form method="get" class="toolbar" style="margin-bottom:1rem;">

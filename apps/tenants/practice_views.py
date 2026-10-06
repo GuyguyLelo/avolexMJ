@@ -55,7 +55,11 @@ class PracticeAreaListView(PlatformAdminRequiredMixin, BreadcrumbMixin, ListView
     paginate_by = 20
 
     def get_breadcrumb(self) -> list[dict[str, str]]:
-        return [{"label": _g("Matières juridiques")}]
+        return [
+            {"label": _g("Paramètres")},
+            {"label": _g("Données référentielles"), "url": reverse("core:settings")},
+            {"label": _g("Matières juridiques")},
+        ]
 
     def get_queryset(self) -> QuerySet[LegalPracticeArea]:
         ensure_default_legal_practice_areas()
@@ -75,6 +79,8 @@ class PracticeAreaCreateView(PlatformAdminRequiredMixin, BreadcrumbMixin, FormVi
 
     def get_breadcrumb(self) -> list[dict[str, str]]:
         return [
+            {"label": _g("Paramètres")},
+            {"label": _g("Données référentielles"), "url": reverse("core:settings")},
             {"label": _g("Matières juridiques"), "url": reverse("tenants:practice_area_list")},
             {"label": _g("Nouvelle matière")},
         ]
@@ -115,6 +121,8 @@ class PracticeAreaUpdateView(PlatformAdminRequiredMixin, BreadcrumbMixin, FormVi
 
     def get_breadcrumb(self) -> list[dict[str, str]]:
         return [
+            {"label": _g("Paramètres")},
+            {"label": _g("Données référentielles"), "url": reverse("core:settings")},
             {"label": _g("Matières juridiques"), "url": reverse("tenants:practice_area_list")},
             {"label": self.area.name},
         ]
@@ -179,7 +187,11 @@ class CabinetSpecialtyListView(TargetCabinetMixin, BreadcrumbMixin, FormView):
         return cabinet  # type: ignore[no-any-return]
 
     def get_breadcrumb(self) -> list[dict[str, str]]:
-        return [{"label": _g("Spécialités")}]
+        return [
+            {"label": _g("Paramètres")},
+            {"label": _g("Données référentielles"), "url": reverse("core:settings")},
+            {"label": _g("Spécialités")},
+        ]
 
     def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()

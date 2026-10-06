@@ -14,6 +14,8 @@ from apps.tenants.models import (
     CabinetPracticeArea,
     CabinetPreference,
     Invitation,
+    Jurisdiction,
+    JurisdictionScale,
     LegalPracticeArea,
     Membership,
 )
@@ -75,6 +77,20 @@ class InvitationFactory(DjangoModelFactory):
     email = factory.Sequence(lambda n: f"invite{n}@example.com")
     role = Role.ASSOCIATE
     invited_by = factory.SubFactory(UserFactory)
+
+
+class JurisdictionFactory(DjangoModelFactory):
+    """Juridiction du référentiel."""
+
+    class Meta:
+        model = Jurisdiction
+        django_get_or_create = ("name",)
+
+    name = factory.Sequence(lambda n: f"Tribunal de test {n}")
+    slug = factory.Sequence(lambda n: f"tribunal-de-test-{n}")
+    scale = JurisdictionScale.NATIONAL
+    category = "Tests"
+    is_active = True
 
 
 class LegalPracticeAreaFactory(DjangoModelFactory):

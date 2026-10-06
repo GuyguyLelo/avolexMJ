@@ -267,8 +267,34 @@ SITE_NAME = "AvoLex"
 SITE_COUNTRY = "République Démocratique du Congo"
 SITE_INSTITUTION = "Ministère de la Justice et Garde des Sceaux"
 SITE_AUTHORITY = "Le Gouvernement"
+# Mentions figées de l'acte de procuration ministérielle (modèle officiel).
+PROCURATION_MINISTER_NAME = env(
+    "PROCURATION_MINISTER_NAME",
+    default="Monsieur Guillaume NGEFA ATONDOKO ANDALI",
+)
+PROCURATION_MINISTER_TITLE = env(
+    "PROCURATION_MINISTER_TITLE",
+    default="Ministre d'État, Ministre de la Justice et Garde des Sceaux",
+)
+PROCURATION_MINISTRY_ADDRESS = env(
+    "PROCURATION_MINISTRY_ADDRESS",
+    default=(
+        "Kinshasa, Palais de Justice, Place de l'Indépendance, "
+        "dans la Commune de la Gombe"
+    ),
+)
+PROCURATION_ORDINANCE_APPOINTMENT = env(
+    "PROCURATION_ORDINANCE_APPOINTMENT",
+    default="Ordonnance n°25/247 du 07 août 2025 portant nomination des Vice-Premiers "
+    "Ministres, Ministres d'État, Ministres, Ministres Délégués et Vice-Ministres",
+)
+PROCURATION_ORDINANCE_ATTRIBUTIONS = env(
+    "PROCURATION_ORDINANCE_ATTRIBUTIONS",
+    default="Ordonnance n° 25/293 du 15 décembre 2025 fixant les attributions des "
+    "Ministères, article 1er litera B point 12",
+)
 # Invalide le cache navigateur des CSS/JS (changer à chaque charte visuelle)
-STATIC_VERSION = "app-css-v55"
+STATIC_VERSION = "app-css-v57"
 
 
 def require_setting(name: str) -> str:

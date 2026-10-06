@@ -48,6 +48,10 @@ def test_app_shell_has_sidebar_and_topbar(client) -> None:
     assert "app-user-chip" in content
     assert reverse("accounts:profile") in content
     assert "Mon profil" in content
+    assert "Paramètres" in content
+    assert reverse("core:settings") in content
+    assert "Données référentielles" in content
+    assert "Gestion des utilisateurs" not in content
     assert "data-sidebar-toggle" in content
     assert "js/main.js" in content
     assert "page-header-dash--cabinet" in content

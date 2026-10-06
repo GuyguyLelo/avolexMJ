@@ -838,6 +838,90 @@ def delete_legal_practice_area(*, actor: User, area: Any) -> None:
     area.save(update_fields=["is_active", "is_deleted", "deleted_at", "updated_at"])
 
 
+def jurisdictions_queryset(*, q: str = "", scale: str = "", active_only: bool = False) -> QuerySet[Any]:
+    """Liste du référentiel de juridictions."""
+    from apps.tenants.models import Jurisdiction
+
+    qs = Jurisdiction.objects.all().order_by("scale", "category", "name")
+    if active_only:
+        qs = qs.filter(is_active=True)
+    if scale:
+        qs = qs.filter(scale=scale)
+    term = (q or "").strip()
+    if term:
+        qs = qs.filter(Q(name__icontains=term) | Q(category__icontains=term))
+    return qs
+
+
+@transaction.atomic
+def create_jurisdiction(
+    *,
+    actor: User,
+    name: str,
+    scale: str,
+    category: str = "",
+    is_active: bool = True,
+) -> Any:
+    """Crée une juridiction du référentiel (ministère)."""
+    from apps.tenants.models import Jurisdiction, JurisdictionScale
+
+    require_platform_admin(actor)
+    label = (name or "").strip()
+    if not label:
+        raise ValidationError({"name": _("L'intitulé est obligatoire.")})
+    if scale not in {JurisdictionScale.NATIONAL, JurisdictionScale.INTERNATIONAL}:
+        raise ValidationError({"scale": _("Échelle invalide.")})
+    if Jurisdiction.objects.filter(name__iexact=label).exists():
+        raise ValidationError({"name": _("Cette juridiction existe déjà.")})
+    item = Jurisdiction(
+        name=label,
+        scale=scale,
+        category=(category or "").strip(),
+        is_active=is_active,
+        created_by=actor,
+    )
+    item.save()
+    return item
+
+
+@transaction.atomic
+def update_jurisdiction(
+    *,
+    actor: User,
+    jurisdiction: Any,
+    name: str,
+    scale: str,
+    category: str = "",
+    is_active: bool = True,
+) -> Any:
+    """Met à jour une juridiction du référentiel."""
+    from apps.tenants.models import Jurisdiction, JurisdictionScale
+
+    require_platform_admin(actor)
+    label = (name or "").strip()
+    if not label:
+        raise ValidationError({"name": _("L'intitulé est obligatoire.")})
+    if scale not in {JurisdictionScale.NATIONAL, JurisdictionScale.INTERNATIONAL}:
+        raise ValidationError({"scale": _("Échelle invalide.")})
+    if Jurisdiction.objects.filter(name__iexact=label).exclude(pk=jurisdiction.pk).exists():
+        raise ValidationError({"name": _("Cette juridiction existe déjà.")})
+    jurisdiction.name = label
+    jurisdiction.scale = scale
+    jurisdiction.category = (category or "").strip()
+    jurisdiction.is_active = is_active
+    jurisdiction.save()
+    return jurisdiction
+
+
+@transaction.atomic
+def delete_jurisdiction(*, actor: User, jurisdiction: Any) -> None:
+    """Supprime logiquement une juridiction du référentiel."""
+    require_platform_admin(actor)
+    jurisdiction.is_active = False
+    jurisdiction.soft_delete(save=False)
+    jurisdiction.save(update_fields=["is_active", "is_deleted", "deleted_at", "updated_at"])
+
+
 def cabinet_practice_areas_queryset(*, cabinet: Cabinet) -> QuerySet[Any]:
     """Spécialités actives d'un cabinet."""
     from apps.tenants.models import CabinetPracticeArea

@@ -49,7 +49,10 @@ class UserListView(SuperAdminRequiredMixin, BreadcrumbMixin, ListView):
     cabinet_required = False
 
     def get_breadcrumb(self) -> list[dict[str, str]]:
-        return [{"label": _g("Utilisateurs")}]
+        return [
+            {"label": _g("Paramètres")},
+            {"label": _g("Gestion des utilisateurs")},
+        ]
 
     def get_queryset(self) -> QuerySet:
         return users_queryset(
@@ -75,7 +78,8 @@ class UserCreateView(SuperAdminRequiredMixin, BreadcrumbMixin, FormView):
 
     def get_breadcrumb(self) -> list[dict[str, str]]:
         return [
-            {"label": _g("Utilisateurs"), "url": reverse("accounts:user_list")},
+            {"label": _g("Paramètres")},
+            {"label": _g("Gestion des utilisateurs"), "url": reverse("accounts:user_list")},
             {"label": _g("Nouveau")},
         ]
 
@@ -124,7 +128,8 @@ class UserDetailView(SuperAdminRequiredMixin, BreadcrumbMixin, DetailView):
 
     def get_breadcrumb(self) -> list[dict[str, str]]:
         return [
-            {"label": _g("Utilisateurs"), "url": reverse("accounts:user_list")},
+            {"label": _g("Paramètres")},
+            {"label": _g("Gestion des utilisateurs"), "url": reverse("accounts:user_list")},
             {"label": str(self.object)},
         ]
 
@@ -148,7 +153,8 @@ class UserUpdateView(SuperAdminRequiredMixin, BreadcrumbMixin, FormView):
 
     def get_breadcrumb(self) -> list[dict[str, str]]:
         return [
-            {"label": _g("Utilisateurs"), "url": reverse("accounts:user_list")},
+            {"label": _g("Paramètres")},
+            {"label": _g("Gestion des utilisateurs"), "url": reverse("accounts:user_list")},
             {
                 "label": str(self.account_user),
                 "url": reverse("accounts:user_detail", args=[self.account_user.pk]),
