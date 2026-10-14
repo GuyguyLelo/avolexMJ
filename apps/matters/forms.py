@@ -15,6 +15,7 @@ from apps.matters.services import validate_matter_scale
 from apps.tenants.jurisdictions import jurisdiction_choices
 from apps.tenants.legal_areas import ensure_default_legal_practice_areas
 from apps.tenants.models import LegalPracticeArea
+from apps.tenants.state_entities import state_entity_choice_groups
 
 User = get_user_model()
 
@@ -22,17 +23,12 @@ User = get_user_model()
 class StateEntityPartyForm(forms.Form):
     """Partie étatique représentée par le Ministère (obligatoire)."""
 
-    name = forms.CharField(
+    name = forms.ChoiceField(
         label=_("Entité étatique"),
-        max_length=255,
         required=True,
-        widget=forms.TextInput(
-            attrs={
-                "class": "form-input",
-                "placeholder": _("Ex. Ministère des Finances, Province de…"),
-            }
-        ),
-        help_text=_("Service ou organe de l'État congolais que le Ministère représente."),
+        choices=[],
+        widget=forms.Select(attrs={"class": "form-input"}),
+        help_text=_("Structure de l'État congolais que le Ministère représente."),
     )
     role = forms.ChoiceField(
         label=_("Rôle"),
@@ -40,11 +36,16 @@ class StateEntityPartyForm(forms.Form):
         initial=PartyRole.PLAINTIFF,
         widget=forms.Select(attrs={"class": "form-input"}),
     )
-    notes = forms.CharField(
-        label=_("Notes"),
-        required=False,
-        widget=forms.Textarea(attrs={"class": "form-input", "rows": 2}),
-    )
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        current = ""
+        if self.is_bound:
+            current = (self.data.get(self.add_prefix("name")) or "").strip()
+        elif self.initial.get("name"):
+            current = str(self.initial["name"])
+        groups = state_entity_choice_groups(current=current)
+        self.fields["name"].choices = [("", _("— Choisir une entité étatique —")), *groups]
 
 
 class OpposingPartyForm(forms.Form):
@@ -67,11 +68,6 @@ class OpposingPartyForm(forms.Form):
         choices=PartyRole.choices,
         initial=PartyRole.DEFENDANT,
         widget=forms.Select(attrs={"class": "form-input"}),
-    )
-    notes = forms.CharField(
-        label=_("Notes"),
-        required=False,
-        widget=forms.Textarea(attrs={"class": "form-input", "rows": 2}),
     )
 
 
@@ -111,9 +107,7 @@ class MatterForm(forms.ModelForm):
             "practice_area",
             "status",
             "opened_at",
-            "closed_at",
             "initial_pdf",
-            "notes",
         )
         widgets = {
             "title": forms.TextInput(attrs={"class": "form-input"}),
@@ -122,9 +116,7 @@ class MatterForm(forms.ModelForm):
             "practice_area": forms.Select(attrs={"class": "form-input"}),
             "status": forms.Select(attrs={"class": "form-input"}),
             "opened_at": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
-            "closed_at": forms.DateInput(attrs={"class": "form-input", "type": "date"}),
             "initial_pdf": forms.FileInput(attrs={"class": "form-input", "accept": ".pdf,application/pdf"}),
-            "notes": forms.Textarea(attrs={"class": "form-input", "rows": 3}),
         }
 
     def __init__(
@@ -158,9 +150,6 @@ class MatterForm(forms.ModelForm):
         )
         if current_area:
             self.fields["practice_area"].initial = current_area
-        # À la création, la date de clôture n'a pas de sens.
-        if not self.instance.pk:
-            self.fields.pop("closed_at", None)
         field_order = [
             "title",
             "scale",
@@ -169,9 +158,7 @@ class MatterForm(forms.ModelForm):
             "description",
             "status",
             "opened_at",
-            "closed_at",
             "initial_pdf",
-            "notes",
         ]
         self.order_fields([name for name in field_order if name in self.fields])
 

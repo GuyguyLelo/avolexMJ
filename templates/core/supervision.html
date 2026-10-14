@@ -1,14 +1,14 @@
 {% extends "layouts/app.html" %}
 {% load i18n static %}
 
-{% block title %}{% translate "Supervision nationale" %} — {{ SITE_NAME }}{% endblock %}
+{% block title %}{% translate "Tableau de bord" %} — {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
 <header class="page-header page-header-dash page-header-dash--ministry">
   <div>
     <p class="dash-kicker">{{ SITE_INSTITUTION }}</p>
     <p class="dash-date">{% now "l j F Y" as dash_date %}{{ dash_date|capfirst }}</p>
-    <h1>{% translate "Supervision nationale" %}</h1>
+    <h1>{% translate "Tableau de bord" %}</h1>
     <p class="page-lede page-lede-dash">
       {% translate "Pilotage des cabinets d'avocats, des procurations ministérielles et du contentieux à l'échelle de la République." %}
     </p>

@@ -18,12 +18,13 @@ class ProcurationAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
         "status",
         "ministry_reference",
         "cabinet",
+        "conseiller_at",
         "granted_at",
         "expires_at",
     )
     list_filter = ("status", "scale")
     search_fields = ("reference", "ministry_reference", "purpose", "subject", "client_name")
-    raw_id_fields = ("cabinet", "matter", "granted_by", "created_by")
+    raw_id_fields = ("cabinet", "matter", "conseiller_by", "granted_by", "created_by")
 
 
 @admin.register(ProcurationSequence)

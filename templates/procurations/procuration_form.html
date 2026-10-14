@@ -89,10 +89,10 @@
             {{ procuration.instrument_filename|default:"acte" }}
             —
             {% if procuration.instrument_can_preview %}
-            <a href="{% url 'procurations:preview' procuration.pk %}" target="_blank" rel="noopener">{% translate "Afficher" %}</a>
+            <a href="{% url 'procurations:preview' procuration.pk %}" target="_blank" rel="noopener">{% translate "Afficher PDF" %}</a>
             ·
             {% endif %}
-            <a href="{% url 'procurations:download' procuration.pk %}">{% translate "Télécharger" %}</a>
+            <a href="{% url 'procurations:download' procuration.pk %}">{% translate "Télécharger PDF" %}</a>
           </p>
           {% endif %}
           {% if form.instrument.errors %}<div class="form-error">{{ form.instrument.errors }}</div>{% endif %}

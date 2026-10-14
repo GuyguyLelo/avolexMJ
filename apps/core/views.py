@@ -30,6 +30,7 @@ from apps.tenants.services import (
     is_platform_admin,
     jurisdictions_queryset,
     legal_practice_areas_queryset,
+    state_entities_queryset,
 )
 
 
@@ -92,6 +93,9 @@ class SettingsHubView(CabinetRequiredMixin, BreadcrumbMixin, TemplateView):
         cabinet = getattr(self.request, "cabinet", None)
         ctx["settings_tables"] = []
         if platform:
+            from apps.tenants.state_entities import ensure_default_state_entities
+
+            ensure_default_state_entities()
             ctx["settings_tables"].append(
                 {
                     "title": _g("Matières juridiques"),
@@ -110,6 +114,16 @@ class SettingsHubView(CabinetRequiredMixin, BreadcrumbMixin, TemplateView):
                     "kicker": _g("Référentiel national"),
                     "count": jurisdictions_queryset().count(),
                     "count_label": _g("juridictions"),
+                }
+            )
+            ctx["settings_tables"].append(
+                {
+                    "title": _g("Entités étatiques"),
+                    "lede": _g("Structures de l'État congolais proposées comme partie étatique des dossiers."),
+                    "href": reverse("tenants:state_entity_list"),
+                    "kicker": _g("Référentiel national"),
+                    "count": state_entities_queryset().count(),
+                    "count_label": _g("entités"),
                 }
             )
         if cabinet is not None and not platform:
@@ -134,7 +148,7 @@ class SupervisionView(PlatformAdminRequiredMixin, BreadcrumbMixin, TemplateView)
     cabinet_required = False
 
     def get_breadcrumb(self) -> list[dict[str, str]]:
-        return [{"label": "Supervision"}]
+        return [{"label": "Tableau de bord"}]
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         ctx = super().get_context_data(**kwargs)

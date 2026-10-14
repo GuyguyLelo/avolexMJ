@@ -34,7 +34,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--as-administrator",
             action="store_true",
-            help="Crée un Administrateur ministère (sans SuperAdmin).",
+            help="Crée un compte Ministère (sans SuperAdmin).",
         )
 
     def handle(self, *args: object, **options: object) -> None:
@@ -73,7 +73,7 @@ class Command(BaseCommand):
         if as_admin:
             user.is_super_admin = False
             user.is_platform_admin = True
-            role_label = "Administrateur ministère"
+            role_label = "Compte Ministère"
         else:
             user.is_super_admin = True
             user.is_platform_admin = True

@@ -4,59 +4,65 @@
 {% block title %}{% translate "Gestion des utilisateurs" %} — {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
-<div class="cabinets-page">
-  <header class="page-header cabinets-page-header">
+<div class="users-page">
+  <header class="page-header page-header-compact users-page-header">
     <div>
       <p class="cabinets-kicker">{% translate "Paramètres" %}</p>
       <h1>{% translate "Gestion des utilisateurs" %}</h1>
-      <p class="page-lede">{% translate "Comptes ministère et cabinets inscrits sur AvoLex." %}</p>
     </div>
-    <a class="btn btn-primary" href="{% url 'accounts:user_create' %}">{% translate "Nouvel utilisateur" %}</a>
+    <a class="btn btn-primary btn-sm" href="{% url 'accounts:user_create' %}">{% translate "Nouvel utilisateur" %}</a>
   </header>
 
-  <form class="cabinets-toolbar" method="get" action="{% url 'accounts:user_list' %}">
-    <div class="form-field cabinets-toolbar-search">
-      <label class="sr-only" for="filter-q">{% translate "Recherche" %}</label>
-      <input class="form-input" id="filter-q" type="search" name="q" value="{{ filter_q }}"
-             placeholder="{% translate 'E-mail, nom, téléphone…' %}"
-             autocomplete="off">
+  <form class="users-toolbar" method="get" action="{% url 'accounts:user_list' %}">
+    <div class="users-toolbar-filters">
+      <div class="form-field users-toolbar-search">
+        <label class="sr-only" for="filter-q">{% translate "Recherche" %}</label>
+        <input class="form-input form-input-sm" id="filter-q" type="search" name="q" value="{{ filter_q }}"
+               placeholder="{% translate 'E-mail, nom, téléphone…' %}"
+               autocomplete="off">
+      </div>
+      <div class="form-field">
+        <label class="sr-only" for="filter-status">{% translate "Statut" %}</label>
+        <select class="form-input form-input-sm" id="filter-status" name="status">
+          <option value="">{% translate "Tous les statuts" %}</option>
+          <option value="active"{% if filter_status == "active" %} selected{% endif %}>{% translate "Actifs" %}</option>
+          <option value="inactive"{% if filter_status == "inactive" %} selected{% endif %}>{% translate "Inactifs" %}</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="sr-only" for="filter-role">{% translate "Rôle" %}</label>
+        <select class="form-input form-input-sm" id="filter-role" name="role">
+          <option value="">{% translate "Tous les rôles" %}</option>
+          <option value="super"{% if filter_role == "super" %} selected{% endif %}>{% translate "SuperAdmin" %}</option>
+          <option value="platform"{% if filter_role == "platform" %} selected{% endif %}>{% translate "Compte Ministère" %}</option>
+          <option value="cabinet"{% if filter_role == "cabinet" %} selected{% endif %}>{% translate "Compte cabinet" %}</option>
+        </select>
+      </div>
     </div>
-    <div class="form-field">
-      <label class="sr-only" for="filter-status">{% translate "Statut" %}</label>
-      <select class="form-input" id="filter-status" name="status">
-        <option value="">{% translate "Tous les statuts" %}</option>
-        <option value="active"{% if filter_status == "active" %} selected{% endif %}>{% translate "Actifs" %}</option>
-        <option value="inactive"{% if filter_status == "inactive" %} selected{% endif %}>{% translate "Inactifs" %}</option>
-      </select>
+    <div class="users-toolbar-actions">
+      <button class="btn btn-secondary btn-sm" type="submit">{% translate "Filtrer" %}</button>
+      {% if filter_q or filter_status or filter_role %}
+      <a class="btn btn-ghost btn-sm" href="{% url 'accounts:user_list' %}">{% translate "Réinitialiser" %}</a>
+      {% endif %}
     </div>
-    <div class="form-field">
-      <label class="sr-only" for="filter-role">{% translate "Rôle" %}</label>
-      <select class="form-input" id="filter-role" name="role">
-        <option value="">{% translate "Tous les rôles" %}</option>
-        <option value="super"{% if filter_role == "super" %} selected{% endif %}>{% translate "SuperAdmin" %}</option>
-        <option value="platform"{% if filter_role == "platform" %} selected{% endif %}>{% translate "Administrateur" %}</option>
-        <option value="cabinet"{% if filter_role == "cabinet" %} selected{% endif %}>{% translate "Compte cabinet" %}</option>
-      </select>
-    </div>
-    <button class="btn btn-secondary" type="submit">{% translate "Filtrer" %}</button>
-    {% if filter_q or filter_status or filter_role %}
-    <a class="btn btn-ghost btn-sm" href="{% url 'accounts:user_list' %}">{% translate "Réinitialiser" %}</a>
-    {% endif %}
   </form>
 
   {% if users %}
-  <div class="cabinets-list-meta">
+  <div class="users-list-meta">
     <span>
       {% blocktranslate count counter=page_obj.paginator.count %}{{ counter }} utilisateur{% plural %}{{ counter }} utilisateurs{% endblocktranslate %}
     </span>
   </div>
-  <div class="table-wrap cabinets-table-wrap">
-    <table class="table cabinets-table">
+  <div class="table-wrap users-table-wrap">
+    <table class="table table-compact users-table">
+      <colgroup>
+        <col class="users-col-user">
+        <col class="users-col-role">
+        <col class="users-col-status">
+      </colgroup>
       <thead>
         <tr>
           <th>{% translate "Utilisateur" %}</th>
-          <th>{% translate "E-mail" %}</th>
-          <th>{% translate "Cabinets" %}</th>
           <th>{% translate "Rôle" %}</th>
           <th>{% translate "Statut" %}</th>
         </tr>
@@ -65,23 +71,25 @@
         {% for u in users %}
         <tr>
           <td>
-            <a class="list-entity" href="{% url 'accounts:user_detail' u.pk %}">
-              <span class="avatar" aria-hidden="true">{{ u.full_name.0|upper }}</span>
+            <a class="list-entity list-entity-sm" href="{% url 'accounts:user_detail' u.pk %}">
+              <span class="avatar avatar-sm" aria-hidden="true">{{ u.full_name.0|upper }}</span>
               <span class="list-entity-text">
                 <span class="list-entity-title">{{ u.full_name }}</span>
-                <span class="list-entity-meta">{{ u.phone|default:"—" }}</span>
+                <span class="list-entity-meta">{{ u.email }}{% if u.phone %} · {{ u.phone }}{% endif %}</span>
               </span>
             </a>
           </td>
-          <td class="cabinets-cell-muted">{{ u.email }}</td>
-          <td>{{ u.memberships_count }}</td>
           <td>
             {% if u.is_super_admin %}
             <span class="badge badge-gold">{% translate "SuperAdmin" %}</span>
             {% elif u.is_platform_admin %}
-            <span class="badge badge-info">{% translate "Administrateur" %}</span>
+            <span class="badge badge-info">{% if u.ministry_role %}{{ u.get_ministry_role_display }}{% else %}{% translate "Compte Ministère" %}{% endif %}</span>
+            {% elif u.primary_cabinet_role == "caiman" %}
+            <span class="badge">{% translate "Caïman" %}</span>
+            {% elif u.primary_cabinet_role == "lawyer" %}
+            <span class="badge">{% translate "Avocat" %}</span>
             {% else %}
-            <span class="badge">{% translate "Cabinet" %}</span>
+            <span class="badge">{% translate "Compte cabinet" %}</span>
             {% endif %}
           </td>
           <td>
@@ -98,10 +106,10 @@
   </div>
   {% include "partials/pagination.html" %}
   {% else %}
-  <section class="empty-state cabinets-empty">
+  <section class="empty-state empty-state-compact">
     <h2>{% translate "Aucun utilisateur" %}</h2>
     <p>{% translate "Créez un compte ministère ou rattachez des membres via les cabinets." %}</p>
-    <a class="btn btn-primary" href="{% url 'accounts:user_create' %}">{% translate "Nouvel utilisateur" %}</a>
+    <a class="btn btn-primary btn-sm" href="{% url 'accounts:user_create' %}">{% translate "Nouvel utilisateur" %}</a>
   </section>
   {% endif %}
 </div>

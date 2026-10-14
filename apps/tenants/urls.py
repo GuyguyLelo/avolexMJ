@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from django.urls import path
 
-from apps.tenants import jurisdiction_views, member_views, practice_views, views
+from apps.tenants import jurisdiction_views, member_views, practice_views, state_entity_views, views
 
 app_name = "tenants"
 
@@ -76,6 +76,26 @@ urlpatterns = [
         "juridictions/<uuid:pk>/supprimer/",
         jurisdiction_views.JurisdictionDeleteView.as_view(),
         name="jurisdiction_delete",
+    ),
+    path(
+        "entites-etatiques/",
+        state_entity_views.StateEntityListView.as_view(),
+        name="state_entity_list",
+    ),
+    path(
+        "entites-etatiques/nouveau/",
+        state_entity_views.StateEntityCreateView.as_view(),
+        name="state_entity_create",
+    ),
+    path(
+        "entites-etatiques/<uuid:pk>/modifier/",
+        state_entity_views.StateEntityUpdateView.as_view(),
+        name="state_entity_update",
+    ),
+    path(
+        "entites-etatiques/<uuid:pk>/supprimer/",
+        state_entity_views.StateEntityDeleteView.as_view(),
+        name="state_entity_delete",
     ),
     path("invitations/", views.InvitationListView.as_view(), name="invitation_list"),
     path("invitations/new/", views.InviteMemberView.as_view(), name="invite"),

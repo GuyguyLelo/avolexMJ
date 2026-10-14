@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from django.urls import reverse
 
-from apps.accounts.models import User
+from apps.accounts.models import MinistryRole, User
 from apps.tenants.roles import Role
 from tests.factories import CabinetFactory, MembershipFactory, UserFactory
 
@@ -55,6 +55,7 @@ def test_super_admin_manages_users(client) -> None:  # type: ignore[no-untyped-d
             "password": "Str0ng-Passw0rd!",
             "password_confirm": "Str0ng-Passw0rd!",
             "account_type": "administrator",
+            "ministry_role": MinistryRole.ADMIN,
             "is_active": "on",
         },
     )
@@ -62,6 +63,7 @@ def test_super_admin_manages_users(client) -> None:  # type: ignore[no-untyped-d
     user = User.objects.get(email="admin-mj@avolex.local")
     assert user.is_platform_admin is True
     assert user.is_super_admin is False
+    assert user.ministry_role == MinistryRole.ADMIN
 
     cabinet_user = client.post(
         reverse("accounts:user_create"),
@@ -124,12 +126,14 @@ def test_super_admin_and_admin_have_no_cabinet_membership(client) -> None:  # ty
             "password": "Str0ng-Passw0rd!",
             "password_confirm": "Str0ng-Passw0rd!",
             "account_type": "administrator",
+            "ministry_role": MinistryRole.CONSEILLER,
             "is_active": "on",
         },
     )
     assert create_admin.status_code == 302
     admin = User.objects.get(email="AdminMJ")
     assert admin.is_platform_admin is True
+    assert admin.ministry_role == MinistryRole.CONSEILLER
     assert Membership.objects.filter(user=admin, is_active=True).count() == 0
 
     create_super = client.post(
@@ -167,13 +171,48 @@ def test_promote_to_admin_detaches_cabinet_membership(client) -> None:  # type: 
             "first_name": lawyer.first_name,
             "last_name": lawyer.last_name,
             "account_type": "administrator",
+            "ministry_role": MinistryRole.CHARGE_ETUDES,
             "is_active": "on",
         },
     )
     assert resp.status_code == 302
     lawyer.refresh_from_db()
     assert lawyer.is_platform_admin is True
+    assert lawyer.ministry_role == MinistryRole.CHARGE_ETUDES
     assert Membership.objects.filter(user=lawyer, is_active=True).count() == 0
+
+
+@pytest.mark.django_db
+def test_ministry_role_required_for_administrator(client) -> None:  # type: ignore[no-untyped-def]
+    super_admin = UserFactory(is_super_admin=True, is_platform_admin=True, email="SuperAdmin")
+    client.force_login(super_admin)
+    missing = client.post(
+        reverse("accounts:user_create"),
+        {
+            "email": "sans-role@avolex.local",
+            "password": "Str0ng-Passw0rd!",
+            "password_confirm": "Str0ng-Passw0rd!",
+            "account_type": "administrator",
+            "is_active": "on",
+        },
+    )
+    assert missing.status_code == 200
+    assert not User.objects.filter(email="sans-role@avolex.local").exists()
+
+    greffe = client.post(
+        reverse("accounts:user_create"),
+        {
+            "email": "greffe@avolex.local",
+            "password": "Str0ng-Passw0rd!",
+            "password_confirm": "Str0ng-Passw0rd!",
+            "account_type": "administrator",
+            "ministry_role": MinistryRole.GREFFE,
+            "is_active": "on",
+        },
+    )
+    assert greffe.status_code == 302
+    user = User.objects.get(email="greffe@avolex.local")
+    assert user.ministry_role == MinistryRole.GREFFE
 
 
 @pytest.mark.django_db

@@ -28,13 +28,8 @@ trailer<< /Root 1 0 R >>
 """
 
 
-def build_procuration_pdf(procuration: Procuration) -> bytes:
-    """Rend l'acte de procuration en PDF selon le modèle ministériel."""
-    backend = getattr(settings, "BILLING_PDF_BACKEND", "weasyprint")
-    if backend == "stub":
-        return _STUB_PDF
-
-    procuration = (
+def _load_procuration(procuration: Procuration) -> Procuration:
+    return (
         type(procuration)
         .unscoped.select_related(
             "cabinet",
@@ -46,10 +41,27 @@ def build_procuration_pdf(procuration: Procuration) -> bytes:
         .get(pk=procuration.pk)
     )
 
-    if backend == "fpdf":
+
+def build_procuration_pdf(procuration: Procuration) -> bytes:
+    """Rend l'acte de procuration en PDF selon le modèle ministériel."""
+    backend = getattr(settings, "BILLING_PDF_BACKEND", "weasyprint")
+    if backend == "stub":
+        return _STUB_PDF
+
+    procuration = _load_procuration(procuration)
+    has_draft = bool((procuration.draft_html or "").strip())
+
+    # Un brouillon HTML mis en forme passe toujours par WeasyPrint.
+    if has_draft:
+        pdf = _try_weasyprint(procuration)
+        if pdf is not None:
+            return pdf
+        logger.warning("WeasyPrint indisponible pour le brouillon — repli fpdf2.")
+
+    if backend == "fpdf" and not has_draft:
         return _build_with_fpdf(procuration)
 
-    if backend in {"weasyprint", "auto"}:
+    if backend in {"weasyprint", "auto"} or has_draft:
         pdf = _try_weasyprint(procuration)
         if pdf is not None:
             return pdf
@@ -60,10 +72,13 @@ def build_procuration_pdf(procuration: Procuration) -> bytes:
 
 
 def _try_weasyprint(procuration: Procuration) -> bytes | None:
-    html = render_to_string(
-        "procurations/pdf/procuration.html",
-        _template_context(procuration),
-    )
+    ctx = _template_context(procuration)
+    draft = (procuration.draft_html or "").strip()
+    if draft:
+        from apps.procurations.draft import sanitize_draft_html
+
+        ctx["draft_body"] = sanitize_draft_html(draft)
+    html = render_to_string("procurations/pdf/procuration.html", ctx)
     try:
         from weasyprint import HTML  # type: ignore[import-untyped]
 
@@ -262,21 +277,32 @@ def _template_context(procuration: Procuration) -> dict[str, object]:
     }
 
 
+BODY_SIZE = 14
+LINE_H = 7.2
+
+
 def _font_candidates() -> list[tuple[Path, Path]]:
+    """Calibri en priorité (Windows) ; Carlito / Liberation comme repli Linux."""
     windir = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"
     base = Path(settings.BASE_DIR) / "static" / "fonts"
     return [
-        (base / "SourceSans3-Regular.ttf", base / "SourceSans3-Bold.ttf"),
-        (windir / "times.ttf", windir / "timesbd.ttf"),
-        (windir / "arial.ttf", windir / "arialbd.ttf"),
+        (base / "Calibri.ttf", base / "Calibri-Bold.ttf"),
+        (base / "calibri.ttf", base / "calibrib.ttf"),
         (windir / "calibri.ttf", windir / "calibrib.ttf"),
+        (windir / "Calibri.ttf", windir / "Calibrib.ttf"),
+        (
+            Path("/usr/share/fonts/truetype/crosextra/Carlito-Regular.ttf"),
+            Path("/usr/share/fonts/truetype/crosextra/Carlito-Bold.ttf"),
+        ),
+        (
+            Path("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"),
+            Path("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"),
+        ),
+        (base / "SourceSans3-Regular.ttf", base / "SourceSans3-Bold.ttf"),
+        (windir / "arial.ttf", windir / "arialbd.ttf"),
         (
             Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
             Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
-        ),
-        (
-            Path("/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf"),
-            Path("/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf"),
         ),
     ]
 
@@ -290,45 +316,50 @@ def _build_with_fpdf(procuration: Procuration) -> bytes:
     pdf.set_auto_page_break(auto=True, margin=22)
     pdf.set_margins(20, 22, 20)
 
-    font_name = "Times"
+    font_name = "Helvetica"
     for regular, bold in _font_candidates():
         if regular.is_file():
             bold_path = bold if bold.is_file() else regular
-            pdf.add_font("ProcSerif", "", str(regular))
-            pdf.add_font("ProcSerif", "B", str(bold_path))
-            font_name = "ProcSerif"
+            pdf.add_font("ProcCalibri", "", str(regular))
+            pdf.add_font("ProcCalibri", "B", str(bold_path))
+            font_name = "ProcCalibri"
             break
 
     pdf.add_page()
-    usable = 210 - 40
+    usable = pdf.epw  # largeur utile entre les marges gauche/droite
 
-    def _center(text: str, *, size: float = 12, bold: bool = False) -> None:
+    def _center(text: str, *, size: float = BODY_SIZE, bold: bool = False) -> None:
+        pdf.set_x(pdf.l_margin)
         pdf.set_text_color(*INK)
         pdf.set_font(font_name, "B" if bold else "", size)
-        pdf.multi_cell(usable, 6, text, align="C")
+        pdf.multi_cell(usable, LINE_H, text, align="C")
 
-    def _para(text: str, *, bold_prefix: str = "") -> None:
+    def _para(text: str) -> None:
+        """Paragraphe justifié, toujours dans les marges."""
+        pdf.set_x(pdf.l_margin)
         pdf.set_text_color(*INK)
-        pdf.set_font(font_name, "", 11)
-        if bold_prefix:
-            # fpdf n'enchaîne pas facilement gras+normal : préfixe en gras puis suite.
-            pdf.set_font(font_name, "B", 11)
-            pdf.write(6, bold_prefix)
-            pdf.set_font(font_name, "", 11)
-            pdf.multi_cell(usable, 6, text)
-        else:
-            pdf.multi_cell(usable, 6, text)
+        pdf.set_font(font_name, "", BODY_SIZE)
+        pdf.multi_cell(usable, LINE_H, text, align="J")
         pdf.ln(3)
 
-    _center("// PROCURATION //", size=13, bold=True)
+    def _labeled_para(label: str, body: str) -> None:
+        """Libellé gras + texte, sans dépasser la marge droite."""
+        pdf.set_x(pdf.l_margin)
+        pdf.set_text_color(*INK)
+        pdf.set_font(font_name, "", BODY_SIZE)
+        # markdown=True : gras sur le libellé ; multi_cell depuis la marge gauche.
+        pdf.multi_cell(usable, LINE_H, f"**{label}**{body}", markdown=True, align="J")
+        pdf.ln(3)
+
+    _center("// PROCURATION //", size=BODY_SIZE, bold=True)
     pdf.ln(1)
-    _center(f"N° {ctx['document_number']}", size=11, bold=False)
+    _center(f"N° {ctx['document_number']}", size=BODY_SIZE, bold=False)
     pdf.ln(2)
     y = pdf.get_y()
     pdf.set_draw_color(*INK)
     pdf.set_line_width(0.6)
-    pdf.line(20, y, 190, y)
-    pdf.line(20, y + 0.8, 190, y + 0.8)
+    pdf.line(pdf.l_margin, y, pdf.w - pdf.r_margin, y)
+    pdf.line(pdf.l_margin, y + 0.8, pdf.w - pdf.r_margin, y + 0.8)
     pdf.ln(8)
 
     preamble = (
@@ -370,47 +401,33 @@ def _build_with_fpdf(procuration: Procuration) -> bytes:
         )
     _para(mandate)
 
-    pdf.set_font(font_name, "B", 11)
-    pdf.write(6, "Aux fins de : ")
-    pdf.set_font(font_name, "", 11)
-    pdf.multi_cell(usable, 6, str(ctx["purpose_text"]))
-    pdf.ln(4)
-
-    pdf.set_font(font_name, "B", 11)
-    pdf.write(6, "En cause : ")
-    pdf.set_font(font_name, "", 11)
-    pdf.multi_cell(usable, 6, str(ctx["en_cause"]))
-    pdf.ln(2)
-
-    pdf.set_font(font_name, "B", 11)
-    pdf.write(6, "Contre : ")
-    pdf.set_font(font_name, "", 11)
-    pdf.multi_cell(usable, 6, str(ctx["contre"]))
-    pdf.ln(6)
+    _labeled_para("Aux fins de : ", str(ctx["purpose_text"]))
+    _labeled_para("En cause : ", str(ctx["en_cause"]))
+    _labeled_para("Contre : ", str(ctx["contre"]))
 
     _para(f"Fait à Kinshasa, le {ctx['granted_date']}")
 
     pdf.ln(8)
     pdf.set_x(110)
-    pdf.set_font(font_name, "", 10)
-    pdf.multi_cell(70, 5, str(ctx["signatory_capacity"]), align="C")
+    pdf.set_font(font_name, "", BODY_SIZE)
+    pdf.multi_cell(70, LINE_H, str(ctx["signatory_capacity"]), align="C")
     if ctx["signatory_name"]:
         pdf.ln(14)
         pdf.set_x(110)
-        pdf.set_font(font_name, "B", 11)
-        pdf.multi_cell(70, 6, str(ctx["signatory_name"]), align="C")
+        pdf.set_font(font_name, "B", BODY_SIZE)
+        pdf.multi_cell(70, LINE_H, str(ctx["signatory_name"]), align="C")
     if ctx["signatory_title"]:
         pdf.set_x(110)
-        pdf.set_font(font_name, "", 10)
-        pdf.multi_cell(70, 5, str(ctx["signatory_title"]), align="C")
+        pdf.set_font(font_name, "", BODY_SIZE)
+        pdf.multi_cell(70, LINE_H, str(ctx["signatory_title"]), align="C")
 
     pdf.set_y(-28)
     pdf.set_text_color(*SLATE)
-    pdf.set_font(font_name, "", 8)
+    pdf.set_font(font_name, "", 11)
     if ctx["granted_by"]:
-        pdf.cell(usable, 4, str(ctx["granted_by"]), ln=1)
-    pdf.cell(usable, 4, f"Le {ctx['printed_at']}", ln=1)
-    pdf.cell(usable, 4, "Visa Dircaba", ln=1)
+        pdf.cell(usable, 5, str(ctx["granted_by"]), ln=1)
+    pdf.cell(usable, 5, f"Le {ctx['printed_at']}", ln=1)
+    pdf.cell(usable, 5, "Visa Dircaba", ln=1)
 
     raw = pdf.output()
     return bytes(raw) if not isinstance(raw, bytes) else raw

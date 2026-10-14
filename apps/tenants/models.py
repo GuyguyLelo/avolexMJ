@@ -368,3 +368,44 @@ class Jurisdiction(BaseModel):
                 counter += 1
             self.slug = slug
         super().save(*args, **kwargs)
+
+
+class StateEntity(BaseModel):
+    """Structure / entité étatique de la RDC (référentiel ministère)."""
+
+    name = models.CharField(_("intitulé"), max_length=255)
+    slug = models.SlugField(_("slug"), max_length=255)
+    category = models.CharField(_("groupe"), max_length=160, blank=True)
+    is_active = models.BooleanField(_("active"), default=True)
+
+    class Meta:
+        verbose_name = _("Entité étatique")
+        verbose_name_plural = _("Entités étatiques")
+        ordering = ("category", "name")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("name",),
+                condition=models.Q(is_deleted=False),
+                name="uniq_state_entity_name",
+            ),
+            models.UniqueConstraint(
+                fields=("slug",),
+                condition=models.Q(is_deleted=False),
+                name="uniq_state_entity_slug",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.name
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        """Génère un slug unique si absent."""
+        if not self.slug:
+            base = slugify(self.name) or "entite-etatique"
+            slug = base
+            counter = 1
+            while StateEntity.all_objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base}-{counter}"
+                counter += 1
+            self.slug = slug
+        super().save(*args, **kwargs)

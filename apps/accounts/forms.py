@@ -8,7 +8,7 @@ from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, Set
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
-from apps.accounts.models import User
+from apps.accounts.models import MinistryRole, User
 from apps.tenants.models import Cabinet
 from apps.tenants.roles import Role
 
@@ -307,7 +307,7 @@ class PlatformUserForm(forms.Form):
         choices=(),
         widget=forms.Select(attrs={**_INPUT, "id": "id_account_type"}),
         help_text=_(
-            "SuperAdmin et Administrateur : comptes ministère, non liés à un cabinet d'avocats. "
+            "Compte Ministère et SuperAdmin : non liés à un cabinet d'avocats. "
             "Compte cabinet : rattachement obligatoire à un cabinet d'avocats."
         ),
     )
@@ -320,11 +320,22 @@ class PlatformUserForm(forms.Form):
         help_text=_("Obligatoire pour un compte cabinet."),
     )
     cabinet_role = forms.ChoiceField(
-        label=_("Rôle dans le cabinet"),
+        label=_("Rôle"),
         choices=Role.choices,
         required=False,
         initial=Role.LAWYER,
         widget=forms.Select(attrs={**_INPUT, "id": "id_cabinet_role"}),
+        help_text=_("Caïman ou Avocat."),
+    )
+    ministry_role = forms.ChoiceField(
+        label=_("Rôle"),
+        choices=MinistryRole.choices,
+        required=False,
+        initial=MinistryRole.ADMIN,
+        widget=forms.Select(attrs={**_INPUT, "id": "id_ministry_role"}),
+        help_text=_(
+            "Conseiller, Dircaba, Chargé d'Études, Greffe ou Administrateur."
+        ),
     )
     is_active = forms.BooleanField(
         label=_("Compte actif"),
@@ -354,7 +365,7 @@ class PlatformUserForm(forms.Form):
             self.fields["cabinet_role"].widget = forms.HiddenInput()
 
     def clean(self) -> dict[str, object]:
-        from apps.accounts.services import ACCOUNT_CABINET
+        from apps.accounts.services import ACCOUNT_ADMIN, ACCOUNT_CABINET
 
         cleaned = super().clean()
         password = cleaned.get("password") or ""
@@ -371,9 +382,29 @@ class PlatformUserForm(forms.Form):
                     self.add_error("password", exc)
 
         account_type = cleaned.get("account_type") or ACCOUNT_CABINET
-        if self.is_create and account_type == ACCOUNT_CABINET and not cleaned.get("cabinet"):
-            self.add_error(
-                "cabinet",
-                _("Le cabinet d'avocats est obligatoire pour un compte cabinet."),
-            )
+        if self.is_create and account_type == ACCOUNT_CABINET:
+            if not cleaned.get("cabinet"):
+                self.add_error(
+                    "cabinet",
+                    _("Le cabinet d'avocats est obligatoire pour un compte cabinet."),
+                )
+            cabinet_role = cleaned.get("cabinet_role") or ""
+            if not cabinet_role:
+                self.add_error(
+                    "cabinet_role",
+                    _("Le rôle est obligatoire pour un compte cabinet (Caïman ou Avocat)."),
+                )
+            elif cabinet_role not in {choice[0] for choice in Role.choices}:
+                self.add_error("cabinet_role", _("Rôle cabinet invalide."))
+        if account_type == ACCOUNT_ADMIN:
+            role = cleaned.get("ministry_role") or ""
+            if not role:
+                self.add_error(
+                    "ministry_role",
+                    _("Le rôle est obligatoire pour un compte Ministère."),
+                )
+            elif role not in {choice[0] for choice in MinistryRole.choices}:
+                self.add_error("ministry_role", _("Rôle ministériel invalide."))
+        else:
+            cleaned["ministry_role"] = ""
         return cleaned

@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.core.bar_associations import bar_association_choices_with_value
 from apps.core.widgets import PrivateClearableFileInput
-from apps.tenants.models import Cabinet, Jurisdiction, LegalPracticeArea
+from apps.tenants.models import Cabinet, Jurisdiction, LegalPracticeArea, StateEntity
 from apps.tenants.roles import Role
 from apps.tenants.services import validate_cabinet_contract_file
 
@@ -178,6 +178,24 @@ class JurisdictionForm(forms.ModelForm):
                 attrs={
                     **_INPUT,
                     "placeholder": _("Ex. Tribunaux de grande instance"),
+                }
+            ),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check"}),
+        }
+
+
+class StateEntityForm(forms.ModelForm):
+    """Création / édition d'une entité étatique du référentiel."""
+
+    class Meta:
+        model = StateEntity
+        fields = ("name", "category", "is_active")
+        widgets = {
+            "name": forms.TextInput(attrs=_INPUT),
+            "category": forms.TextInput(
+                attrs={
+                    **_INPUT,
+                    "placeholder": _("Ex. Ministères, Provinces, Institutions…"),
                 }
             ),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check"}),

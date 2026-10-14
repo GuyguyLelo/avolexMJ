@@ -11,7 +11,7 @@
       <h1>{% if is_create %}{% translate "Nouvel utilisateur" %}{% else %}{% translate "Modifier l'utilisateur" %}{% endif %}</h1>
       <p class="page-lede">
         {% if is_create %}
-          {% translate "Compte cabinet : précisez le cabinet d'avocats. SuperAdmin / Admin : sans rattachement." %}
+          {% translate "Compte cabinet : cabinet + rôle (Caïman ou Avocat). Compte Ministère : rôle (Conseiller, Dircaba…)." %}
         {% else %}
           {{ account_user.email }}
         {% endif %}
@@ -25,7 +25,7 @@
     {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
     <div class="form-grid">
       {% for field in form %}
-      <div class="form-field{% if field.name == 'email' or field.name == 'account_type' or field.name == 'is_active' or field.name == 'cabinet' %} form-field-span{% endif %}"{% if field.name == 'cabinet' or field.name == 'cabinet_role' %} data-cabinet-only{% endif %}>
+      <div class="form-field{% if field.name == 'email' or field.name == 'account_type' or field.name == 'is_active' or field.name == 'cabinet' %} form-field-span{% endif %}"{% if field.name == 'cabinet' or field.name == 'cabinet_role' %} data-cabinet-only{% endif %}{% if field.name == 'ministry_role' %} data-ministry-only{% endif %}>
         {% if field.field.widget.input_type == "checkbox" %}
         <div class="cluster" style="align-items:center;gap:0.5rem;">
           {{ field }}
@@ -49,22 +49,25 @@
 {% endblock %}
 
 {% block extra_js %}
-{% if is_create %}
 <script>
 (function () {
   var typeField = document.getElementById("id_account_type");
   if (!typeField) return;
-  var blocks = document.querySelectorAll("[data-cabinet-only]");
-  function sync() {
-    var show = typeField.value === "cabinet";
-    blocks.forEach(function (el) {
+  var cabinetBlocks = document.querySelectorAll("[data-cabinet-only]");
+  var ministryBlocks = document.querySelectorAll("[data-ministry-only]");
+  function setVisible(nodes, show) {
+    nodes.forEach(function (el) {
       el.hidden = !show;
       el.style.display = show ? "" : "none";
     });
+  }
+  function sync() {
+    var type = typeField.value;
+    setVisible(cabinetBlocks, type === "cabinet");
+    setVisible(ministryBlocks, type === "administrator");
   }
   typeField.addEventListener("change", sync);
   sync();
 })();
 </script>
-{% endif %}
 {% endblock %}

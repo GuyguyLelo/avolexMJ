@@ -6,8 +6,8 @@
   <style>
     @page { size: A4; margin: 22mm 20mm 24mm; }
     body {
-      font-family: "Times New Roman", Times, Georgia, serif;
-      font-size: 12pt;
+      font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
+      font-size: 14pt;
       line-height: 1.45;
       color: #111;
     }
@@ -20,7 +20,7 @@
     }
     .number {
       text-align: center;
-      font-size: 11pt;
+      font-size: 14pt;
       margin: 0 0 10px;
     }
     .rule {
@@ -28,20 +28,28 @@
       border-top: 2px double #111;
       margin: 0 0 18px;
     }
-    p { margin: 0 0 10px; text-align: justify; }
+    p {
+      margin: 0 0 10px;
+      text-align: justify;
+      overflow-wrap: anywhere;
+      word-wrap: break-word;
+      max-width: 100%;
+    }
     .indent { text-indent: 1.5em; }
-    strong { font-weight: 700; }
+    strong, b { font-weight: 700; }
+    em, i { font-style: italic; }
+    u { text-decoration: underline; }
     .block { margin: 14px 0; }
     .sign {
       margin-top: 36px;
       text-align: right;
       page-break-inside: avoid;
     }
-    .sign p { text-align: right; margin: 0 0 4px; }
+    .sign p { text-align: right; margin: 0 0 4px; font-size: 14pt; }
     .sign .name { font-weight: 700; margin-top: 28px; }
     .footer {
       margin-top: 40px;
-      font-size: 9pt;
+      font-size: 11pt;
       color: #333;
       line-height: 1.35;
     }
@@ -49,64 +57,10 @@
   </style>
 </head>
 <body>
-  <p class="title">// PROCURATION //</p>
-  <p class="number">N° {{ document_number }}</p>
-  <hr class="rule">
-
-  <p class="indent">
-    La <strong>REPUBLIQUE DEMOCRATIQUE DU CONGO</strong>, représentée par
-    le {{ minister_title }}, <strong>{{ minister_name }}</strong>,
-    nommé par {{ ordinance_appointment }},
-    ayant son Cabinet sis à {{ ministry_address }},
-    agissant en vertu de {{ ordinance_attributions }},
-  </p>
-
-  <p class="indent">
-    donne par les présentes <strong>mandat à</strong>
-    {% if lawyer_name %}
-      <strong>{{ lawyer_name }}</strong>{% if lawyer_bar %}, {{ lawyer_bar }}{% endif %}{% if lawyer_address %},
-      dont le Cabinet est établi {{ lawyer_address }}{% endif %},
-    {% elif cabinet %}
-      le cabinet <strong>{{ cabinet.name }}</strong>{% if cabinet.bar_association %}, {{ cabinet.bar_association }}{% endif %}{% if cabinet_address %},
-      dont le Cabinet est établi {{ cabinet_address }}{% endif %},
-    {% else %}
-      l'avocat désigné,
-    {% endif %}
-    agissant conjointement ou séparément avec pouvoir de substitution.
-  </p>
-
-  <p class="block">
-    <strong>Aux fins de :</strong>
-    {{ purpose_text }}
-  </p>
-
-  <p>
-    <strong>En cause :</strong>
-    {{ en_cause }}
-  </p>
-  <p>
-    <strong>Contre :</strong>
-    {{ contre }}
-  </p>
-
-  <p class="block">Fait à Kinshasa, le {{ granted_date }}</p>
-
-  <div class="sign">
-    <p>{{ signatory_capacity }}</p>
-    {% if signatory_name %}
-    <p class="name">{{ signatory_name }}</p>
-    {% endif %}
-    {% if signatory_title %}
-    <p>{{ signatory_title }}</p>
-    {% endif %}
-  </div>
-
-  <div class="footer">
-    {% if granted_by %}
-    <p>{{ granted_by }}</p>
-    {% endif %}
-    <p>Le {{ printed_at }}</p>
-    <p>Visa Dircaba</p>
-  </div>
+  {% if draft_body %}
+  {{ draft_body|safe }}
+  {% else %}
+  {% include "procurations/pdf/procuration_body.html" %}
+  {% endif %}
 </body>
 </html>

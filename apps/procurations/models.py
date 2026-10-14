@@ -22,10 +22,11 @@ def procuration_upload_to(instance: Procuration, filename: str) -> str:
 
 
 class ProcurationStatus(models.TextChoices):
-    """Cycle de vie d'une procuration ministérielle."""
+    """Cycle de vie d'une procuration ministérielle (double validation)."""
 
     DRAFT = "draft", _("Brouillon")
-    REQUESTED = "requested", _("Demandée")
+    REQUESTED = "requested", _("En attente Conseiller")
+    APPROVED_CONSEILLER = "approved_conseiller", _("En attente Dircaba")
     GRANTED = "granted", _("Accordée")
     REFUSED = "refused", _("Refusée")
     REVOKED = "revoked", _("Révoquée")
@@ -79,12 +80,22 @@ class Procuration(TenantOwnedModel):
         db_index=True,
     )
     requested_at = models.DateField(_("demandée le"), null=True, blank=True)
+    conseiller_at = models.DateField(_("validée Conseiller le"), null=True, blank=True)
+    conseiller_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name=_("validée par le Conseiller"),
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="conseiller_procurations",
+    )
+    conseiller_notes = models.TextField(_("notes Conseiller"), blank=True)
     granted_at = models.DateField(_("accordée le"), null=True, blank=True)
     valid_from = models.DateField(_("valide à compter du"), null=True, blank=True)
     expires_at = models.DateField(_("expire le"), null=True, blank=True)
     granted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        verbose_name=_("accordée par"),
+        verbose_name=_("visa Dircaba par"),
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -95,6 +106,14 @@ class Procuration(TenantOwnedModel):
     revoked_at = models.DateField(_("révoquée le"), null=True, blank=True)
     revocation_reason = models.TextField(_("motif de révocation"), blank=True)
     notes = models.TextField(_("notes"), blank=True)
+    draft_html = models.TextField(
+        _("brouillon de l'acte (HTML)"),
+        blank=True,
+        help_text=_(
+            "Texte mis en forme avant publication PDF. "
+            "Les données métier (dossier, parties…) restent dans leurs champs."
+        ),
+    )
     instrument = models.FileField(
         _("acte scanné"),
         upload_to=procuration_upload_to,
@@ -145,8 +164,22 @@ class Procuration(TenantOwnedModel):
 
     @property
     def is_pending(self) -> bool:
-        """Ancienne demande en attente (données historiques)."""
+        """En attente d'une validation (Conseiller ou Dircaba)."""
+        return self.status in (
+            ProcurationStatus.DRAFT,
+            ProcurationStatus.REQUESTED,
+            ProcurationStatus.APPROVED_CONSEILLER,
+        )
+
+    @property
+    def awaits_conseiller(self) -> bool:
+        """1re validation : Conseiller."""
         return self.status in (ProcurationStatus.DRAFT, ProcurationStatus.REQUESTED)
+
+    @property
+    def awaits_dircaba(self) -> bool:
+        """2e validation : visa Dircaba."""
+        return self.status == ProcurationStatus.APPROVED_CONSEILLER
 
     @property
     def is_editable(self) -> bool:

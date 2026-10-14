@@ -12,6 +12,7 @@ from apps.tenants.models import (
     Jurisdiction,
     LegalPracticeArea,
     Membership,
+    StateEntity,
 )
 
 
@@ -63,6 +64,16 @@ class JurisdictionAdmin(admin.ModelAdmin):
     list_display = ("name", "scale", "category", "is_active", "created_at")
     search_fields = ("name", "category")
     list_filter = ("scale", "is_active")
+    prepopulated_fields = {"slug": ("name",)}
+
+
+@admin.register(StateEntity)
+class StateEntityAdmin(admin.ModelAdmin):
+    """Administration du référentiel des entités étatiques."""
+
+    list_display = ("name", "category", "is_active", "created_at")
+    search_fields = ("name", "category")
+    list_filter = ("category", "is_active")
     prepopulated_fields = {"slug": ("name",)}
 
 

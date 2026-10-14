@@ -1,0 +1,21 @@
+Circuit à deux validations en place.
+
+Flux
+
+Création de la procuration → En attente Conseiller
+Conseiller valide → En attente Dircaba
+Dircaba appose le visa → Accordée
+Comptes créés (mot de passe : @12345678)
+
+Identifiant	Rôle
+Conseiller
+Conseiller (1re validation)
+Dircaba
+Dircaba (visa final)
+Admin
+administrateur (peut faire les 2 étapes)
+SuperAdmin
+SuperAdmin
+SynthiaK
+administrateur
+Connecte-toi avec Conseiller pour la 1re validation, puis Dircaba pour le visa.

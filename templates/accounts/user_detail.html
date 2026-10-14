@@ -16,9 +16,15 @@
           {% if account_user.is_super_admin %}
           <span class="badge badge-gold">{% translate "SuperAdmin" %}</span>
           {% elif account_user.is_platform_admin %}
-          <span class="badge badge-info">{% translate "Administrateur" %}</span>
+          <span class="badge badge-info">{% if account_user.ministry_role %}{{ account_user.get_ministry_role_display }}{% else %}{% translate "Compte Ministère" %}{% endif %}</span>
           {% else %}
-          <span class="badge">{% translate "Compte cabinet" %}</span>
+            {% with m=memberships.0 %}
+            {% if m %}
+            <span class="badge">{{ m.get_role_display }}</span>
+            {% else %}
+            <span class="badge">{% translate "Compte cabinet" %}</span>
+            {% endif %}
+            {% endwith %}
           {% endif %}
           {% if account_user.is_active %}
           <span class="badge badge-success">{% translate "Actif" %}</span>
@@ -49,6 +55,24 @@
       <dt>{% translate "Téléphone" %}</dt>
       <dd>{% if account_user.phone %}{{ account_user.phone }}{% else %}<span class="matter-fact-empty">—</span>{% endif %}</dd>
     </div>
+    <div class="matter-fact">
+      <dt>{% translate "Type de compte" %}</dt>
+      <dd>
+        {% if account_user.is_super_admin %}
+          {% translate "SuperAdmin" %}
+        {% elif account_user.is_platform_admin %}
+          {% translate "Compte Ministère" %}
+        {% else %}
+          {% translate "Compte cabinet" %}
+        {% endif %}
+      </dd>
+    </div>
+    {% if account_user.is_platform_admin and not account_user.is_super_admin %}
+    <div class="matter-fact">
+      <dt>{% translate "Rôle" %}</dt>
+      <dd>{% if account_user.ministry_role %}{{ account_user.get_ministry_role_display }}{% else %}<span class="matter-fact-empty">—</span>{% endif %}</dd>
+    </div>
+    {% endif %}
     <div class="matter-fact">
       <dt>{% translate "Inscription" %}</dt>
       <dd>{{ account_user.date_joined|date:"d/m/Y H:i" }}</dd>

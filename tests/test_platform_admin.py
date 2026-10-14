@@ -97,7 +97,7 @@ def test_supervision_page(client) -> None:  # type: ignore[no-untyped-def]
     resp = client.get(reverse("core:supervision"))
     assert resp.status_code == 200
     assert b"ILEO Law Firm" in resp.content
-    assert b"Supervision nationale" in resp.content
+    assert b"Tableau de bord" in resp.content
     assert b"Audience TGI Gombe" in resp.content
     assert b"page-header-dash--ministry" in resp.content
     assert b"app-cabinet-banner" in resp.content

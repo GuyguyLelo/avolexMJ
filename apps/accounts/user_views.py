@@ -107,6 +107,7 @@ class UserCreateView(SuperAdminRequiredMixin, BreadcrumbMixin, FormView):
                 is_active=bool(data.get("is_active")),
                 cabinet=data.get("cabinet"),
                 cabinet_role=data.get("cabinet_role") or None,
+                ministry_role=data.get("ministry_role") or None,
             )
         except (ValidationError, PermissionDenied) as exc:
             if isinstance(exc, ValidationError):
@@ -172,6 +173,7 @@ class UserUpdateView(SuperAdminRequiredMixin, BreadcrumbMixin, FormView):
                 "last_name": self.account_user.last_name,
                 "phone": self.account_user.phone,
                 "account_type": account_type_of(self.account_user),
+                "ministry_role": self.account_user.ministry_role or "",
                 "is_active": self.account_user.is_active,
             }
         return kwargs
@@ -195,6 +197,7 @@ class UserUpdateView(SuperAdminRequiredMixin, BreadcrumbMixin, FormView):
                 password=data.get("password") or None,
                 account_type=data.get("account_type") or ACCOUNT_CABINET,
                 is_active=bool(data.get("is_active")),
+                ministry_role=data.get("ministry_role") or "",
             )
         except (ValidationError, PermissionDenied) as exc:
             if isinstance(exc, ValidationError):

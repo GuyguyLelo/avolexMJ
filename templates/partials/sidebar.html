@@ -13,7 +13,7 @@
           <path d="M12 3 20 7v5c0 5-3.4 8.4-8 9.5C7.4 20.4 4 17 4 12V7l8-4Z"/>
           <path d="m9 12 2 2 4-4"/>
         </svg>
-        <span>{% translate "Supervision" %}</span>
+        <span>{% translate "Tableau de bord" %}</span>
       </a>
       <a class="app-nav-link {% if request.resolver_match.url_name == 'cabinet_list' or request.resolver_match.url_name == 'cabinet_create' or request.resolver_match.url_name == 'cabinet_detail' or request.resolver_match.url_name == 'cabinet_update' %}is-active{% endif %}" href="{% url 'tenants:cabinet_list' %}">
         <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -63,6 +63,7 @@
         </svg>
         <span>{% translate "Audiences" %}</span>
       </a>
+      {% comment %}
       <a class="app-nav-link {% if request.resolver_match.app_name == 'calendar' %}is-active{% endif %}" href="{% url 'calendar:list' %}">
         <svg class="app-nav-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="5" width="18" height="16" rx="2"/>
@@ -77,6 +78,7 @@
         </svg>
         <span>{% translate "Documents" %}</span>
       </a>
+      {% endcomment %}
     </div>
 
     <div class="app-nav-group">
@@ -115,7 +117,7 @@
             <span>{% translate "Gestion des utilisateurs" %}</span>
           </a>
           {% endif %}
-          <a class="app-nav-link app-nav-sublink {% if request.resolver_match.url_name == 'settings' or request.resolver_match.url_name == 'practice_area_list' or request.resolver_match.url_name == 'practice_area_create' or request.resolver_match.url_name == 'practice_area_update' or request.resolver_match.url_name == 'jurisdiction_list' or request.resolver_match.url_name == 'jurisdiction_create' or request.resolver_match.url_name == 'jurisdiction_update' or request.resolver_match.url_name == 'specialty_list' or request.resolver_match.url_name == 'specialty_add' %}is-active{% endif %}" href="{% url 'core:settings' %}">
+          <a class="app-nav-link app-nav-sublink {% if request.resolver_match.url_name == 'settings' or request.resolver_match.url_name == 'practice_area_list' or request.resolver_match.url_name == 'practice_area_create' or request.resolver_match.url_name == 'practice_area_update' or request.resolver_match.url_name == 'jurisdiction_list' or request.resolver_match.url_name == 'jurisdiction_create' or request.resolver_match.url_name == 'jurisdiction_update' or request.resolver_match.url_name == 'state_entity_list' or request.resolver_match.url_name == 'state_entity_create' or request.resolver_match.url_name == 'state_entity_update' or request.resolver_match.url_name == 'specialty_list' or request.resolver_match.url_name == 'specialty_add' %}is-active{% endif %}" href="{% url 'core:settings' %}">
             <span>{% translate "Données référentielles" %}</span>
           </a>
         </div>

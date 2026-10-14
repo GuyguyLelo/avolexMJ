@@ -13,7 +13,14 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.procurations.models import Procuration, ProcurationSequence, ProcurationStatus
-from apps.tenants.services import is_platform_admin, require_platform_admin
+from apps.tenants.services import (
+    can_finalize_procuration_act,
+    can_issue_procuration,
+    can_validate_as_conseiller,
+    can_validate_as_dircaba,
+    is_platform_admin,
+    require_platform_admin,
+)
 
 if TYPE_CHECKING:
     from apps.accounts.models import User
@@ -25,7 +32,12 @@ PROCURATION_REQUIRED_MESSAGE = _(
     "avant toute activité sur ce dossier."
 )
 
-PENDING_STATUSES = (ProcurationStatus.DRAFT, ProcurationStatus.REQUESTED)
+PENDING_STATUSES = (
+    ProcurationStatus.DRAFT,
+    ProcurationStatus.REQUESTED,
+    ProcurationStatus.APPROVED_CONSEILLER,
+)
+CONSEILLER_STATUSES = (ProcurationStatus.DRAFT, ProcurationStatus.REQUESTED)
 
 
 def allocate_procuration_reference(*, cabinet: Cabinet, year: int | None = None) -> str:
@@ -157,6 +169,7 @@ def stamp_granted_procuration(
 RELATED_FIELDS = (
     "matter",
     "granted_by",
+    "conseiller_by",
     "created_by",
     "cabinet",
 )
@@ -282,8 +295,8 @@ def create_procuration(
     ministry_reference: str = "",
     **_ignored: object,
 ) -> Procuration:
-    """Le ministère délivre une procuration accordée à un cabinet pour un dossier."""
-    return issue_granted_procuration(
+    """Le ministère ouvre une procuration (en attente validation Conseiller)."""
+    return issue_procuration_for_validation(
         cabinet=cabinet,
         actor=user,
         matter=matter,
@@ -328,6 +341,34 @@ def submit_procuration(*, procuration: Procuration, user: User) -> Procuration:
 
 
 @transaction.atomic
+def approve_by_conseiller(
+    *,
+    procuration: Procuration,
+    actor: User,
+    notes: str = "",
+) -> Procuration:
+    """1re validation : le Conseiller valide et transmet au Dircaba."""
+    require_platform_admin(actor)
+    if not can_validate_as_conseiller(actor):
+        raise PermissionDenied(_("Réservé au Conseiller (1re validation)."))
+    if procuration.status not in CONSEILLER_STATUSES:
+        raise ValidationError(_("Cette procuration n'est pas en attente du Conseiller."))
+    _assert_no_valid(matter=procuration.matter, exclude_pk=procuration.pk)
+    today = timezone.localdate()
+    if procuration.status == ProcurationStatus.DRAFT:
+        procuration.requested_at = today
+    procuration.status = ProcurationStatus.APPROVED_CONSEILLER
+    procuration.conseiller_at = today
+    procuration.conseiller_by = actor
+    if notes:
+        procuration.conseiller_notes = notes.strip()
+    procuration.refused_at = None
+    procuration.refusal_reason = ""
+    procuration.save()
+    return procuration
+
+
+@transaction.atomic
 def grant_procuration(
     *,
     procuration: Procuration,
@@ -337,10 +378,14 @@ def grant_procuration(
     expires_at: date | None = None,
     notes: str = "",
 ) -> Procuration:
-    """Accorde la procuration (réservé au Ministère / supervision)."""
+    """2e validation : visa Dircaba — la procuration devient accordée."""
     require_platform_admin(actor)
-    if procuration.status not in PENDING_STATUSES:
-        raise ValidationError(_("Seule une procuration en attente peut être accordée."))
+    if not can_validate_as_dircaba(actor):
+        raise PermissionDenied(_("Réservé au Dircaba (visa final)."))
+    if procuration.status != ProcurationStatus.APPROVED_CONSEILLER:
+        raise ValidationError(
+            _("Le visa Dircaba n'est possible qu'après validation du Conseiller.")
+        )
     _assert_no_valid(matter=procuration.matter, exclude_pk=procuration.pk)
     today = timezone.localdate()
     procuration.status = ProcurationStatus.GRANTED
@@ -348,7 +393,8 @@ def grant_procuration(
     procuration.valid_from = valid_from or today
     procuration.expires_at = expires_at or (today + timedelta(days=365))
     procuration.granted_by = actor
-    procuration.ministry_reference = (ministry_reference or "").strip()
+    if ministry_reference:
+        procuration.ministry_reference = ministry_reference.strip()
     if notes:
         procuration.notes = notes.strip()
     procuration.refused_at = None
@@ -364,10 +410,14 @@ def refuse_procuration(
     actor: User,
     reason: str,
 ) -> Procuration:
-    """Refuse une ancienne demande (données historiques)."""
+    """Refuse une procuration en circuit de validation."""
     require_platform_admin(actor)
     if procuration.status not in PENDING_STATUSES:
         raise ValidationError(_("Seule une procuration en attente peut être refusée."))
+    if procuration.awaits_conseiller and not can_validate_as_conseiller(actor):
+        raise PermissionDenied(_("Réservé au Conseiller pour cette étape."))
+    if procuration.awaits_dircaba and not can_validate_as_dircaba(actor):
+        raise PermissionDenied(_("Réservé au Dircaba pour cette étape."))
     if not (reason or "").strip():
         raise ValidationError({"refusal_reason": _("Le motif du refus est obligatoire.")})
     procuration.status = ProcurationStatus.REFUSED
@@ -408,7 +458,7 @@ def soft_delete_procuration(*, procuration: Procuration, user: User) -> None:
     procuration.soft_delete()
 
 
-def issue_granted_procuration(
+def issue_procuration_for_validation(
     *,
     cabinet: Cabinet,
     actor: User,
@@ -420,15 +470,17 @@ def issue_granted_procuration(
     reference: str = "",
     instrument: File | BinaryIO | None = None,
     ministry_reference: str = "",
-    valid_from: date | None = None,
-    expires_at: date | None = None,
     client_name: str = "",
 ) -> Procuration:
-    """Le ministère délivre une procuration accordée à un cabinet pour un dossier."""
+    """Ouvre une procuration en attente de double validation (Conseiller puis Dircaba)."""
     from apps.matters.models import MatterScale
     from apps.tenants.context import cabinet_context
 
     require_platform_admin(actor)
+    if not can_issue_procuration(actor):
+        raise PermissionDenied(
+            _("Seule Synthia / l'administrateur peut créer une procuration.")
+        )
     if matter is None:
         raise ValidationError({"matter": _("Le dossier est obligatoire.")})
     _assert_matter_in_cabinet(matter=matter, cabinet=cabinet)
@@ -458,12 +510,8 @@ def issue_granted_procuration(
             reference=_resolve_reference(cabinet=cabinet, reference=reference),
             purpose=purpose.strip(),
             notes=notes.strip() if notes else "",
-            status=ProcurationStatus.GRANTED,
-            requested_at=None,
-            granted_at=today,
-            valid_from=valid_from or today,
-            expires_at=expires_at or (today + timedelta(days=365)),
-            granted_by=actor,
+            status=ProcurationStatus.REQUESTED,
+            requested_at=today,
             ministry_reference=(ministry_reference or "").strip(),
         )
         _attach_instrument(procuration=procuration, uploaded=instrument)  # type: ignore[arg-type]
@@ -471,15 +519,76 @@ def issue_granted_procuration(
         return procuration
 
 
+# Compatibilité anciens appels / imports.
+issue_granted_procuration = issue_procuration_for_validation
+
+
+@transaction.atomic
+def save_procuration_draft(
+    *,
+    procuration: Procuration,
+    actor: User,
+    html: str,
+) -> Procuration:
+    """Enregistre le brouillon HTML mis en forme (n'altère pas les champs métier)."""
+    from apps.procurations.draft import sanitize_draft_html
+    from apps.tenants.context import cabinet_context
+
+    require_platform_admin(actor)
+    if not can_finalize_procuration_act(actor):
+        raise PermissionDenied(
+            _("Seule Synthia / l'administrateur peut corriger l'acte après validation.")
+        )
+    if procuration.status != ProcurationStatus.GRANTED:
+        raise ValidationError(
+            _("L'acte ne peut être corrigé qu'après validation Conseiller et Dircaba.")
+        )
+    cleaned = sanitize_draft_html(html)
+    if not cleaned:
+        raise ValidationError(_("Le texte de l'acte ne peut pas être vide."))
+    with cabinet_context(procuration.cabinet):
+        procuration.draft_html = cleaned
+        procuration.save(update_fields=["draft_html", "updated_at"])
+    return procuration
+
+
+@transaction.atomic
+def reset_procuration_draft(*, procuration: Procuration, actor: User) -> Procuration:
+    """Recharge le brouillon depuis les données métier (modèle officiel)."""
+    from apps.procurations.draft import render_default_draft_html
+    from apps.tenants.context import cabinet_context
+
+    require_platform_admin(actor)
+    if not can_finalize_procuration_act(actor):
+        raise PermissionDenied(
+            _("Seule Synthia / l'administrateur peut corriger l'acte après validation.")
+        )
+    if procuration.status != ProcurationStatus.GRANTED:
+        raise ValidationError(
+            _("L'acte ne peut être corrigé qu'après validation Conseiller et Dircaba.")
+        )
+    html = render_default_draft_html(procuration)
+    with cabinet_context(procuration.cabinet):
+        procuration.draft_html = html
+        procuration.save(update_fields=["draft_html", "updated_at"])
+    return procuration
+
+
 @transaction.atomic
 def generate_procuration_instrument(*, procuration: Procuration, actor: User) -> Procuration:
-    """Génère l'acte PDF et le joint à la procuration accordée."""
+    """Publie l'acte PDF (après double validation — réservé à Synthia / admin)."""
     from apps.procurations.pdf import build_procuration_pdf
     from apps.tenants.context import cabinet_context
 
     require_platform_admin(actor)
+    if not can_finalize_procuration_act(actor):
+        raise PermissionDenied(
+            _("Seule Synthia / l'administrateur peut publier l'acte après validation.")
+        )
     if procuration.status != ProcurationStatus.GRANTED:
-        raise ValidationError(_("Seule une procuration accordée peut générer un acte."))
+        raise ValidationError(
+            _("L'acte ne peut être publié qu'après validation Conseiller et Dircaba.")
+        )
     loaded = Procuration.unscoped.select_related(
         "cabinet", "matter", "granted_by"
     ).get(pk=procuration.pk)

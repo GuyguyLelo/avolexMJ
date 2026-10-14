@@ -28,13 +28,22 @@ ACCOUNT_SUPER = "superadmin"
 
 ACCOUNT_TYPE_CHOICES = (
     (ACCOUNT_CABINET, _("Compte cabinet")),
-    (ACCOUNT_ADMIN, _("Administrateur ministère")),
+    (ACCOUNT_ADMIN, _("Compte Ministère")),
     (ACCOUNT_SUPER, _("SuperAdmin")),
 )
 
 
 def users_queryset(*, q: str = "", status: str = "", role: str = "") -> QuerySet[User]:
     """Liste annotée des comptes, filtrable."""
+    from django.db.models import OuterRef, Subquery
+
+    from apps.tenants.models import Membership
+
+    primary_cabinet_role = (
+        Membership.objects.filter(user_id=OuterRef("pk"), is_active=True)
+        .order_by("created_at")
+        .values("role")[:1]
+    )
     qs = (
         UserModel.objects.all()
         .annotate(
@@ -42,7 +51,8 @@ def users_queryset(*, q: str = "", status: str = "", role: str = "") -> QuerySet
                 "memberships",
                 filter=Q(memberships__is_active=True),
                 distinct=True,
-            )
+            ),
+            primary_cabinet_role=Subquery(primary_cabinet_role),
         )
         .order_by("last_name", "first_name", "email")
     )
@@ -100,10 +110,12 @@ def create_user_as_platform_admin(
     is_active: bool = True,
     cabinet: object | None = None,
     cabinet_role: str | None = None,
+    ministry_role: str | None = None,
 ) -> User:
     """Crée un compte (SuperAdmin uniquement)."""
     from django.db import transaction
 
+    from apps.accounts.models import MinistryRole
     from apps.tenants.models import Membership
     from apps.tenants.roles import Role
     from apps.tenants.services import ensure_user_can_join_cabinet
@@ -119,6 +131,7 @@ def create_user_as_platform_admin(
     validate_password(password)
     is_platform, is_super = _flags_from_account_type(account_type)
 
+    resolved_ministry_role = ""
     if account_type == ACCOUNT_CABINET:
         if cabinet is None:
             raise ValidationError(
@@ -127,6 +140,14 @@ def create_user_as_platform_admin(
         role = cabinet_role or Role.LAWYER
         if role not in {choice[0] for choice in Role.choices}:
             raise ValidationError({"cabinet_role": _("Rôle cabinet invalide.")})
+    elif account_type == ACCOUNT_ADMIN:
+        resolved_ministry_role = (ministry_role or "").strip()
+        if not resolved_ministry_role:
+            raise ValidationError(
+                {"ministry_role": _("Le rôle est obligatoire pour un compte Ministère.")}
+            )
+        if resolved_ministry_role not in {choice[0] for choice in MinistryRole.choices}:
+            raise ValidationError({"ministry_role": _("Rôle ministériel invalide.")})
 
     with transaction.atomic():
         user = UserModel.objects.create_user(
@@ -138,6 +159,7 @@ def create_user_as_platform_admin(
             is_platform_admin=is_platform,
             is_super_admin=is_super,
             is_active=bool(is_active),
+            ministry_role=resolved_ministry_role,
         )
         # SuperAdmin / Admin : jamais de rattachement cabinet.
         if is_platform or is_super:
@@ -172,8 +194,11 @@ def update_user_as_platform_admin(
     password: str | None = None,
     account_type: str | None = None,
     is_active: bool | None = None,
+    ministry_role: str | None = None,
 ) -> User:
     """Met à jour un compte (SuperAdmin uniquement)."""
+    from apps.accounts.models import MinistryRole
+
     require_super_admin(actor)
     update_fields: list[str] = []
 
@@ -200,6 +225,7 @@ def update_user_as_platform_admin(
         user.phone = phone.strip()
         update_fields.append("phone")
 
+    resolved_account_type = account_type
     if account_type is not None:
         if account_type not in {ACCOUNT_CABINET, ACCOUNT_ADMIN, ACCOUNT_SUPER}:
             raise ValidationError({"account_type": _("Type de compte invalide.")})
@@ -214,6 +240,25 @@ def update_user_as_platform_admin(
         user.is_platform_admin = is_platform
         user.is_super_admin = is_super
         update_fields.extend(["is_platform_admin", "is_super_admin"])
+    else:
+        resolved_account_type = account_type_of(user)
+
+    if ministry_role is not None or account_type is not None:
+        if resolved_account_type == ACCOUNT_ADMIN:
+            role = (ministry_role if ministry_role is not None else user.ministry_role) or ""
+            role = role.strip()
+            if not role:
+                raise ValidationError(
+                    {"ministry_role": _("Le rôle est obligatoire pour un compte Ministère.")}
+                )
+            if role not in {choice[0] for choice in MinistryRole.choices}:
+                raise ValidationError({"ministry_role": _("Rôle ministériel invalide.")})
+            if user.ministry_role != role:
+                user.ministry_role = role
+                update_fields.append("ministry_role")
+        elif user.ministry_role:
+            user.ministry_role = ""
+            update_fields.append("ministry_role")
 
     if is_active is not None:
         new_active = bool(is_active)

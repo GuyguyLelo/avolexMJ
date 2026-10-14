@@ -1,0 +1,59 @@
+<p class="title">// PROCURATION //</p>
+<p class="number">N° {{ document_number }}</p>
+<hr class="rule">
+
+<p class="indent">
+  La <strong>REPUBLIQUE DEMOCRATIQUE DU CONGO</strong>, représentée par
+  le {{ minister_title }}, <strong>{{ minister_name }}</strong>,
+  nommé par {{ ordinance_appointment }},
+  ayant son Cabinet sis à {{ ministry_address }},
+  agissant en vertu de {{ ordinance_attributions }},
+</p>
+
+<p class="indent">
+  donne par les présentes <strong>mandat à</strong>
+  {% if lawyer_name %}
+    <strong>{{ lawyer_name }}</strong>{% if lawyer_bar %}, {{ lawyer_bar }}{% endif %}{% if lawyer_address %},
+    dont le Cabinet est établi {{ lawyer_address }}{% endif %},
+  {% elif cabinet %}
+    le cabinet <strong>{{ cabinet.name }}</strong>{% if cabinet.bar_association %}, {{ cabinet.bar_association }}{% endif %}{% if cabinet_address %},
+    dont le Cabinet est établi {{ cabinet_address }}{% endif %},
+  {% else %}
+    l'avocat désigné,
+  {% endif %}
+  agissant conjointement ou séparément avec pouvoir de substitution.
+</p>
+
+<p class="block">
+  <strong>Aux fins de :</strong>
+  {{ purpose_text }}
+</p>
+
+<p>
+  <strong>En cause :</strong>
+  {{ en_cause }}
+</p>
+<p>
+  <strong>Contre :</strong>
+  {{ contre }}
+</p>
+
+<p class="block">Fait à Kinshasa, le {{ granted_date }}</p>
+
+<div class="sign">
+  <p>{{ signatory_capacity }}</p>
+  {% if signatory_name %}
+  <p class="name">{{ signatory_name }}</p>
+  {% endif %}
+  {% if signatory_title %}
+  <p>{{ signatory_title }}</p>
+  {% endif %}
+</div>
+
+<div class="footer">
+  {% if granted_by %}
+  <p>{{ granted_by }}</p>
+  {% endif %}
+  <p>Le {{ printed_at }}</p>
+  <p>Visa Dircaba</p>
+</div>

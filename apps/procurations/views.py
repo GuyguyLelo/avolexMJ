@@ -18,7 +18,9 @@ from apps.core.mixins import BreadcrumbMixin
 from apps.matters.models import Matter, MatterScale
 from apps.procurations.forms import ProcurationDecisionForm, ProcurationForm, ProcurationGrantForm
 from apps.procurations.models import Procuration, ProcurationStatus
+from apps.procurations.pdf import build_procuration_pdf
 from apps.procurations.services import (
+    approve_by_conseiller,
     create_procuration,
     generate_procuration_instrument,
     get_valid_procuration,
@@ -26,7 +28,9 @@ from apps.procurations.services import (
     procurations_queryset,
     procurations_visible_qs,
     refuse_procuration,
+    reset_procuration_draft,
     revoke_procuration,
+    save_procuration_draft,
     soft_delete_procuration,
     submit_procuration,
     update_procuration,
@@ -37,7 +41,19 @@ from apps.tenants.mixins import (
 )
 from apps.tenants.models import Cabinet
 from apps.tenants.roles import PERM_VIEW
-from apps.tenants.services import is_platform_admin, suggest_cabinets_for_practice_area
+from apps.procurations.word import (
+    DOCX_MIME,
+    build_procuration_docx,
+    procuration_docx_filename,
+)
+from apps.tenants.services import (
+    can_finalize_procuration_act,
+    can_issue_procuration,
+    can_validate_as_conseiller,
+    can_validate_as_dircaba,
+    is_platform_admin,
+    suggest_cabinets_for_practice_area,
+)
 
 
 def _platform_sets_no_cabinet(view: CabinetPermissionMixin, request: Any) -> None:
@@ -116,6 +132,7 @@ class ProcurationListView(CabinetPermissionMixin, BreadcrumbMixin, ListView):
         ctx["filter_cabinet"] = self.request.GET.get("cabinet", "")
         ctx["status_choices"] = ProcurationStatus.choices
         ctx["scale_choices"] = MatterScale.choices
+        ctx["can_issue"] = can_issue_procuration(self.request.user)  # type: ignore[arg-type]
         if platform:
             ctx["matters"] = Matter.objects.none()
             ctx["cabinets"] = Cabinet.objects.filter(is_active=True).order_by("name")
@@ -158,9 +175,25 @@ class ProcurationDetailView(CabinetPermissionMixin, BreadcrumbMixin, DetailView)
         ctx["can_submit"] = False
         ctx["can_edit"] = False
         ctx["can_delete"] = False
-        ctx["can_grant"] = platform and procuration.is_pending
-        ctx["can_refuse"] = platform and procuration.is_pending
-        ctx["can_generate"] = platform and procuration.status == ProcurationStatus.GRANTED
+        ctx["can_approve_conseiller"] = (
+            platform
+            and can_validate_as_conseiller(self.request.user)  # type: ignore[arg-type]
+            and procuration.awaits_conseiller
+        )
+        ctx["can_grant"] = (
+            platform
+            and can_validate_as_dircaba(self.request.user)  # type: ignore[arg-type]
+            and procuration.awaits_dircaba
+        )
+        ctx["can_refuse"] = (
+            (ctx["can_approve_conseiller"] or ctx["can_grant"]) and procuration.is_pending
+        )
+        # SynthiaK / Admin : corrections + Word/PDF après Conseiller + Dircaba.
+        finalize = can_finalize_procuration_act(self.request.user)  # type: ignore[arg-type]
+        granted = procuration.status == ProcurationStatus.GRANTED
+        ctx["can_generate"] = finalize and granted
+        ctx["can_word"] = finalize and granted
+        ctx["can_view_pdf"] = platform
         ctx["valid_for_matter"] = (
             get_valid_procuration(procuration.matter) if procuration.matter_id else None
         )
@@ -168,11 +201,18 @@ class ProcurationDetailView(CabinetPermissionMixin, BreadcrumbMixin, DetailView)
 
 
 class ProcurationCreateView(PlatformAdminRequiredMixin, BreadcrumbMixin, CreateView):
-    """Le ministère délivre une procuration à un cabinet pour un dossier."""
+    """SynthiaK / Admin ouvre une procuration (puis circuit Conseiller → Dircaba)."""
 
     template_name = "procurations/procuration_form.html"
     form_class = ProcurationForm
     cabinet_required = False
+
+    def dispatch(self, request: Any, *args: Any, **kwargs: Any) -> HttpResponse:
+        if not can_issue_procuration(request.user):  # type: ignore[arg-type]
+            raise PermissionDenied(
+                _g("Seule Synthia / l'administrateur peut créer une procuration.")
+            )
+        return super().dispatch(request, *args, **kwargs)
 
     def get_breadcrumb(self) -> list[dict[str, str]]:
         return [
@@ -182,12 +222,16 @@ class ProcurationCreateView(PlatformAdminRequiredMixin, BreadcrumbMixin, CreateV
 
     def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()
-        # Afficher uniquement les dossiers sans procuration valide
-        from apps.procurations.services import get_valid_procuration
-        matters_with_procuration = set()
-        for proc in Procuration.objects.filter(status=ProcurationStatus.GRANTED).select_related('matter'):
-            if proc.matter_id:
-                matters_with_procuration.add(proc.matter_id)
+        # Dossiers déjà couverts par une procuration valide ou en circuit de validation.
+        from apps.procurations.services import PENDING_STATUSES
+
+        blocked_statuses = (*PENDING_STATUSES, ProcurationStatus.GRANTED)
+        matters_with_procuration = set(
+            Procuration.unscoped.filter(
+                status__in=blocked_statuses,
+                matter_id__isnull=False,
+            ).values_list("matter_id", flat=True)
+        )
         
         matter_queryset = (
             Matter.unscoped
@@ -251,7 +295,7 @@ class ProcurationCreateView(PlatformAdminRequiredMixin, BreadcrumbMixin, CreateV
             return self.form_invalid(form)
         messages.success(
             self.request,
-            _g("Procuration délivrée au cabinet. Le dossier est autorisé."),
+            _g("Procuration créée — en attente de validation du Conseiller."),
         )
         return redirect("procurations:detail", pk=procuration.pk)
 
@@ -349,8 +393,32 @@ class ProcurationDeleteView(PlatformAdminRequiredMixin, View):
         return redirect("procurations:list")
 
 
+class ProcurationApproveConseillerView(PlatformAdminRequiredMixin, View):
+    """1re validation — Conseiller."""
+
+    cabinet_required = False
+    http_method_names = ("post",)
+
+    def post(self, request: HttpRequest, pk: str) -> HttpResponse:
+        procuration = _get_procuration(request, pk)
+        try:
+            approve_by_conseiller(
+                procuration=procuration,
+                actor=request.user,  # type: ignore[arg-type]
+                notes=(request.POST.get("conseiller_notes") or "").strip(),
+            )
+        except (ValidationError, PermissionDenied) as exc:
+            messages.error(request, str(exc))
+            return redirect("procurations:detail", pk=pk)
+        messages.success(
+            request,
+            _g("Validée par le Conseiller — en attente du visa Dircaba."),
+        )
+        return redirect("procurations:detail", pk=pk)
+
+
 class ProcurationGrantView(PlatformAdminRequiredMixin, View):
-    """Octroi par le Ministère de la Justice."""
+    """2e validation — visa Dircaba."""
 
     cabinet_required = False
     http_method_names = ("post",)
@@ -359,7 +427,7 @@ class ProcurationGrantView(PlatformAdminRequiredMixin, View):
         procuration = _get_procuration(request, pk)
         form = ProcurationGrantForm(request.POST)
         if not form.is_valid():
-            messages.error(request, _g("Vérifiez les champs d'octroi."))
+            messages.error(request, _g("Vérifiez les champs du visa Dircaba."))
             return redirect("procurations:detail", pk=pk)
         try:
             grant_procuration(
@@ -373,7 +441,10 @@ class ProcurationGrantView(PlatformAdminRequiredMixin, View):
         except (ValidationError, PermissionDenied) as exc:
             messages.error(request, str(exc))
             return redirect("procurations:detail", pk=pk)
-        messages.success(request, _g("Procuration accordée. Le cabinet peut agir sur le dossier."))
+        messages.success(
+            request,
+            _g("Visa Dircaba apposé. La procuration est accordée."),
+        )
         return redirect("procurations:detail", pk=pk)
 
 
@@ -428,7 +499,7 @@ class ProcurationRevokeView(PlatformAdminRequiredMixin, View):
 
 
 class ProcurationGenerateView(PlatformAdminRequiredMixin, View):
-    """Génère l'acte PDF de la procuration accordée."""
+    """Publie l'acte PDF — SynthiaK / Admin, après Conseiller + Dircaba."""
 
     cabinet_required = False
     http_method_names = ("post",)
@@ -443,8 +514,106 @@ class ProcurationGenerateView(PlatformAdminRequiredMixin, View):
         except (ValidationError, PermissionDenied) as exc:
             messages.error(request, str(exc))
             return redirect("procurations:detail", pk=pk)
-        messages.success(request, _g("Acte de procuration généré."))
+        messages.success(request, _g("Acte de procuration publié en PDF."))
+        next_url = request.POST.get("next") or ""
+        if next_url.startswith("/"):
+            return redirect(next_url)
         return redirect("procurations:detail", pk=pk)
+
+
+class ProcurationEditorView(PlatformAdminRequiredMixin, View):
+    """Corrections de mise en forme après double validation (SynthiaK / Admin)."""
+
+    cabinet_required = False
+    http_method_names = ("get", "post")
+    template_name = "procurations/procuration_editor.html"
+
+    def dispatch(self, request: Any, *args: Any, **kwargs: Any) -> HttpResponse:
+        self.procuration = _get_procuration(request, kwargs["pk"])
+        if not can_finalize_procuration_act(request.user):  # type: ignore[arg-type]
+            messages.error(
+                request,
+                _g("Seule Synthia / l'administrateur peut corriger l'acte après validation."),
+            )
+            return redirect("procurations:detail", pk=kwargs["pk"])
+        if self.procuration.status != ProcurationStatus.GRANTED:
+            messages.error(
+                request,
+                _g("Attendez la validation du Conseiller puis du Dircaba."),
+            )
+            return redirect("procurations:detail", pk=kwargs["pk"])
+        return super().dispatch(request, *args, **kwargs)
+
+    def _breadcrumb(self) -> list[dict[str, str]]:
+        return [
+            {"label": _g("Procurations"), "url": reverse("procurations:list")},
+            {
+                "label": self.procuration.reference,
+                "url": reverse("procurations:detail", args=[self.procuration.pk]),
+            },
+            {"label": _g("Éditer l'acte")},
+        ]
+
+    def get(self, request: HttpRequest, pk: str) -> HttpResponse:
+        from django.shortcuts import render
+
+        from apps.procurations.draft import ensure_draft_html
+
+        draft = ensure_draft_html(self.procuration)
+        if not (self.procuration.draft_html or "").strip():
+            try:
+                save_procuration_draft(
+                    procuration=self.procuration,
+                    actor=request.user,  # type: ignore[arg-type]
+                    html=draft,
+                )
+                self.procuration.refresh_from_db(fields=["draft_html"])
+            except (ValidationError, PermissionDenied):
+                pass
+        return render(
+            request,
+            self.template_name,
+            {
+                "procuration": self.procuration,
+                "draft_html": self.procuration.draft_html or draft,
+                "breadcrumb": self._breadcrumb(),
+            },
+        )
+
+    def post(self, request: HttpRequest, pk: str) -> HttpResponse:
+        action = (request.POST.get("action") or "save").strip()
+        try:
+            if action == "reset":
+                reset_procuration_draft(
+                    procuration=self.procuration,
+                    actor=request.user,  # type: ignore[arg-type]
+                )
+                messages.success(
+                    request,
+                    _g("Brouillon rechargé depuis les données du dossier."),
+                )
+            elif action == "publish":
+                save_procuration_draft(
+                    procuration=self.procuration,
+                    actor=request.user,  # type: ignore[arg-type]
+                    html=request.POST.get("draft_html") or "",
+                )
+                generate_procuration_instrument(
+                    procuration=self.procuration,
+                    actor=request.user,  # type: ignore[arg-type]
+                )
+                messages.success(request, _g("Acte publié en PDF."))
+                return redirect("procurations:detail", pk=pk)
+            else:
+                save_procuration_draft(
+                    procuration=self.procuration,
+                    actor=request.user,  # type: ignore[arg-type]
+                    html=request.POST.get("draft_html") or "",
+                )
+                messages.success(request, _g("Brouillon enregistré."))
+        except (ValidationError, PermissionDenied) as exc:
+            messages.error(request, str(exc))
+        return redirect("procurations:editor", pk=pk)
 
 
 class ProcurationDownloadView(CabinetPermissionMixin, View):
@@ -463,8 +632,8 @@ class ProcurationDownloadView(CabinetPermissionMixin, View):
         return _serve_instrument(procuration, as_attachment=True)
 
 
-class ProcurationPreviewView(CabinetPermissionMixin, View):
-    """Affichage inline de l'acte scanné (PDF / image)."""
+class ProcurationWordView(CabinetPermissionMixin, View):
+    """Word — SynthiaK / Admin, uniquement après validation Conseiller + Dircaba."""
 
     required_perm = PERM_VIEW
     cabinet_required = False
@@ -476,11 +645,83 @@ class ProcurationPreviewView(CabinetPermissionMixin, View):
 
     def get(self, request: HttpRequest, pk: str) -> HttpResponse:
         procuration = _get_procuration(request, pk)
-        if not procuration.instrument:
-            raise Http404(_g("Aucun acte n'est joint à cette procuration."))
-        if not procuration.instrument_can_preview:
+        if not can_finalize_procuration_act(request.user):  # type: ignore[arg-type]
+            raise PermissionDenied(
+                _g("Seule Synthia / l'administrateur peut générer le fichier Word.")
+            )
+        if procuration.status != ProcurationStatus.GRANTED:
+            raise PermissionDenied(
+                _g("Le Word n'est disponible qu'après validation Conseiller et Dircaba.")
+            )
+        data = build_procuration_docx(procuration)
+        filename = procuration_docx_filename(procuration)
+        response = HttpResponse(data, content_type=DOCX_MIME)
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
+class ProcurationPreviewView(CabinetPermissionMixin, View):
+    """Affichage PDF : acte joint, ou génération à la volée (Conseiller / Dircaba / Admin)."""
+
+    required_perm = PERM_VIEW
+    cabinet_required = False
+    http_method_names = ("get",)
+
+    def dispatch(self, request: Any, *args: Any, **kwargs: Any) -> HttpResponse:
+        _platform_sets_no_cabinet(self, request)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request: HttpRequest, pk: str) -> HttpResponse:
+        procuration = _get_procuration(request, pk)
+        if procuration.instrument and procuration.instrument_can_preview:
+            return _serve_instrument(procuration, as_attachment=False)
+        if is_platform_admin(request.user):  # type: ignore[arg-type]
+            return _serve_live_pdf(procuration, as_attachment=False)
+        if procuration.instrument:
             return redirect("procurations:download", pk=pk)
-        return _serve_instrument(procuration, as_attachment=False)
+        raise Http404(_g("Aucun acte PDF n'est disponible pour cette procuration."))
+
+
+class ProcurationPdfDownloadView(CabinetPermissionMixin, View):
+    """Téléchargement PDF (acte joint ou génération à la volée pour le ministère)."""
+
+    required_perm = PERM_VIEW
+    cabinet_required = False
+    http_method_names = ("get",)
+
+    def dispatch(self, request: Any, *args: Any, **kwargs: Any) -> HttpResponse:
+        _platform_sets_no_cabinet(self, request)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request: HttpRequest, pk: str) -> HttpResponse:
+        procuration = _get_procuration(request, pk)
+        if procuration.instrument:
+            return _serve_instrument(procuration, as_attachment=True)
+        if is_platform_admin(request.user):  # type: ignore[arg-type]
+            return _serve_live_pdf(procuration, as_attachment=True)
+        raise Http404(_g("Aucun acte PDF n'est disponible pour cette procuration."))
+
+
+def _pdf_filename(procuration: Procuration) -> str:
+    ref = (procuration.reference or "acte").replace("/", "-").replace("\\", "-")
+    return f"procuration-{ref}.pdf"
+
+
+def _serve_live_pdf(procuration: Procuration, *, as_attachment: bool) -> HttpResponse:
+    """Génère le PDF à la volée (brouillon HTML ou modèle officiel)."""
+    data = build_procuration_pdf(procuration)
+    response = HttpResponse(data, content_type="application/pdf")
+    disposition = "attachment" if as_attachment else "inline"
+    response["Content-Disposition"] = f'{disposition}; filename="{_pdf_filename(procuration)}"'
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
+    if not as_attachment:
+        response["Content-Security-Policy"] = (
+            "default-src 'none'; img-src 'self' data:; style-src 'none'; sandbox"
+        )
+    return response
 
 
 def _serve_instrument(procuration: Procuration, *, as_attachment: bool) -> FileResponse:

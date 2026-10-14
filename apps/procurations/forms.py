@@ -96,8 +96,14 @@ class ProcurationForm(forms.ModelForm):
 
 
 class ProcurationGrantForm(forms.Form):
-    """Octroi ministériel."""
+    """Validation Conseiller ou visa Dircaba."""
 
+    ministry_reference = forms.CharField(
+        label=_("Référence ministérielle"),
+        required=False,
+        max_length=64,
+        widget=forms.TextInput(attrs={"class": "form-input"}),
+    )
     valid_from = forms.DateField(
         label=_("Valide à compter du"),
         required=False,

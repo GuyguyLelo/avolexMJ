@@ -75,6 +75,49 @@ def is_platform_admin(user: User | None) -> bool:
     )
 
 
+def ministry_role_of(user: User | None) -> str:
+    """Rôle ministériel (conseiller / dircaba / admin), vide sinon."""
+    if not is_platform_admin(user):
+        return ""
+    return (getattr(user, "ministry_role", None) or "").strip()
+
+
+def can_validate_as_conseiller(user: User | None) -> bool:
+    """1re validation — réservée au rôle Conseiller uniquement."""
+    if not is_platform_admin(user):
+        return False
+    from apps.accounts.models import MinistryRole
+
+    return ministry_role_of(user) == MinistryRole.CONSEILLER
+
+
+def can_validate_as_dircaba(user: User | None) -> bool:
+    """Visa final — réservé au rôle Dircaba uniquement."""
+    if not is_platform_admin(user):
+        return False
+    from apps.accounts.models import MinistryRole
+
+    return ministry_role_of(user) == MinistryRole.DIRCABA
+
+
+def can_issue_procuration(user: User | None) -> bool:
+    """Création / corrections / Word — SynthiaK (admin), Admin, SuperAdmin."""
+    if not is_platform_admin(user):
+        return False
+    if is_super_admin(user):
+        return True
+    from apps.accounts.models import MinistryRole
+
+    role = ministry_role_of(user)
+    # Admin / Chargé d'Études, ou compte ministère sans rôle spécialisé (ex. SynthiaK).
+    return role in {"", MinistryRole.ADMIN, MinistryRole.CHARGE_ETUDES}
+
+
+def can_finalize_procuration_act(user: User | None) -> bool:
+    """Après double validation : éditer l'acte et générer le Word / PDF publié."""
+    return can_issue_procuration(user)
+
+
 def can_manage_users(user: User | None) -> bool:
     """Seul le SuperAdmin gère les comptes (admins et cabinets)."""
     return is_super_admin(user)
@@ -920,6 +963,82 @@ def delete_jurisdiction(*, actor: User, jurisdiction: Any) -> None:
     jurisdiction.is_active = False
     jurisdiction.soft_delete(save=False)
     jurisdiction.save(update_fields=["is_active", "is_deleted", "deleted_at", "updated_at"])
+
+
+def state_entities_queryset(*, q: str = "", category: str = "", active_only: bool = False) -> QuerySet[Any]:
+    """Liste du référentiel des entités étatiques."""
+    from apps.tenants.models import StateEntity
+
+    qs = StateEntity.objects.all().order_by("category", "name")
+    if active_only:
+        qs = qs.filter(is_active=True)
+    if category:
+        qs = qs.filter(category=category)
+    term = (q or "").strip()
+    if term:
+        qs = qs.filter(Q(name__icontains=term) | Q(category__icontains=term))
+    return qs
+
+
+@transaction.atomic
+def create_state_entity(
+    *,
+    actor: User,
+    name: str,
+    category: str = "",
+    is_active: bool = True,
+) -> Any:
+    """Crée une entité étatique du référentiel (ministère)."""
+    from apps.tenants.models import StateEntity
+
+    require_platform_admin(actor)
+    label = (name or "").strip()
+    if not label:
+        raise ValidationError({"name": _("L'intitulé est obligatoire.")})
+    if StateEntity.objects.filter(name__iexact=label).exists():
+        raise ValidationError({"name": _("Cette entité étatique existe déjà.")})
+    item = StateEntity(
+        name=label,
+        category=(category or "").strip(),
+        is_active=is_active,
+        created_by=actor,
+    )
+    item.save()
+    return item
+
+
+@transaction.atomic
+def update_state_entity(
+    *,
+    actor: User,
+    entity: Any,
+    name: str,
+    category: str = "",
+    is_active: bool = True,
+) -> Any:
+    """Met à jour une entité étatique du référentiel."""
+    from apps.tenants.models import StateEntity
+
+    require_platform_admin(actor)
+    label = (name or "").strip()
+    if not label:
+        raise ValidationError({"name": _("L'intitulé est obligatoire.")})
+    if StateEntity.objects.filter(name__iexact=label).exclude(pk=entity.pk).exists():
+        raise ValidationError({"name": _("Cette entité étatique existe déjà.")})
+    entity.name = label
+    entity.category = (category or "").strip()
+    entity.is_active = is_active
+    entity.save()
+    return entity
+
+
+@transaction.atomic
+def delete_state_entity(*, actor: User, entity: Any) -> None:
+    """Supprime logiquement une entité étatique du référentiel."""
+    require_platform_admin(actor)
+    entity.is_active = False
+    entity.soft_delete(save=False)
+    entity.save(update_fields=["is_active", "is_deleted", "deleted_at", "updated_at"])
 
 
 def cabinet_practice_areas_queryset(*, cabinet: Cabinet) -> QuerySet[Any]:

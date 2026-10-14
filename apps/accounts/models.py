@@ -13,6 +13,16 @@ from django.utils.translation import gettext_lazy as _
 from .managers import UserManager
 
 
+class MinistryRole(models.TextChoices):
+    """Rôle ministériel pour le circuit de validation des procurations."""
+
+    ADMIN = "admin", _("Administrateur")
+    CONSEILLER = "conseiller", _("Conseiller")
+    DIRCABA = "dircaba", _("Dircaba")
+    CHARGE_ETUDES = "charge_etudes", _("Chargé d'Études")
+    GREFFE = "greffe", _("Greffe")
+
+
 class User(AbstractBaseUser, PermissionsMixin):
     """Utilisateur AvoLex authentifié par identifiant (e-mail ou nom)."""
 
@@ -40,6 +50,18 @@ class User(AbstractBaseUser, PermissionsMixin):
         db_index=True,
         help_text=_(
             "SuperAdmin : tous les droits, création des administrateurs et comptes cabinets."
+        ),
+    )
+    ministry_role = models.CharField(
+        _("rôle ministériel"),
+        max_length=20,
+        choices=MinistryRole.choices,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text=_(
+            "Administrateur / Chargé d'Études : émission. "
+            "Conseiller : 1re validation. Dircaba : visa final. Greffe : consultation."
         ),
     )
     is_active = models.BooleanField(

@@ -22,7 +22,7 @@
           {% if profile_user.is_super_admin %}
           <span class="badge badge-gold">{% translate "SuperAdmin" %}</span>
           {% elif profile_user.is_platform_admin %}
-          <span class="badge badge-info">{% translate "Administrateur" %}</span>
+          <span class="badge badge-info">{% if user.ministry_role %}{{ user.get_ministry_role_display }}{% else %}{% translate "Compte Ministère" %}{% endif %}</span>
           {% else %}
           <span class="badge">{% translate "Compte cabinet" %}</span>
           {% endif %}

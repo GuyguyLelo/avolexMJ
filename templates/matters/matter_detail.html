@@ -163,6 +163,11 @@
         <h2>{% translate "Procuration" %}</h2>
         <div class="cluster">
           <a class="btn btn-primary btn-sm" href="{% url 'procurations:detail' p.pk %}">{% translate "Voir" %}</a>
+          {% if is_platform_admin %}
+          <a class="btn btn-secondary btn-sm" href="{% url 'procurations:preview' p.pk %}" target="_blank" rel="noopener">{% translate "Afficher PDF" %}</a>
+          {% elif p.instrument and p.instrument_can_preview %}
+          <a class="btn btn-secondary btn-sm" href="{% url 'procurations:preview' p.pk %}" target="_blank" rel="noopener">{% translate "Afficher PDF" %}</a>
+          {% endif %}
         </div>
       </header>
       <dl class="matter-facts matter-facts--inline">

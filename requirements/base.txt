@@ -12,9 +12,10 @@ django-csp>=4.0,<5.0
 celery[redis]>=5.4,<6.0
 redis>=5.0,<6.0
 
-# PDF
+# PDF / Word
 WeasyPrint>=62.0,<64.0
 fpdf2>=2.8,<3.0
+python-docx>=1.1,<2.0
 
 # Static files (prod without reverse-proxy static setup)
 whitenoise>=6.7,<7.0

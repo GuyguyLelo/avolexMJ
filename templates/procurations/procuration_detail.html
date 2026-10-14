@@ -33,16 +33,23 @@
       </form>
       {% endif %}
       {% if can_generate %}
+      <a class="btn btn-primary btn-sm" href="{% url 'procurations:editor' procuration.pk %}">{% translate "Corriger l'acte" %}</a>
       <form method="post" action="{% url 'procurations:generate' procuration.pk %}"{% if procuration.instrument %} onsubmit="return confirm('{% translate "Un acte est deja joint. Le remplacer ?" %}');"{% endif %}>
         {% csrf_token %}
-        <button class="btn btn-primary btn-sm" type="submit">{% if procuration.instrument %}{% translate "Régénérer" %}{% else %}{% translate "Générer" %}{% endif %}</button>
+        <button class="btn btn-secondary btn-sm" type="submit">{% translate "Publier PDF" %}</button>
       </form>
       {% endif %}
-      {% if procuration.instrument %}
+      {% if can_word %}
+      <a class="btn btn-secondary btn-sm" href="{% url 'procurations:word' procuration.pk %}">{% translate "Générer Word" %}</a>
+      {% endif %}
+      {% if can_view_pdf %}
+        <a class="btn btn-secondary btn-sm" href="{% url 'procurations:preview' procuration.pk %}" target="_blank" rel="noopener">{% translate "Afficher PDF" %}</a>
+        <a class="btn btn-secondary btn-sm" href="{% url 'procurations:pdf' procuration.pk %}">{% translate "Télécharger PDF" %}</a>
+      {% elif procuration.instrument %}
         {% if procuration.instrument_can_preview %}
-        <a class="btn btn-secondary btn-sm" href="{% url 'procurations:preview' procuration.pk %}" target="_blank" rel="noopener">{% translate "Afficher" %}</a>
+        <a class="btn btn-secondary btn-sm" href="{% url 'procurations:preview' procuration.pk %}" target="_blank" rel="noopener">{% translate "Afficher PDF" %}</a>
         {% endif %}
-        <a class="btn btn-secondary btn-sm" href="{% url 'procurations:download' procuration.pk %}">{% translate "Télécharger" %}</a>
+        <a class="btn btn-secondary btn-sm" href="{% url 'procurations:download' procuration.pk %}">{% translate "Télécharger PDF" %}</a>
       {% endif %}
       {% if can_delete %}
       <form method="post" action="{% url 'procurations:delete' procuration.pk %}" onsubmit="return confirm('{% translate "Supprimer cette procuration ?" %}');">
@@ -66,11 +73,18 @@
       </p>
     </div>
   </aside>
-  {% elif procuration.status == 'requested' %}
+  {% elif procuration.status == 'requested' or procuration.status == 'draft' %}
   <aside class="proc-banner is-pending">
     <div class="proc-banner-body">
-      <p class="proc-banner-title">{% translate "En attente d'approbation" %}</p>
-      <p>{% translate "Examen en cours par le Ministère de la Justice." %}</p>
+      <p class="proc-banner-title">{% translate "En attente du Conseiller" %}</p>
+      <p>{% translate "Créée par Synthia — 1re validation : le Conseiller doit examiner cette procuration." %}</p>
+    </div>
+  </aside>
+  {% elif procuration.status == 'approved_conseiller' %}
+  <aside class="proc-banner is-pending">
+    <div class="proc-banner-body">
+      <p class="proc-banner-title">{% translate "En attente du Dircaba" %}</p>
+      <p>{% translate "Validée par le Conseiller — 2e validation : visa Dircaba, puis Synthia pourra corriger et générer le Word." %}</p>
     </div>
   </aside>
   {% elif procuration.status == 'refused' %}
@@ -174,16 +188,61 @@
   </section>
   {% endif %}
 
-  {% if can_grant or can_refuse %}
+  <section class="detail-sheet-block">
+    <header class="detail-sheet-block-head">
+      <h2>{% translate "Circuit de validation" %}</h2>
+    </header>
+    <dl class="matter-facts matter-facts--inline">
+      <div class="matter-fact">
+        <dt>{% translate "1. Conseiller" %}</dt>
+        <dd>
+          {% if procuration.conseiller_by_id %}
+          <span class="matter-fact-value">{{ procuration.conseiller_by.get_full_name }}</span>
+          {% if procuration.conseiller_at %}
+          <span class="matter-fact-sub">{{ procuration.conseiller_at|date:"d/m/Y" }}</span>
+          {% endif %}
+          {% else %}
+          <span class="matter-fact-value">—</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div class="matter-fact">
+        <dt>{% translate "2. Dircaba" %}</dt>
+        <dd>
+          {% if procuration.granted_by_id and procuration.status == 'granted' %}
+          <span class="matter-fact-value">{{ procuration.granted_by.get_full_name }}</span>
+          {% if procuration.granted_at %}
+          <span class="matter-fact-sub">{{ procuration.granted_at|date:"d/m/Y" }}</span>
+          {% endif %}
+          {% else %}
+          <span class="matter-fact-value">—</span>
+          {% endif %}
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  {% if can_approve_conseiller or can_grant or can_refuse %}
   <section class="detail-sheet-block">
     <header class="detail-sheet-block-head">
       <h2>{% translate "Décision du ministère" %}</h2>
     </header>
     <div class="proc-decision">
+      {% if can_approve_conseiller %}
+      <form method="post" action="{% url 'procurations:approve_conseiller' procuration.pk %}" class="proc-decision-form">
+        {% csrf_token %}
+        <h3>{% translate "Validation Conseiller" %}</h3>
+        <div class="form-field form-field-span">
+          <label for="id_conseiller_notes">{% translate "Notes (optionnel)" %}</label>
+          <textarea class="form-input" id="id_conseiller_notes" name="conseiller_notes" rows="2"></textarea>
+        </div>
+        <button class="btn btn-primary btn-sm" type="submit">{% translate "Valider (Conseiller)" %}</button>
+      </form>
+      {% endif %}
       {% if can_grant %}
       <form method="post" action="{% url 'procurations:grant' procuration.pk %}" class="proc-decision-form">
         {% csrf_token %}
-        <h3>{% translate "Accorder" %}</h3>
+        <h3>{% translate "Visa Dircaba" %}</h3>
         <div class="form-grid">
           <div class="form-field">
             <label for="{{ grant_form.ministry_reference.id_for_label }}">{{ grant_form.ministry_reference.label }}</label>
@@ -202,7 +261,7 @@
             {{ grant_form.notes }}
           </div>
         </div>
-        <button class="btn btn-primary btn-sm" type="submit">{% translate "Accorder la procuration" %}</button>
+        <button class="btn btn-primary btn-sm" type="submit">{% translate "Accorder (visa Dircaba)" %}</button>
       </form>
       {% endif %}
       {% if can_refuse %}

@@ -33,6 +33,7 @@ from apps.matters.models import Matter, MatterScale, MatterStatus
 from apps.matters.services import create_matter, update_matter
 from apps.tenants.context import cabinet_context
 from apps.tenants.jurisdictions import ensure_default_jurisdictions
+from apps.tenants.state_entities import ensure_default_state_entities
 from apps.tenants.models import Cabinet, Invitation, Membership
 from apps.tenants.roles import Role
 from apps.tenants.services import create_cabinet_with_owner, invite_member
@@ -42,6 +43,8 @@ User = get_user_model()
 DEMO_PASSWORD = "@12345678"  # noqa: S105 — compte de démo local uniquement
 DEMO_EMAIL = "ngamika@gmail.com"
 MINISTRY_EMAIL = "Admin"
+CONSEILLER_EMAIL = "Conseiller"
+DIRCABA_EMAIL = "Dircaba"
 DEMO_CABINET_NAME = "ILEO Law Firm"
 DEMO_CABINET_LEGAL_NAME = "ILEO Law Firm"
 
@@ -284,6 +287,18 @@ class Command(BaseCommand):
     def _seed(self) -> None:
         super_admin = self._ensure_super_admin()
         ministry = self._ensure_ministry()
+        conseiller = self._ensure_ministry_role(
+            email=CONSEILLER_EMAIL,
+            first_name="Paul",
+            last_name="Conseiller",
+            ministry_role="conseiller",
+        )
+        dircaba = self._ensure_ministry_role(
+            email=DIRCABA_EMAIL,
+            first_name="Jeanne",
+            last_name="Dircaba",
+            ministry_role="dircaba",
+        )
         owner = self._ensure_user(
             email=DEMO_EMAIL,
             first_name="Camille",
@@ -306,20 +321,26 @@ class Command(BaseCommand):
         kinshasa = self._ensure_kinshasa_cabinets(ministry)
         self._ensure_practice_areas(cabinet, kinshasa, owner)
         ensure_default_jurisdictions()
+        ensure_default_state_entities()
 
         self.stdout.write(self.style.SUCCESS("Données de test prêtes."))
         self.stdout.write(f"  Cabinet   : {cabinet.name}")
         self.stdout.write("  Comptes (mot de passe identique) :")
-        self.stdout.write(f"    {super_admin.email:28}  SuperAdmin   {DEMO_PASSWORD}")
+        self.stdout.write(f"    {super_admin.email:28}  SuperAdmin      {DEMO_PASSWORD}")
         self.stdout.write(f"    {MINISTRY_EMAIL:28}  administrateur  {DEMO_PASSWORD}")
+        self.stdout.write(
+            f"    {conseiller.email:28}  Conseiller     {DEMO_PASSWORD}"
+        )
+        self.stdout.write(f"    {dircaba.email:28}  Dircaba        {DEMO_PASSWORD}")
         for member in TEAM:
-            self.stdout.write(f"    {member['email']:28}  {member['role']:12}  {DEMO_PASSWORD}")
+            self.stdout.write(f"    {member['email']:28}  {member['role']:14}  {DEMO_PASSWORD}")
         self.stdout.write("  Cabinets Kinshasa/Gombe :")
         for spec, _cab in zip(KINSHASA_CABINETS, kinshasa, strict=True):
             self.stdout.write(f"    {spec['name']}")
             self.stdout.write(f"      {spec['owner_email']:28}  {DEMO_PASSWORD}")
 
     def _ensure_ministry(self) -> Any:
+        from apps.accounts.models import MinistryRole
         from apps.tenants.services import detach_user_from_all_cabinets
 
         user = self._ensure_user(
@@ -327,9 +348,47 @@ class Command(BaseCommand):
             first_name="Ministère",
             last_name="Justice",
         )
+        changed = False
         if not user.is_platform_admin:
             user.is_platform_admin = True
-            user.save(update_fields=["is_platform_admin"])
+            changed = True
+        if user.ministry_role != MinistryRole.ADMIN:
+            user.ministry_role = MinistryRole.ADMIN
+            changed = True
+        if changed:
+            user.save(update_fields=["is_platform_admin", "ministry_role"])
+        detach_user_from_all_cabinets(user)
+        return user
+
+    def _ensure_ministry_role(
+        self,
+        *,
+        email: str,
+        first_name: str,
+        last_name: str,
+        ministry_role: str,
+    ) -> Any:
+        from apps.tenants.services import detach_user_from_all_cabinets
+
+        user = self._ensure_user(
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+        )
+        changed = False
+        if not user.is_platform_admin:
+            user.is_platform_admin = True
+            changed = True
+        if user.is_super_admin:
+            user.is_super_admin = False
+            changed = True
+        if user.ministry_role != ministry_role:
+            user.ministry_role = ministry_role
+            changed = True
+        if changed:
+            user.save(
+                update_fields=["is_platform_admin", "is_super_admin", "ministry_role"]
+            )
         detach_user_from_all_cabinets(user)
         return user
 

@@ -1,0 +1,107 @@
+{% extends "layouts/app.html" %}
+{% load i18n static %}
+
+{% block title %}{% translate "Éditer l'acte" %} — {{ procuration.reference }} — {{ SITE_NAME }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/procuration-editor.css' %}?v={{ STATIC_VERSION }}">
+{% endblock %}
+
+{% block content %}
+<article class="proc-editor">
+  <header class="proc-editor-header">
+    <div>
+      <p class="detail-sheet-kicker">{% translate "Publication de l'acte" %}</p>
+      <h1>{% translate "Éditer la procuration" %}</h1>
+      <p class="proc-editor-lede">
+        {% translate "Mettez en forme le texte comme dans un CMS, puis publiez le PDF. Les données du dossier (parties, avocat, références…) restent dans AvoLex ; seul le texte publié est modifié ici." %}
+      </p>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="{% url 'procurations:detail' procuration.pk %}">{% translate "Retour" %}</a>
+  </header>
+
+  <form method="post" class="proc-editor-form" data-proc-editor-form>
+    {% csrf_token %}
+    <input type="hidden" name="draft_html" id="id_draft_html" value="">
+    <input type="hidden" name="action" id="id_editor_action" value="save">
+
+    <div class="proc-editor-toolbar" role="toolbar" aria-label="{% translate 'Mise en forme' %}">
+      <label class="proc-editor-field">
+        <span class="visually-hidden">{% translate "Police" %}</span>
+        <select class="proc-editor-select" data-cmd="fontName" title="{% translate 'Police' %}">
+          <option value="">{% translate "Police" %}</option>
+          <option value="Calibri">Calibri</option>
+          <option value="Times New Roman">Times New Roman</option>
+          <option value="Arial">Arial</option>
+          <option value="Georgia">Georgia</option>
+          <option value="Garamond">Garamond</option>
+          <option value="Courier New">Courier New</option>
+          <option value="Verdana">Verdana</option>
+          <option value="Tahoma">Tahoma</option>
+        </select>
+      </label>
+      <label class="proc-editor-field">
+        <span class="visually-hidden">{% translate "Taille" %}</span>
+        <select class="proc-editor-select" data-cmd="fontSize" title="{% translate 'Taille' %}">
+          <option value="">{% translate "Taille" %}</option>
+          <option value="1">8</option>
+          <option value="2">10</option>
+          <option value="3">12</option>
+          <option value="4">14</option>
+          <option value="5">18</option>
+          <option value="6">24</option>
+          <option value="7">36</option>
+        </select>
+      </label>
+      <label class="proc-editor-field proc-editor-field--color" title="{% translate 'Couleur du texte' %}">
+        <span class="visually-hidden">{% translate "Couleur" %}</span>
+        <input type="color" class="proc-editor-color" data-cmd="foreColor" value="#111111">
+      </label>
+      <label class="proc-editor-field proc-editor-field--color" title="{% translate 'Surlignage' %}">
+        <span class="visually-hidden">{% translate "Surlignage" %}</span>
+        <input type="color" class="proc-editor-color" data-cmd="hiliteColor" value="#fff59d">
+      </label>
+      <span class="proc-editor-sep" aria-hidden="true"></span>
+      <button type="button" class="proc-editor-tool" data-cmd="bold" title="{% translate 'Gras' %}"><strong>G</strong></button>
+      <button type="button" class="proc-editor-tool" data-cmd="italic" title="{% translate 'Italique' %}"><em>I</em></button>
+      <button type="button" class="proc-editor-tool" data-cmd="underline" title="{% translate 'Souligné' %}"><span class="u">S</span></button>
+      <button type="button" class="proc-editor-tool" data-cmd="strikeThrough" title="{% translate 'Barré' %}"><span class="strike">abc</span></button>
+      <button type="button" class="proc-editor-tool" data-cmd="subscript" title="{% translate 'Indice' %}">x<sub>2</sub></button>
+      <button type="button" class="proc-editor-tool" data-cmd="superscript" title="{% translate 'Exposant' %}">x<sup>2</sup></button>
+      <span class="proc-editor-sep" aria-hidden="true"></span>
+      <button type="button" class="proc-editor-tool" data-cmd="justifyLeft" title="{% translate 'Aligner à gauche' %}">⟸</button>
+      <button type="button" class="proc-editor-tool" data-cmd="justifyCenter" title="{% translate 'Centrer' %}">≡</button>
+      <button type="button" class="proc-editor-tool" data-cmd="justifyFull" title="{% translate 'Justifier' %}">≣</button>
+      <button type="button" class="proc-editor-tool" data-cmd="justifyRight" title="{% translate 'Aligner à droite' %}">⟹</button>
+      <span class="proc-editor-sep" aria-hidden="true"></span>
+      <button type="button" class="proc-editor-tool" data-cmd="insertUnorderedList" title="{% translate 'Liste à puces' %}">•</button>
+      <button type="button" class="proc-editor-tool" data-cmd="insertOrderedList" title="{% translate 'Liste numérotée' %}">1.</button>
+      <button type="button" class="proc-editor-tool" data-cmd="indent" title="{% translate 'Augmenter le retrait' %}">⇥</button>
+      <button type="button" class="proc-editor-tool" data-cmd="outdent" title="{% translate 'Diminuer le retrait' %}">⇤</button>
+      <span class="proc-editor-sep" aria-hidden="true"></span>
+      <button type="button" class="proc-editor-tool" data-cmd="removeFormat" title="{% translate 'Effacer la mise en forme' %}">⌫</button>
+      <button type="button" class="proc-editor-tool" data-cmd="undo" title="{% translate 'Annuler' %}">↶</button>
+      <button type="button" class="proc-editor-tool" data-cmd="redo" title="{% translate 'Rétablir' %}">↷</button>
+    </div>
+
+    <div
+      class="proc-editor-surface"
+      id="proc-editor-surface"
+      contenteditable="true"
+      role="textbox"
+      aria-multiline="true"
+      aria-label="{% translate 'Texte de la procuration' %}"
+    >{{ draft_html|safe }}</div>
+
+    <footer class="proc-editor-actions">
+      <button class="btn btn-secondary" type="submit" data-action="save">{% translate "Enregistrer le brouillon" %}</button>
+      <button class="btn btn-ghost" type="submit" data-action="reset" data-confirm="{% translate 'Recharger depuis les données du dossier ? Les mises en forme non publiées seront perdues.' %}">{% translate "Recharger les données" %}</button>
+      <button class="btn btn-primary" type="submit" data-action="publish">{% translate "Publier en PDF" %}</button>
+    </footer>
+  </form>
+</article>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/procuration-editor.js' %}?v={{ STATIC_VERSION }}"></script>
+{% endblock %}

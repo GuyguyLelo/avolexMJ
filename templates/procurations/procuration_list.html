@@ -11,14 +11,16 @@
       <p class="proc-kicker">{% translate "Ministère de la Justice" %}</p>
       <h1>{% translate "Procurations" %}</h1>
       <p class="page-lede">
-        {% if is_platform_admin %}
-          {% translate "Délivrez une procuration à un cabinet pour un dossier, ou révoquez un mandat en cours." %}
+        {% if can_issue %}
+          {% translate "Circuit : création (Synthia) → validation Conseiller → visa Dircaba → corrections et Word." %}
+        {% elif is_platform_admin %}
+          {% translate "Validez les procurations selon votre rôle (Conseiller ou Dircaba). L'aperçu PDF est disponible." %}
         {% else %}
           {% translate "Le Ministère de la Justice délivre la procuration au cabinet pour chaque dossier. Sans ce mandat, les actes sont bloqués." %}
         {% endif %}
       </p>
     </div>
-    {% if is_platform_admin %}
+    {% if can_issue %}
     <div class="cluster">
       <a class="btn btn-primary" href="{% url 'procurations:create' %}">{% translate "Délivrer une procuration" %}</a>
     </div>
@@ -125,7 +127,7 @@
             </span>
           </td>
           <td>
-            <span class="badge {% if p.status == 'granted' %}badge-success{% elif p.status == 'requested' %}badge-gold{% elif p.status == 'draft' %}badge-info{% elif p.status == 'refused' or p.status == 'revoked' %}badge-danger{% endif %}">
+            <span class="badge {% if p.status == 'granted' %}badge-success{% elif p.status == 'requested' or p.status == 'approved_conseiller' %}badge-gold{% elif p.status == 'draft' %}badge-info{% elif p.status == 'refused' or p.status == 'revoked' %}badge-danger{% endif %}">
               {{ p.get_status_display }}
             </span>
           </td>
@@ -162,8 +164,8 @@
         {% translate "Le ministère n'a pas encore délivré de procuration à ce cabinet." %}
       {% endif %}
     </p>
-    {% if is_platform_admin %}
-    <a class="btn btn-primary" href="{% url 'procurations:create' %}">{% translate "Délivrer une procuration" %}</a>
+        {% if can_issue %}
+      <a class="btn btn-primary" href="{% url 'procurations:create' %}">{% translate "Délivrer une procuration" %}</a>
     {% endif %}
   </section>
   {% endif %}

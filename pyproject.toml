@@ -68,6 +68,7 @@ module = [
     "faker.*",
     "fpdf.*",
     "weasyprint.*",
+    "docx.*",
 ]
 ignore_missing_imports = true
 

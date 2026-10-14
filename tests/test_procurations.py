@@ -16,8 +16,10 @@ from apps.matters.models import MatterStatus
 from apps.matters.services import create_matter, update_matter
 from apps.procurations.models import Procuration, ProcurationStatus
 from apps.procurations.services import (
+    approve_by_conseiller,
     create_procuration,
     get_valid_procuration,
+    grant_procuration,
     matter_has_valid_procuration,
     revoke_procuration,
 )
@@ -29,6 +31,22 @@ from tests.factories import (
     MembershipFactory,
     UserFactory,
 )
+
+
+def _grant_fully(procuration: Procuration, **_ignored: object) -> Procuration:
+    """Complète le circuit Conseiller → Dircaba (rôles distincts)."""
+    from apps.accounts.models import MinistryRole
+
+    conseiller = UserFactory(
+        is_platform_admin=True,
+        ministry_role=MinistryRole.CONSEILLER,
+    )
+    dircaba = UserFactory(
+        is_platform_admin=True,
+        ministry_role=MinistryRole.DIRCABA,
+    )
+    approve_by_conseiller(procuration=procuration, actor=conseiller)
+    return grant_procuration(procuration=procuration, actor=dircaba)
 
 
 @pytest.mark.django_db
@@ -83,6 +101,8 @@ def test_grant_unlocks_matter_activity() -> None:
             purpose="Représentation en justice",
             ministry_reference="MJ/GS/2026/014",
         )
+        assert procuration.status == ProcurationStatus.REQUESTED
+        procuration = _grant_fully(procuration)
         assert procuration.status == ProcurationStatus.GRANTED
         assert procuration.is_currently_valid is True
         matter.refresh_from_db()
@@ -138,6 +158,7 @@ def test_revoke_blocks_matter_activity() -> None:
             matter=matter,
             purpose="Représentation",
         )
+        procuration = _grant_fully(procuration)
         assert matter_has_valid_procuration(matter) is True
         revoke_procuration(procuration=procuration, actor=admin, reason="Mandat retiré")
         assert matter_has_valid_procuration(matter) is False
@@ -198,14 +219,18 @@ def test_cabinet_cannot_create_procuration_http(client) -> None:  # type: ignore
 
 @pytest.mark.django_db
 def test_ministry_issues_procuration_http(client) -> None:  # type: ignore[no-untyped-def]
-    """Le ministère délivre une procuration accordée à un cabinet pour un dossier."""
+    """Synthia crée, Conseiller valide, Dircaba vise, puis Synthia peut générer le Word."""
+    from apps.accounts.models import MinistryRole
+
     owner = UserFactory()
-    admin = UserFactory(is_platform_admin=True)
+    synthia = UserFactory(is_platform_admin=True, ministry_role=MinistryRole.ADMIN)
+    conseiller = UserFactory(is_platform_admin=True, ministry_role=MinistryRole.CONSEILLER)
+    dircaba = UserFactory(is_platform_admin=True, ministry_role=MinistryRole.DIRCABA)
     cabinet = CabinetFactory()
     other = CabinetFactory()
     MembershipFactory(user=owner, cabinet=cabinet, role=Role.OWNER)
     matter = MatterFactory(cabinet=cabinet, with_procuration=False, responsible_lawyer=owner)
-    client.force_login(admin)
+    client.force_login(synthia)
     session = client.session
     session["cabinet_id"] = str(other.pk)
     session.save()
@@ -227,14 +252,44 @@ def test_ministry_issues_procuration_http(client) -> None:  # type: ignore[no-un
     assert create_resp.status_code == 302, create_resp.content.decode()[:500]
     with cabinet_context(cabinet):
         procuration = Procuration.objects.get(matter=matter)
-        assert procuration.status == ProcurationStatus.GRANTED
+        assert procuration.status == ProcurationStatus.REQUESTED
         assert procuration.matter_id == matter.pk
-        assert procuration.granted_by_id == admin.pk
         pk = procuration.pk
 
+    # Synthia ne valide pas elle-même.
     detail = client.get(reverse("procurations:detail", args=[pk]))
     assert detail.status_code == 200
+    assert "Valider (Conseiller)" not in detail.content.decode()
+    assert "Générer Word" not in detail.content.decode()
+    assert matter_has_valid_procuration(matter) is False
+
+    client.force_login(conseiller)
+    detail = client.get(reverse("procurations:detail", args=[pk]))
+    assert "Valider (Conseiller)" in detail.content.decode()
+    approve = client.post(reverse("procurations:approve_conseiller", args=[pk]))
+    assert approve.status_code == 302
+
+    client.force_login(dircaba)
+    grant = client.post(
+        reverse("procurations:grant", args=[pk]),
+        {"ministry_reference": "MJ/GS/2026/014"},
+    )
+    assert grant.status_code == 302
+    with cabinet_context(cabinet):
+        procuration = Procuration.objects.get(pk=pk)
+        assert procuration.status == ProcurationStatus.GRANTED
+        assert procuration.conseiller_by_id == conseiller.pk
+        assert procuration.granted_by_id == dircaba.pk
     assert matter_has_valid_procuration(matter) is True
+
+    client.force_login(synthia)
+    detail = client.get(reverse("procurations:detail", args=[pk]))
+    html = detail.content.decode()
+    assert "Corriger l'acte" in html
+    assert "Générer Word" in html
+    word = client.get(reverse("procurations:word", args=[pk]))
+    assert word.status_code == 200
+    assert word.content[:2] == b"PK"
 
 
 @pytest.mark.django_db
@@ -247,13 +302,14 @@ def test_ministry_lists_issued_procurations(client) -> None:  # type: ignore[no-
     MembershipFactory(user=owner, cabinet=cabinet, role=Role.OWNER)
     matter = MatterFactory(cabinet=cabinet, with_procuration=False, responsible_lawyer=owner)
     with cabinet_context(cabinet):
-        create_procuration(
+        proc = create_procuration(
             cabinet=cabinet,
             user=admin,
             matter=matter,
             purpose="Mandat CPI",
             ministry_reference="MJ/GS/2026/001",
         )
+        _grant_fully(proc)
 
     client.force_login(admin)
     session = client.session
@@ -269,6 +325,62 @@ def test_ministry_lists_issued_procurations(client) -> None:  # type: ignore[no-
     assert client.get(reverse("procurations:create")).status_code == 200
     with cabinet_context(cabinet):
         assert matter_has_valid_procuration(matter) is True
+
+
+@pytest.mark.django_db
+def test_conseiller_then_dircaba_roles() -> None:
+    """Synthia crée ; Conseiller valide ; Dircaba vise ; Synthia seule génère le Word."""
+    from apps.accounts.models import MinistryRole
+
+    owner = UserFactory()
+    synthia = UserFactory(is_platform_admin=True, ministry_role=MinistryRole.ADMIN)
+    conseiller = UserFactory(
+        is_platform_admin=True,
+        ministry_role=MinistryRole.CONSEILLER,
+        first_name="Paul",
+        last_name="Conseiller",
+    )
+    dircaba = UserFactory(
+        is_platform_admin=True,
+        ministry_role=MinistryRole.DIRCABA,
+        first_name="Jeanne",
+        last_name="Dircaba",
+    )
+    cabinet = CabinetFactory()
+    MembershipFactory(user=owner, cabinet=cabinet, role=Role.OWNER)
+    with cabinet_context(cabinet):
+        matter = MatterFactory(cabinet=cabinet, with_procuration=False, responsible_lawyer=owner)
+        with pytest.raises(PermissionDenied):
+            create_procuration(
+                cabinet=cabinet,
+                user=conseiller,
+                matter=matter,
+                purpose="Double validation",
+            )
+        procuration = create_procuration(
+            cabinet=cabinet,
+            user=synthia,
+            matter=matter,
+            purpose="Double validation",
+        )
+        with pytest.raises(PermissionDenied):
+            approve_by_conseiller(procuration=procuration, actor=synthia)
+        with pytest.raises(ValidationError):
+            grant_procuration(procuration=procuration, actor=dircaba)
+        with pytest.raises(PermissionDenied):
+            approve_by_conseiller(procuration=procuration, actor=dircaba)
+        approve_by_conseiller(procuration=procuration, actor=conseiller)
+        procuration.refresh_from_db()
+        assert procuration.status == ProcurationStatus.APPROVED_CONSEILLER
+        with pytest.raises(PermissionDenied):
+            grant_procuration(procuration=procuration, actor=conseiller)
+        with pytest.raises(PermissionDenied):
+            grant_procuration(procuration=procuration, actor=synthia)
+        grant_procuration(procuration=procuration, actor=dircaba)
+        procuration.refresh_from_db()
+        assert procuration.status == ProcurationStatus.GRANTED
+        assert procuration.conseiller_by_id == conseiller.pk
+        assert procuration.granted_by_id == dircaba.pk
 
 
 @pytest.mark.django_db
@@ -358,7 +470,7 @@ def test_new_procuration_starts_with_cabinet(client) -> None:  # type: ignore[no
     assert created.status_code == 302, created.content.decode()[:500]
     with cabinet_context(cabinet):
         procuration = Procuration.objects.get(matter=matter)
-        assert procuration.status == ProcurationStatus.GRANTED
+        assert procuration.status == ProcurationStatus.REQUESTED
         assert "Mandat ministériel" in (procuration.notes or "")
 
 
@@ -422,7 +534,7 @@ def test_procuration_instrument_can_be_displayed(client) -> None:  # type: ignor
     detail = client.get(reverse("procurations:detail", args=[pk]))
     assert detail.status_code == 200
     html = detail.content.decode()
-    assert "Afficher l'acte" in html
+    assert "Afficher" in html
     assert reverse("procurations:preview", args=[pk]) in html
     assert "Acte joint" not in html
 
@@ -435,6 +547,56 @@ def test_procuration_instrument_can_be_displayed(client) -> None:  # type: ignor
     download = client.get(reverse("procurations:download", args=[pk]))
     assert download.status_code == 200
     assert "attachment" in (download.get("Content-Disposition") or "").lower()
+
+
+@pytest.mark.django_db
+def test_conseiller_can_view_live_pdf(client) -> None:  # type: ignore[no-untyped-def]
+    """Conseiller affiche le PDF pour valider, sans Word ni corrections."""
+    from apps.accounts.models import MinistryRole
+
+    owner = UserFactory()
+    synthia = UserFactory(is_platform_admin=True, ministry_role=MinistryRole.ADMIN)
+    conseiller = UserFactory(
+        is_platform_admin=True,
+        ministry_role=MinistryRole.CONSEILLER,
+    )
+    cabinet = CabinetFactory()
+    MembershipFactory(user=owner, cabinet=cabinet, role=Role.OWNER)
+    matter = MatterFactory(cabinet=cabinet, with_procuration=False, responsible_lawyer=owner)
+    with cabinet_context(cabinet):
+        procuration = create_procuration(
+            cabinet=cabinet,
+            user=synthia,
+            matter=matter,
+            purpose="Mandat de représentation",
+            ministry_reference="MJ/GS/2026/201",
+        )
+        pk = procuration.pk
+        assert not procuration.instrument
+
+    client.force_login(conseiller)
+    detail = client.get(reverse("procurations:detail", args=[pk]))
+    assert detail.status_code == 200
+    html = detail.content.decode()
+    assert "Afficher PDF" in html
+    assert "Télécharger PDF" in html
+    assert "Générer Word" not in html
+    assert "Corriger l'acte" not in html
+    assert reverse("procurations:preview", args=[pk]) in html
+
+    preview = client.get(reverse("procurations:preview", args=[pk]))
+    assert preview.status_code == 200
+    assert preview["Content-Type"].startswith("application/pdf")
+    assert "inline" in (preview.get("Content-Disposition") or "").lower()
+    assert preview.content.startswith(b"%PDF")
+
+    pdf = client.get(reverse("procurations:pdf", args=[pk]))
+    assert pdf.status_code == 200
+    assert "attachment" in (pdf.get("Content-Disposition") or "").lower()
+    assert pdf.content.startswith(b"%PDF")
+
+    word = client.get(reverse("procurations:word", args=[pk]))
+    assert word.status_code == 403
 
 
 @pytest.mark.django_db
@@ -453,6 +615,7 @@ def test_ministry_generates_procuration_pdf(client) -> None:  # type: ignore[no-
             purpose="Représentation en justice",
             ministry_reference="MJ/GS/2026/200",
         )
+        procuration = _grant_fully(procuration)
         pk = procuration.pk
         assert not procuration.instrument
 
@@ -464,8 +627,28 @@ def test_ministry_generates_procuration_pdf(client) -> None:  # type: ignore[no-
     detail = client.get(reverse("procurations:detail", args=[pk]))
     assert detail.status_code == 200
     html = detail.content.decode()
-    assert "Générer la procuration" in html
+    assert "Corriger l'acte" in html
+    assert reverse("procurations:editor", args=[pk]) in html
     assert reverse("procurations:generate", args=[pk]) in html
+    assert "Générer Word" in html
+
+    editor = client.get(reverse("procurations:editor", args=[pk]))
+    assert editor.status_code == 200
+    assert b"contenteditable" in editor.content
+    assert b"PROCURATION" in editor.content
+
+    save = client.post(
+        reverse("procurations:editor", args=[pk]),
+        {
+            "action": "save",
+            "draft_html": "<p class='title'><strong>// PROCURATION //</strong></p><p>Texte mis en forme.</p>",
+        },
+    )
+    assert save.status_code == 302
+    with cabinet_context(cabinet):
+        procuration = Procuration.objects.get(pk=pk)
+        assert "PROCURATION" in procuration.draft_html
+        assert "Texte mis en forme" in procuration.draft_html
 
     generate = client.post(reverse("procurations:generate", args=[pk]))
     assert generate.status_code == 302
@@ -480,7 +663,7 @@ def test_ministry_generates_procuration_pdf(client) -> None:  # type: ignore[no-
     after = client.get(reverse("procurations:detail", args=[pk]))
     assert after.status_code == 200
     after_html = after.content.decode()
-    assert "Régénérer" in after_html
+    assert "Publier PDF" in after_html
     assert reverse("procurations:preview", args=[pk]) in after_html
 
 
@@ -508,10 +691,12 @@ def test_cabinet_cannot_generate_procuration_pdf(client) -> None:  # type: ignor
 
     detail = client.get(reverse("procurations:detail", args=[pk]))
     assert detail.status_code == 200
-    assert "Générer la procuration" not in detail.content.decode()
+    assert "Éditer l'acte" not in detail.content.decode()
 
     generate = client.post(reverse("procurations:generate", args=[pk]))
     assert generate.status_code == 403
+    editor = client.get(reverse("procurations:editor", args=[pk]))
+    assert editor.status_code in (302, 403)
     with cabinet_context(cabinet):
         procuration = Procuration.objects.get(pk=pk)
         assert not procuration.instrument

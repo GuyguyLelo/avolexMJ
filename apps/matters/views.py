@@ -62,13 +62,11 @@ def _parties_forms_from_request(
             state_initial = {
                 "name": state_party.name,
                 "role": state_party.role,
-                "notes": state_party.notes,
             }
         if opposing is not None:
             opposing_initial = {
                 "name": opposing.name,
                 "role": opposing.role,
-                "notes": opposing.notes,
             }
     return (
         StateEntityPartyForm(prefix="state_party", initial=state_initial),
@@ -91,7 +89,7 @@ def _save_matter_parties(
         name=state_form.cleaned_data["name"].strip(),
         role=state_form.cleaned_data.get("role") or PartyRole.PLAINTIFF,
         is_state_entity=True,
-        notes=(state_form.cleaned_data.get("notes") or "").strip(),
+        notes="",
         created_by=user,
     )
     MatterParty.objects.create(
@@ -100,7 +98,7 @@ def _save_matter_parties(
         name=opposing_form.cleaned_data["name"].strip(),
         role=opposing_form.cleaned_data.get("role") or PartyRole.DEFENDANT,
         is_state_entity=False,
-        notes=(opposing_form.cleaned_data.get("notes") or "").strip(),
+        notes="",
         created_by=user,
     )
 

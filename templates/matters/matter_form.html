@@ -50,11 +50,6 @@
           {{ state_party_form.role }}
           {% if state_party_form.role.errors %}<div class="form-error">{{ state_party_form.role.errors }}</div>{% endif %}
         </div>
-        <div class="form-field" style="grid-column: 1 / -1;">
-          <label for="{{ state_party_form.notes.id_for_label }}">{{ state_party_form.notes.label }}</label>
-          {{ state_party_form.notes }}
-          {% if state_party_form.notes.errors %}<div class="form-error">{{ state_party_form.notes.errors }}</div>{% endif %}
-        </div>
       </div>
     </div>
     {% endif %}
@@ -75,11 +70,6 @@
           <label for="{{ opposing_party_form.role.id_for_label }}">{{ opposing_party_form.role.label }}</label>
           {{ opposing_party_form.role }}
           {% if opposing_party_form.role.errors %}<div class="form-error">{{ opposing_party_form.role.errors }}</div>{% endif %}
-        </div>
-        <div class="form-field" style="grid-column: 1 / -1;">
-          <label for="{{ opposing_party_form.notes.id_for_label }}">{{ opposing_party_form.notes.label }}</label>
-          {{ opposing_party_form.notes }}
-          {% if opposing_party_form.notes.errors %}<div class="form-error">{{ opposing_party_form.notes.errors }}</div>{% endif %}
         </div>
       </div>
     </div>
